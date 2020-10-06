@@ -104,6 +104,12 @@ sed -i~ s@"checkstatus=\"\""@"checkstatus=\"${checkstatus}\""@g  ${here}/last_hi
 joblog="${here}/out_sitter.out"
 jobpref=$(basename ${here})
 jobname="${jobpref}-control"
+jobmain="${jobpref}-sims"
+#------------------------------------------------------------------------------------------#
+
+
+#------ Check ID of main job name, so it includes a dependency. ---------------------------#
+mainid=$(sjobs | grep -i ${jobmain} | grep -v CANCELLED | grep -v COMPLETED | grep -v COMPLETING | grep -v FAILED | awk '{print $1}')
 #------------------------------------------------------------------------------------------#
 
 
@@ -111,7 +117,11 @@ jobname="${jobpref}-control"
 #------------------------------------------------------------------------------------------#
 #    Check whether to submit the job.                                                      #
 #------------------------------------------------------------------------------------------#
-if [[ -s "${here}/run_sitter.lock" ]] || [[ -s "${here}/transfer.lock" ]]
+if [[ "x${mainid}" == "x" ]]
+then
+   echo " Job name ${jobmain} was not found, so the run_sitter.sh job will not be queued."
+   goahead="n"
+elif [[ -s "${here}/run_sitter.lock" ]] || [[ -s "${here}/transfer.lock" ]]
 then
    echo " Lock file found for run_sitter.sh and/or transfer.lock."
    echo " The scripts may be already running."
@@ -126,7 +136,7 @@ goahead="$(echo ${goahead} | tr '[:upper:]' '[:lower:]')"
 
 #----- Submit run_sitter.sh in batch mode. ------------------------------------------------#
 comm="${sbatch} -p ${queue} --mem-per-cpu=${memory} -t ${runtime} -o ${joblog}"
-comm="${comm} -J ${jobname} -n 1 "
+comm="${comm} -J ${jobname} -n 1 --dependency=after:${mainid}"
 comm="${comm} --wrap=\"${here}/run_sitter.sh\""
 case ${goahead} in
 y|yes)

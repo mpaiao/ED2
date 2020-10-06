@@ -2,7 +2,6 @@
 here=$(pwd)
 joborder="${here}/joborder.txt"
 desc=$(basename ${here})
-jobname="${desc}-sims"
 moi=$(whoami)
 outform="JobName%200,State%12"
 #----- Determine the number of polygons to run. -------------------------------------------#
@@ -199,15 +198,17 @@ do
    fellingsmall=$(echo ${oi} | awk '{print $122}')
    #---------------------------------------------------------------------------------------#
 
+
+
    #---------------------------------------------------------------------------------------#
    #     Set some variables to check whether the simulation is running.                    #
    #---------------------------------------------------------------------------------------#
+   jobname="${desc}-${polyname}"
    stdout="${here}/${polyname}/serial_out.out"
    stderr="${here}/${polyname}/serial_out.err"
    lsfout="${here}/${polyname}/serial_lsf.out"
    skipper="${here}/${polyname}/skipper.txt"
    #---------------------------------------------------------------------------------------#
-
 
    #---------------------------------------------------------------------------------------#
    #     Check whether the simulation is still running, and if not, why it isn't.          #
@@ -215,7 +216,7 @@ do
    if [ -s ${stdout} ]
    then
       #----- Check whether the simulation is running, and when in model time it is. -------#
-      stask="stask --noheader -u ${moi} -t ${polyname} -j ${jobname}"
+      stask="stask --noheader -u ${moi} -j ${jobname}"
       running=$(${stask}   -o "${outform}" | grep "RUNNING"   | wc -l)
       pending=$(${stask}   -o "${outform}" | grep "PENDING"   | wc -l)
       suspended=$(${stask} -o "${outform}" | grep "SUSPENDED" | wc -l)

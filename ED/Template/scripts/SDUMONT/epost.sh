@@ -198,47 +198,46 @@ fi
 #     Configurations depend on the global_queue.                                           #
 #------------------------------------------------------------------------------------------#
 case ${global_queue} in
-"test")
-   n_nodes_max=12
-   n_cpt=1
-   n_tpn=48
-   runtime_max="8:00:00"
-   node_memory=192892
-   ;;
-"shared,huce_intel"|"huce_intel,shared")
-   n_nodes_max=276
+cpu_long|nvidia_long)
+   n_nodes_max=10
    n_cpt=1
    n_tpn=24
-   runtime_max="7-00:00:00"
-   node_memory=126820
-   ;;
-"shared")
-   n_nodes_max=456
-   n_cpt=1
-   n_tpn=48
-   runtime_max="7-00:00:00"
-   node_memory=192892
-   ;;
-"huce_intel")
-   n_nodes_max=276
-   n_cpt=1
-   n_tpn=24
-   runtime_max="14-00:00:00"
-   node_memory=126820
-   ;;
-"unrestricted")
-   n_nodes_max=8
-   n_cpt=1
-   n_tpn=64
    runtime_max="31-00:00:00"
-   node_memory=262499
+   node_memory=64000
+   ;;
+cpu|nvidia|phi)
+   n_nodes_max=50
+   n_cpt=1
+   n_tpn=24
+   runtime_max="2-00:00:00"
+   node_memory=64000
+   ;;
+cpu_dev)
+   n_nodes_max=20
+   n_cpt=1
+   n_tpn=24
+   runtime_max="02:00:00"
+   node_memory=64000
+   ;;
+nvidia_dev|phi_dev)
+   n_nodes_max=2
+   n_cpt=1
+   n_tpn=24
+   runtime_max="02:00:00"
+   node_memory=64000
+   ;;
+cpu_scal|nvidia_scal)
+   n_nodes_max=128
+   n_cpt=1
+   n_tpn=24
+   runtime_max="18:00:00"
+   node_memory=64000
    ;;
 *)
    echo "Global queue ${global_queue} is not recognised!"
    exit
    ;;
 esac
-#------------------------------------------------------------------------------------------#
 let n_tasks_max=${n_nodes_max}*${n_tpn}
 #------------------------------------------------------------------------------------------#
 
@@ -449,6 +448,7 @@ esac
 epoststo="${epostkey}_epost.sto"
 epostste="${epostkey}_epost.ste"
 epostout="${epostkey}_epost.out"
+epostjob="${epostkey}-${desc}"
 epostexe="R CMD BATCH --no-save --no-restore ${rscript} ${epostout}"
 #------------------------------------------------------------------------------------------#
 
@@ -511,13 +511,19 @@ then
    then
       polyz=${npolys}
    fi
+   partlabel="$(printf '%3.3i' ${polya})-$(printf '%3.3i' ${polyz})"
+   sbatch="${here}/sub_${rprefix}_${partlabel}.sh"
+   obatch="${here}/out_${rprefix}_${partlabel}.log"
+   ebatch="${here}/err_${rprefix}_${partlabel}.log"
 else
    ff=0
    polya=1
    polyz=${npolys}
+   sbatch="${here}/sub_${rprefix}.sh"
+   obatch="${here}/out_${rprefix}.log"
+   ebatch="${here}/err_${rprefix}.log"
 fi
 let ntasks=1+${polyz}-${polya}
-sbatch="${here}/sub_${rprefix}.sh"
 #------------------------------------------------------------------------------------------#
 
 
@@ -531,19 +537,16 @@ echo "  Queue:               ${global_queue}"
 echo "  Run time:            ${runtime}"
 echo "  First polygon:       ${polya}"
 echo "  Last polygon:        ${polyz}"
+echo "  Job Name:            ${epostjob}"
 echo "  Total polygon count: ${npolys}"
 echo " "
 echo " Partial submission:   ${partial}"
 echo " Automatic submission: ${submit}"
 echo " "
 echo " R script:             ${rscript}"
-echo " Submission script:    $(basename ${sbatch})"
 echo "------------------------------------------------"
 echo ""
-echo ""
-echo -n " Waiting five seconds before proceeding... "
 sleep 5
-echo "Done!"
 #------------------------------------------------------------------------------------------#
 
 
@@ -551,19 +554,45 @@ echo "Done!"
 #------------------------------------------------------------------------------------------#
 #    Initialise executable.                                                                #
 #------------------------------------------------------------------------------------------#
-rm -f ${sbatch}
+rm -fr ${sbatch}
 touch ${sbatch}
 chmod u+x ${sbatch}
 echo "#!/bin/bash" >> ${sbatch}
+echo "#SBATCH --ntasks=${ntasks}              # Number of tasks"               >> ${sbatch}
+echo "#SBATCH --cpus-per-task=1               # Number of CPUs per task"       >> ${sbatch}
+echo "#SBATCH --partition=${global_queue}     # Queue that will run job"       >> ${sbatch}
+echo "#SBATCH --job-name=${epostjob}          # Job name"                      >> ${sbatch}
+echo "#SBATCH --mem-per-cpu=${sim_memory}     # Memory per CPU"                >> ${sbatch}
+echo "#SBATCH --time=${runtime}               # Time for job"                  >> ${sbatch}
+echo "#SBATCH --output=${here}/out_epost.out  # Standard output path"          >> ${sbatch}
+echo "#SBATCH --error=${here}/out_epost.err   # Standard error path"           >> ${sbatch}
+echo ""                                                                        >> ${sbatch}
+echo "#--- Get plenty of memory."                                              >> ${sbatch}
+echo "ulimit -s unlimited"                                                     >> ${sbatch}
 echo ""                                                                        >> ${sbatch}
 echo "#--- Initial settings."                                                  >> ${sbatch}
 echo "here=\"${here}\"                            # Main path"                 >> ${sbatch}
-echo "exec=\"${exec_full}\"                       # Executable"                >> ${sbatch}
+echo "rscript=\"${rscript}\"                      # R Script"                  >> ${sbatch}
+echo "rstdout=\"${epostout}\"                     # Standard output"           >> ${sbatch}
 echo ""                                                                        >> ${sbatch}
-echo "echo \"----- Global settings for this array of simulations ----------\"" >> ${sbatch}
-echo "echo \" Main path:       \${here}\""                                     >> ${sbatch}
-echo "echo \" Executable:      \${exec}\""                                     >> ${sbatch}
+echo "#--- Print information about this job."                                  >> ${sbatch}
+echo "echo \"\""                                                               >> ${sbatch}
+echo "echo \"\""                                                               >> ${sbatch}
+echo "echo \"----- Summary of current job ---------------------------------\"" >> ${sbatch}
+echo "echo \" CPUs per task:   \${SLURM_CPUS_PER_TASK}\""                      >> ${sbatch}
+echo "echo \" Job:             \${SLURM_JOB_NAME} (\${SLURM_JOB_ID})\""        >> ${sbatch}
+echo "echo \" Queue:           \${SLURM_JOB_PARTITION}\""                      >> ${sbatch}
+echo "echo \" Number of nodes: \${SLURM_NNODES}\""                             >> ${sbatch}
+echo "echo \" Number of tasks: \${SLURM_NTASKS}\""                             >> ${sbatch}
+echo "echo \" Memory per CPU:  \${SLURM_MEM_PER_CPU}\""                        >> ${sbatch}
+echo "echo \" Memory per node: \${SLURM_MEM_PER_NODE}\""                       >> ${sbatch}
+echo "echo \" Node list:       \${SLURM_JOB_NODELIST}\""                       >> ${sbatch}
+echo "echo \" Time limit:      \${SLURM_TIMELIMIT}\""                          >> ${sbatch}
+echo "echo \" Std. Output:     \${SLURM_STDOUTMODE}\""                         >> ${sbatch}
+echo "echo \" Std. Error:      \${SLURM_STDERRMODE}\""                         >> ${sbatch}
 echo "echo \"--------------------------------------------------------------\"" >> ${sbatch}
+echo "echo \"\""                                                               >> ${sbatch}
+echo "echo \"\""                                                               >> ${sbatch}
 echo "echo \"\""                                                               >> ${sbatch}
 echo "echo \"\""                                                               >> ${sbatch}
 echo ""                                                                        >> ${sbatch}
@@ -576,10 +605,6 @@ echo "fi"                                                                      >
 echo ""                                                                        >> ${sbatch}
 echo "#--- Load modules and settings."                                         >> ${sbatch}
 echo ". \${HOME}/.bashrc ${optsrc}"                                            >> ${sbatch}
-echo ""                                                                        >> ${sbatch}
-echo "#--- Get plenty of memory."                                              >> ${sbatch}
-echo "ulimit -s unlimited"                                                     >> ${sbatch}
-echo "ulimit -u unlimited"                                                     >> ${sbatch}
 echo ""                                                                        >> ${sbatch}
 echo "#----- Task list."                                                       >> ${sbatch}
 #------------------------------------------------------------------------------------------#
@@ -1194,66 +1219,6 @@ do
    #---------------------------------------------------------------------------------------#
 
 
-   #----- Initialise script. --------------------------------------------------------------#
-   epostsh="${here}/${polyname}/exec_$(basename ${rscript} .r).sh"
-   complete="${here}/${polyname}/eval_load_complete.txt"
-   epostjob="${epostkey}-${desc}-${polyname}"
-   rm -fr ${epostsh}
-   touch ${epostsh}
-   chmod u+x ${epostsh}
-   echo "#!/bin/bash" >> ${sbatch}
-   echo "#SBATCH --ntasks=1                      # Number of tasks"          >> ${epostsh}
-   echo "#SBATCH --cpus-per-task=1               # Number of CPUs per task"  >> ${epostsh}
-   echo "#SBATCH --partition=${global_queue}     # Queue that will run job"  >> ${epostsh}
-   echo "#SBATCH --job-name=${epostjob}          # Job name"                 >> ${epostsh}
-   echo "#SBATCH --mem-per-cpu=${sim_memory}     # Memory per CPU"           >> ${epostsh}
-   echo "#SBATCH --time=${runtime}               # Time for job"             >> ${epostsh}
-   echo "#SBATCH --output=${epoststo}            # Standard output path"     >> ${epostsh}
-   echo "#SBATCH --error=${epostste}             # Standard error path"      >> ${epostsh}
-   echo "#SBATCH --chdir=${here}/${polyname}     # Main directory"           >> ${epostsh}
-   echo ""                                                                   >> ${epostsh}
-   echo "#--- Get plenty of memory."                                         >> ${epostsh}
-   echo "ulimit -s unlimited"                                                >> ${epostsh}
-   echo ""                                                                   >> ${epostsh}
-   echo "#--- Initial settings."                                             >> ${epostsh}
-   echo "here=\"${here}\"                            # Main path"            >> ${epostsh}
-   echo "rscript=\"${rscript}\"                      # R Script"             >> ${epostsh}
-   echo "rstdout=\"${epostout}\"                     # Standard output"      >> ${epostsh}
-   echo ""                                                                   >> ${epostsh}
-   echo "#--- Print information about this job."                             >> ${epostsh}
-   echo "echo \"\""                                                          >> ${epostsh}
-   echo "echo \"\""                                                          >> ${epostsh}
-   echo "echo \"----- Summary of current job ----------------------------\"" >> ${epostsh}
-   echo "echo \" CPUs per task:   \${SLURM_CPUS_PER_TASK}\""                 >> ${epostsh}
-   echo "echo \" Job:             \${SLURM_JOB_NAME} (\${SLURM_JOB_ID})\""   >> ${epostsh}
-   echo "echo \" Queue:           \${SLURM_JOB_PARTITION}\""                 >> ${epostsh}
-   echo "echo \" Number of nodes: \${SLURM_NNODES}\""                        >> ${epostsh}
-   echo "echo \" Number of tasks: \${SLURM_NTASKS}\""                        >> ${epostsh}
-   echo "echo \" Memory per CPU:  \${SLURM_MEM_PER_CPU}\""                   >> ${epostsh}
-   echo "echo \" Memory per node: \${SLURM_MEM_PER_NODE}\""                  >> ${epostsh}
-   echo "echo \" Node list:       \${SLURM_JOB_NODELIST}\""                  >> ${epostsh}
-   echo "echo \" Time limit:      \${SLURM_TIMELIMIT}\""                     >> ${epostsh}
-   echo "echo \" Std. Output:     \${SLURM_STDOUTMODE}\""                    >> ${epostsh}
-   echo "echo \" Std. Error:      \${SLURM_STDERRMODE}\""                    >> ${epostsh}
-   echo "echo \"---------------------------------------------------------\"" >> ${epostsh}
-   echo "echo \"\""                                                          >> ${epostsh}
-   echo "echo \"\""                                                          >> ${epostsh}
-   echo "echo \"\""                                                          >> ${epostsh}
-   echo "echo \"\""                                                          >> ${epostsh}
-   echo ""                                                                   >> ${epostsh}
-   echo ""                                                                   >> ${epostsh}
-   echo "#--- Define home in case home is not set"                           >> ${epostsh}
-   echo "if [[ \"x\${HOME}\" == \"x\" ]]"                                    >> ${epostsh}
-   echo "then"                                                               >> ${epostsh}
-   echo "   export HOME=\$(echo ~)"                                          >> ${epostsh}
-   echo "fi"                                                                 >> ${epostsh}
-   echo ""                                                                   >> ${epostsh}
-   echo "#--- Load modules and settings."                                    >> ${epostsh}
-   echo ". \${HOME}/.bashrc ${optsrc}"                                       >> ${epostsh}
-   echo ""                                                                   >> ${epostsh}
-   echo "main=\"${here}/${polyname}\""                                       >> ${epostsh}
-   #---------------------------------------------------------------------------------------#
-
 
 
    #---------------------------------------------------------------------------------------#
@@ -1263,12 +1228,27 @@ do
    case ${rscript} in
    plot_eval_ed.r)
       #----- Create script that will run R until all files have been read. ----------------#
-      echo ""                                                            >> ${epostsh}
-      echo ""                                                            >> ${epostsh}
+      epostsh="${here}/${polyname}/exec_$(basename ${rscript} .r).sh"
+      complete="${here}/${polyname}/eval_load_complete.txt"
+      rm -fr ${epostsh}
+      touch ${epostsh}
+      chmod u+x ${epostsh}
+      echo "#!/bin/bash"                                                 >> ${epostsh}
+      echo "main=\"${here}/${polyname}\""                                >> ${epostsh}
       echo "complete=\"\${main}/eval_load_complete.txt\""                >> ${epostsh}
       echo "yeara=${thisyeara}"                                          >> ${epostsh}
       echo "yearz=${thisyearz}"                                          >> ${epostsh}
       echo ""                                                            >> ${epostsh}
+      echo ""                                                            >> ${epostsh}
+      echo "#--- Define home in case home is not set"                    >> ${epostsh}
+      echo "if [[ \"x\${HOME}\" == \"x\" ]]"                             >> ${epostsh}
+      echo "then"                                                        >> ${epostsh}
+      echo "   export HOME=\$(echo ~)"                                   >> ${epostsh}
+      echo "fi"                                                          >> ${epostsh}
+      echo ""                                                            >> ${epostsh}
+      echo ". \${HOME}/.bashrc"                                          >> ${epostsh}
+      echo ""                                                            >> ${epostsh}
+      echo "cd \${main}"                                                 >> ${epostsh}
       echo ""                                                            >> ${epostsh}
       echo "let itmax=\${yearz}-\${yeara}+2"                             >> ${epostsh}
       echo ""                                                            >> ${epostsh}
@@ -1284,25 +1264,29 @@ do
       ;;
    *)
       #----- Create script that will run R until all files have been read. ----------------#
+      epostsh="${here}/${polyname}/exec_$(basename ${rscript} .r).sh"
+      rm -fr ${epostsh}
+      touch ${epostsh}
+      chmod u+x ${epostsh}
+      echo "#!/bin/bash"                                                 >> ${epostsh}
+      echo "main=\"${here}/${polyname}\""                                >> ${epostsh}
       echo ""                                                            >> ${epostsh}
+      echo ""                                                            >> ${epostsh}
+      echo "#--- Define home in case home is not set"                    >> ${epostsh}
+      echo "if [[ \"x\${HOME}\" == \"x\" ]]"                             >> ${epostsh}
+      echo "then"                                                        >> ${epostsh}
+      echo "   export HOME=\$(echo ~)"                                   >> ${epostsh}
+      echo "fi"                                                          >> ${epostsh}
+      echo ""                                                            >> ${epostsh}
+      echo ". \${HOME}/.bashrc"                                          >> ${epostsh}
+      echo ""                                                            >> ${epostsh}
+      echo "cd \${main}"                                                 >> ${epostsh}
       echo ""                                                            >> ${epostsh}
       echo "${epostexe}"                                                 >> ${epostsh}
       echo ""                                                            >> ${epostsh}
       #------------------------------------------------------------------------------------#
       ;;
    esac
-   #---------------------------------------------------------------------------------------#
-
-
-   #----- Make sure the script waits until all tasks are completed... ---------------------#
-   echo ""                                                               >> ${epostsh}
-   echo ""                                                               >> ${epostsh}
-   echo "#----- Make sure that jobs complete before terminating script"  >> ${epostsh}
-   echo "wait"                                                           >> ${epostsh}
-   echo ""                                                               >> ${epostsh}
-   echo "#----- Report efficiency of this job"                           >> ${epostsh}
-   echo "seff \${SLURM_JOBID}"                                           >> ${epostsh}
-   echo ""                                                               >> ${epostsh}
    #---------------------------------------------------------------------------------------#
 
 
@@ -1319,7 +1303,14 @@ do
 
 
       #----- Append job to submission list. -----------------------------------------------#
-      echo "sbatch ${epostsh}" >> ${sbatch}
+      srun="srun --nodes=1 --ntasks=1"
+      srun="${srun} --cpus-per-task=\${SLURM_CPUS_PER_TASK}"
+      srun="${srun} --mem-per-cpu=\${SLURM_MEM_PER_CPU}"
+      srun="${srun} --job-name=${polyname}"
+      srun="${srun} --chdir=\${here}/${polyname}"
+      srun="${srun} --output=\${here}/${polyname}/${epoststo}"
+      srun="${srun} --error=\${here}/${polyname}/${epostste}"
+      echo "${srun} ${epostsh} &" >> ${sbatch}
       #------------------------------------------------------------------------------------#
    fi
    #---------------------------------------------------------------------------------------#
@@ -1337,23 +1328,34 @@ then
    echo " Maximum number of tasks in queue ${global_queue}: ${n_tasks_max}"
    echo " Reduce the number of simulations or try another queue..."
    exit 99
-elif ${submit}
-then
-   echo " Submitting jobs, hold on."
-   ${sbatch}
 else
-   #----- Update the number of tasks in batch script. -------------------------------------#
-   echo "-------------------------------------------------------------------------"
-   echo " WARNING! WARNING! WARNING! WARNING! WARNING! WARNING! WARNING! WARNING! "
-   echo " WARNING! WARNING! WARNING! WARNING! WARNING! WARNING! WARNING! WARNING! "
-   echo " WARNING! WARNING! WARNING! WARNING! WARNING! WARNING! WARNING! WARNING! "
-   echo " WARNING! WARNING! WARNING! WARNING! WARNING! WARNING! WARNING! WARNING! "
-   echo "-------------------------------------------------------------------------"
-   echo " Do not use sbatch ${sbatch}."
-   echo " Instead, call the following script directly in your terminal."
-   echo " "
-   echo "       ${sbatch}"
-   echo " "
+   #----- Find the right number of nodes to submit. ---------------------------------------#
+   let n_nodes=(${n_submit}+${n_tpn}-1)/${n_tpn}
+   let n_tasks=(${n_submit}+${n_nodes}-1)/${n_nodes}
+   sed -i~ s@mynnodes@${n_nodes}@g ${sbatch}
+   sed -i~ s@myntasks@${n_tasks}@g ${sbatch}
    #---------------------------------------------------------------------------------------#
+fi
+#------------------------------------------------------------------------------------------#
+
+
+#----- Make sure the script waits until all tasks are completed... ------------------------#
+echo ""                                                                        >> ${sbatch}
+echo ""                                                                        >> ${sbatch}
+echo "#----- Make sure that jobs complete before terminating script"           >> ${sbatch}
+echo "wait"                                                                    >> ${sbatch}
+echo ""                                                                        >> ${sbatch}
+echo "#----- Report efficiency of this job"                                    >> ${sbatch}
+echo "seff \${SLURM_JOBID}"                                                    >> ${sbatch}
+echo ""                                                                        >> ${sbatch}
+#------------------------------------------------------------------------------------------#
+
+
+#------------------------------------------------------------------------------------------#
+#    In case all looks good, go for it!                                                    #
+#------------------------------------------------------------------------------------------#
+if ${submit}
+then
+   sbatch ${sbatch} 
 fi
 #------------------------------------------------------------------------------------------#

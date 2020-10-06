@@ -10,19 +10,14 @@ here=$(pwd)
 moi=$(whoami)
 #----- Description of this simulation, used to create unique job names. -------------------#
 desc=$(basename ${here})
-#----- Select main file system path. ------------------------------------------------------#
+#----- Original and scratch main data paths. ----------------------------------------------#
 ordinateur=$(hostname -s)
-case ${ordinateur} in
-  sun-master|cmm*)  export fs0="/prj/prjidfca/${moi}"                       ;;
-  ha*)              export fs0="/halo_nobackup/jpl-gewc/${moi}"             ;;
-  au*)              export fs0="/aurora_nobackup/jpl-gewc/${moi}"           ;;
-  *)    echo " Invalid computer ${ordinateur}.  Check script header."; exit ;;
-esac
+d_path="${SCRATCH}/Data"
 #----- Path where biomass initialisation files are: ---------------------------------------#
-bioinit="${fs0}/Data/ed2_data/site_bio_data"
-alsinit="${fs0}/Data/ed2_data/lidar_spline_bio_data"
-intinit="${fs0}/Data/ed2_data/lidar_intensity_bio_data"
-lutinit="${fs0}/Data/ed2_data/lidar_lookup_bio_data"
+bioinit="${d_path}/ed2_data/site_bio_data"
+alsinit="${d_path}/ed2_data/lidar_spline_bio_data"
+intinit="${d_path}/ed2_data/lidar_intensity_bio_data"
+lutinit="${d_path}/ed2_data/lidar_lookup_bio_data"
 biotype=0      # 0 -- "default" setting (isizepft controls default/nounder)
                # 1 -- isizepft controls number of PFTs, whereas iage controls patches.
                # 2 -- airborne lidar initialisation using return counts ("default"). 
@@ -30,22 +25,20 @@ biotype=0      # 0 -- "default" setting (isizepft controls default/nounder)
                # 4 -- airborne lidar/inventory hybrid initialisation ("lookup table"). 
                # For lidar initialisation (2-4), isizepft is the disturbance history key.
 #----- Path and file prefix for init_mode = 5. --------------------------------------------#
-restart="${fs0}/Data/ed2_data/restarts_XXX"
+restart="${d_path}/ed2_data/restarts_XXX"
 #----- File containing the list of jobs and their settings: -------------------------------#
 joborder="${here}/joborder.txt"
 #----- This is the header with the Sheffield data. ----------------------------------------#
 shefhead='SHEF_NCEP_DRIVER_DS314'
 #----- Path with drivers for each scenario. -----------------------------------------------#
-metmaindef="${fs0}/Data/ed2_data"
-packdatasrc="${fs0}/Data/2scratch"
+metmaindef="${d_path}/ed2_data"
+packdatasrc="${d_path}/to_scratch"
 #----- Path with land use scenarios. ------------------------------------------------------#
-lumain="${fs0}/Data/lu_scenarios"
+lumain="${d_path}/ed2_data/land_use"
 #----- Path with other input data bases (soil texture, DGD, land mask, etc). --------------#
-inpmain="${fs0}/Data/ed2_data"
-#----- If submit is "n", we create paths but skip submission. -----------------------------#
-submit="n"
-#----- Maximum number of attempts before giving up. ---------------------------------------#
-nsubtry_max=5
+inpmain="${d_path}/ed2_data"
+#----- Should the met driver be copied to local scratch disks? ----------------------------#
+copy2scratch=false
 #------------------------------------------------------------------------------------------#
 
 #------------------------------------------------------------------------------------------#
@@ -54,7 +47,7 @@ nsubtry_max=5
 #----- Force history run (0 = no, 1 = yes). -----------------------------------------------#
 forcehisto=0
 #----- Path with the history file to be used. ---------------------------------------------#
-fullygrown="${fs0}/Simulations/Debug/D001_Debug/xyz_settings/histo/xyz_settings"
+fullygrown="${HOME}/Simulations/Debug/D001_Debug/xyz_settings/histo/xyz_settings"
 #----- Time that we shall use. ------------------------------------------------------------#
 yearh="1510"  # Year
 monthh="07"   # Month
@@ -66,10 +59,25 @@ toldef="0.01"
 execname="ed_2.2-opt"             # Normal executable, for most queues
 #----- Initialisation scripts. ------------------------------------------------------------#
 initrc="${HOME}/.bashrc"          # Initialisation script for most nodes
+#----- Initialisation scripts. ------------------------------------------------------------#
+optsrc="-n"                   # Option for .bashrc (for special submission settings)
+                              #   In case none is needed, leave it blank ("").
+#----- Submit job automatically? (It may become false if something prevents submission). --#
+submit=false
 #----- Settings for this group of polygons. -----------------------------------------------#
-global_queue="verylongq"      # Queue
-n_cpt=8                       # Number of cpus per task (it will be limited by maximum)
+global_queue="shared,huce_intel" # Queue
+sim_memory=0                     # Memory per simulation. Zero uses queue's default
+n_cpt=12                         # Number of cpus per task (Zero uses queue's maximum)
+partial=false                    # Partial submission (false will ignore polya and npartial
+                                 #    and send all polygons.
+polya=21                         # First polygon to submit
+npartial=300                     # Maximum number of polygons to include in this bundle
+                                 #    (actual number will be adjusted for total number of 
+                                 #     polygons if needed be).
+dttask=2                         # Time to wait between task submission
+runtime="00:00:00"               # Requested runtime.  Zero uses the queue's maximum.
 #------------------------------------------------------------------------------------------#
+
 #==========================================================================================#
 #==========================================================================================#
 
@@ -105,11 +113,20 @@ n_cpt=8                       # Number of cpus per task (it will be limited by m
 #==========================================================================================#
 
 
-#----- Dummy, currently only odyssey needs copying data to scratch. -----------------------#
-metmain=${metmaindef}
-copy2scratch=false
+#----- squeue settings to check whether a directory exists. -------------------------------#
+sqout="%.200j %.8T"
+squeue="squeue --noheader -u ${moi}"
 #------------------------------------------------------------------------------------------#
 
+
+#----- Set the main path for the site, pseudo past and Sheffield met drivers. -------------#
+if ${copy2scratch}
+then
+   metmain="/scratch/$(whoami)"
+else
+   metmain=${metmaindef}
+fi
+#------------------------------------------------------------------------------------------#
 
 
 
@@ -127,11 +144,38 @@ then
 else
    ndig=5
 fi
-pfmt="%${ndig}.${ndig}i"
-echo "Number of polygons: ${npolys}..."
 #------------------------------------------------------------------------------------------#
 
 
+#------------------------------------------------------------------------------------------#
+#   Change parameters for first and last polygons.                                         #
+#------------------------------------------------------------------------------------------#
+while [[ ${#} > 0 ]]
+do
+   key="${1}"
+   case ${key} in
+   -a)
+      polya=${2}
+      shift 2
+      ;;
+   -n)
+      npartial=${2}
+      shift 2
+      ;;
+   -p)
+      partial=true
+      shift 1
+      ;;
+   -f)
+      partial=false
+      shift 1
+      ;;
+   *)
+      echo "Nothing" > /dev/null
+      shift 1
+      ;;
+   esac
+done
 
 #------------------------------------------------------------------------------------------#
 #   Check whether the executable is copied.  If not, let the user know and stop the        #
@@ -149,44 +193,50 @@ fi
 
 
 #------------------------------------------------------------------------------------------#
-#     Set general limits.  Currently only the maximum time is restricted.                  #
+#     Configurations depend on the global_queue.                                           #
 #------------------------------------------------------------------------------------------#
-case ${ordinateur} in
-sun-master|cmm*)
-   #----- SunHPC (LNCC). ------------------------------------------------------------------#
-   n_nodes_max=32
-   n_cpn=16
-   n_cpt_max=8
-   node_memory=65536
-   case ${global_queue} in
-      linuxq)    runtime="168:00:00"                              ;;
-      *)         echo " Queue ${global_queue} is invalid!"; exit  ;;
-   esac
-   #---------------------------------------------------------------------------------------#
+case ${global_queue} in
+cpu_long|nvidia_long)
+   n_nodes_max=10
+   n_cpt_max=12
+   n_cpn=24
+   runtime_max="31-00:00:00"
+   node_memory=64000
    ;;
-au*|ha*)
-   #----- JPL (Aurora and Halo). ----------------------------------------------------------#
-   n_nodes_max=32
-   n_cpn=16
-   n_cpt_max=8
-   node_memory=65536
-   case ${global_queue} in
-      verylongq) runtime="192:00:00"                              ;;
-      longq)     runtime="48:00:00"                               ;;
-      mediumq)   runtime="12:00:00"                               ;;
-      shortq)    runtime="03:00:00"                               ;;
-      debugq)    runtime="01:00:00"                               ;;
-      *)         echo " Queue ${global_queue} is invalid!"; exit  ;;
-   esac
-   #---------------------------------------------------------------------------------------#
+cpu|nvidia|phi)
+   n_nodes_max=50
+   n_cpt_max=12
+   n_cpn=24
+   runtime_max="2-00:00:00"
+   node_memory=64000
+   ;;
+cpu_dev)
+   n_nodes_max=20
+   n_cpt_max=12
+   n_cpn=24
+   runtime_max="02:00:00"
+   node_memory=64000
+   ;;
+nvidia_dev|phi_dev)
+   n_nodes_max=2
+   n_cpt_max=12
+   n_cpn=24
+   runtime_max="02:00:00"
+   node_memory=64000
+   ;;
+cpu_scal|nvidia_scal)
+   n_nodes_max=128
+   n_cpt_max=12
+   n_cpn=24
+   runtime_max="18:00:00"
+   node_memory=64000
    ;;
 *)
-   #----- Computer is not listed.  Crash. -------------------------------------------------#
-   echo " Invalid computer ${ordinateur}.  Check queue settings in the script."
-   exit 39
-   #---------------------------------------------------------------------------------------#
+   echo "Global queue ${global_queue} is not recognised!"
+   exit
    ;;
 esac
+#------------------------------------------------------------------------------------------#
 if [ ${n_cpt} -gt ${n_cpt_max} ]
 then
    echo " Too many CPUs per task requested:"
@@ -199,7 +249,6 @@ else
    then
       n_cpt=${n_cpt_max}
    fi
-   let memory_max=${node_memory}*${n_cpt_max}/${n_cpn}
    let n_tasks_max=${n_nodes_max}*${n_cpn}
    let n_tasks_max=${n_tasks_max}/${n_cpt}
 fi
@@ -207,26 +256,173 @@ fi
 
 
 #------------------------------------------------------------------------------------------#
-#   here/there is not an option at sunhpc.                                                 #
+#    Set time.                                                                             #
 #------------------------------------------------------------------------------------------#
-basehere=$(basename ${here})
-dirhere=$(dirname ${here})
-while [ ${basehere} != ${moi} ]
-do
-   basehere=$(basename ${dirhere})
-   dirhere=$(dirname ${dirhere})
-done
-diskhere=${dirhere}
-echo "-------------------------------------------------------------------------------"
-echo " - Path for simulation control and output: ${diskhere}"
-echo "-------------------------------------------------------------------------------"
-there=${here}
+runtime=$(echo     ${runtime}     | tr '[:upper:]' '[:lower:]')
+runtime_max=$(echo ${runtime_max} | tr '[:upper:]' '[:lower:]')
+case "${runtime}" in
+infinite)
+   #----- Infinite runtime.  Make sure the queue supports this type of submission. --------#
+   case "${runtime_max}" in
+   infinite)
+      echo "" > /dev/null
+      ;;
+   *)
+      echo " Requested partition:       ${global_queue}"
+      echo " Maximum runtime permitted: ${runtime_max}"
+      echo " Requested runtime:         ${runtime}"
+      echo " Partition ${global_queue} does not support infinite time."
+      exit 91
+      ;;
+   esac
+   #---------------------------------------------------------------------------------------#
+   ;;
+*)
+   #----- Find out the format provided. ---------------------------------------------------#
+   case "${runtime}" in
+   *-*:*)
+      #----- dd-hh:mm:ss. -----------------------------------------------------------------#
+      ndays=$(echo ${runtime} | sed s@"-.*"@@g)
+      nhours=$(echo ${runtime} | sed s@"^.*-"@@g | sed s@":.*"@@g)
+      #------------------------------------------------------------------------------------#
+      ;;
+   *:*)
+      #----- hh:mm:ss. --------------------------------------------------------------------#
+      ndays=0
+      nhours=$(echo ${runtime} | sed s@":.*"@@g)
+      #------------------------------------------------------------------------------------#
+      ;;
+   *)
+      #----- Hours. -----------------------------------------------------------------------#
+      let ndays="10#${runtime}"/24
+      let nhours="10#${runtime}"%24
+      #------------------------------------------------------------------------------------#
+      ;;
+   esac
+   #---------------------------------------------------------------------------------------#
+
+
+   #----- Find the walltime in hours, and the runtime in nice format. ---------------------#
+   let wall="10#${nhours}"+24*"10#${ndays}"
+   let ndays="10#${wall}"/24
+   let nhours="10#${wall}"%24
+   if [[ ${ndays} -gt 0 ]]
+   then
+      fmtday=$(printf '%2.2i' ${ndays})
+      fmthr=$(printf '%2.2i' ${nhours})
+      runtime="${fmtday}-${fmthr}:00:00"
+   else
+      fmthr=$(printf '%2.2i' ${nhours})
+      runtime="${fmthr}:00:00"
+   fi
+   #---------------------------------------------------------------------------------------#
+
+
+
+   #----- Find the maximum number of hours allowed in the partition. ----------------------#
+   case "${runtime_max}" in
+   infinite)
+      let ndays_max="10#${ndays}"+1
+      let nhours_max="10#${nhours}"
+      ;;
+   *-*:*)
+      #----- dd-hh:mm:ss. -----------------------------------------------------------------#
+      ndays_max=$(echo ${runtime_max} | sed s@"-.*"@@g)
+      nhours_max=$(echo ${runtime_max} | sed s@"^.*-"@@g | sed s@":.*"@@g)
+      #------------------------------------------------------------------------------------#
+      ;;
+   *:*)
+      #----- hh:mm:ss. --------------------------------------------------------------------#
+      ndays_max=0
+      nhours_max=$(echo ${runtime_max} | sed s@":.*"@@g)
+      #------------------------------------------------------------------------------------#
+      ;;
+   *)
+      ndays_max=0
+      nhours_max=$(echo ${runtime_max} | sed s@":.*"@@g)
+      ;;
+   esac
+   let wall_max="10#${nhours_max}"+24*"10#${ndays_max}"
+   #---------------------------------------------------------------------------------------#
+
+
+   #---------------------------------------------------------------------------------------#
+   #     Check requested walltime and the availability.                                    #
+   #---------------------------------------------------------------------------------------#
+   if [[ ${wall} -eq 0 ]]
+   then
+      case "${runtime_max}" in
+      infinite) runtime="infinite"     ;;
+      *)        runtime=${runtime_max} ;;
+      esac
+   elif [[ ${wall} -gt ${wall_max} ]]
+   then
+      echo " Requested partition:       ${global_queue}"
+      echo " Maximum runtime permitted: ${runtime_max}"
+      echo " Requested runtime:         ${runtime}"
+      echo " - Requested time exceeds limits."
+      exit 92
+   fi
+   #---------------------------------------------------------------------------------------#
+   ;;
+esac
 #------------------------------------------------------------------------------------------#
 
 
-#----- Save queue status to a temporary file. ---------------------------------------------#
-jobstat="/tmp/spjs.$$"
-qjobs > ${jobstat}
+
+
+#------------------------------------------------------------------------------------------#
+#   Make sure memory does not exceed maximum amount that can be requested.                 #
+#------------------------------------------------------------------------------------------#
+if [ ${sim_memory} -eq 0 ]
+then
+   let sim_memory=${node_memory}/${n_cpn}
+   let node_memory=${n_cpn}*${sim_memory}
+elif [ ${sim_memory} -gt ${node_memory} ]
+then 
+   echo "Simulation memory ${sim_memory} cannot exceed node memory ${node_memory}!"
+   exit 99
+else
+   #------ Set memory and number of CPUs per task. ----------------------------------------#
+   let n_cpn_try=${node_memory}/${sim_memory}
+   if [ ${n_cpn_try} -le ${n_cpn} ]
+   then
+      n_cpn=${n_cpn_try}
+      let sim_memory=${node_memory}/${n_cpn}
+   else
+      let node_memory=${n_cpn}*${sim_memory}
+   fi
+   #---------------------------------------------------------------------------------------#
+fi
+#------------------------------------------------------------------------------------------#
+
+
+
+#---- Partial or complete. ----------------------------------------------------------------#
+if ${partial}
+then
+   let ff=${polya}-1
+   let polyz=${ff}+${npartial}
+   if [ ${polyz} -gt ${npolys} ]
+   then
+      polyz=${npolys}
+   fi
+   pfmt="%${ndig}.${ndig}i"
+   partlabel=$(printf "${pfmt}" ${polya})-$(printf "${pfmt}" ${polyz})
+   sbatch="${here}/sub_batch_${partlabel}.sh"
+   obatch="${here}/out_batch_${partlabel}.log"
+   ebatch="${here}/err_batch_${partlabel}.log"
+   jobname="${desc}-sims_${partlabel}"
+else
+   ff=0
+   polya=1
+   polyz=${npolys}
+   sbatch="${here}/sub_batch.sh"
+   obatch="${here}/out_batch.log"
+   ebatch="${here}/err_batch.log"
+   jobname="${desc}-sims"
+fi
+let ntasks=1+${polyz}-${polya}
 #------------------------------------------------------------------------------------------#
 
 
@@ -238,26 +434,138 @@ echo "  Memory per cpu:      ${sim_memory}"
 echo "  CPUs per node:       ${n_cpn}"
 echo "  CPUs per task:       ${n_cpt}"
 echo "  Queue:               ${global_queue}"
+echo "  Run time:            ${runtime}"
+echo "  First polygon:       ${polya}"
+echo "  Last polygon:        ${polyz}"
+echo "  Potl. task count:    ${ntasks}"
+echo "  Job Name:            ${jobname}"
 echo "  Total polygon count: ${npolys}"
 echo " "
+echo " Partial submission:   ${partial}"
+echo " Automatic submission: ${submit}"
 echo "------------------------------------------------"
 echo ""
-sleep 2
+echo -n " Waiting five seconds before proceeding... "
+sleep 5
+echo "Done!"
 #------------------------------------------------------------------------------------------#
 
+
+
+#------------------------------------------------------------------------------------------#
+#   Check whether there is already a job submitted that looks like this one.               #
+#------------------------------------------------------------------------------------------#
+queued=$(${squeue} -o "${outform}" | grep ${jobname} | wc -l)
+if [ ${queued} -gt 0 ]
+then
+   echo "There is already a job called \"${jobname}\" running."
+   echo "New submissions must have different names: be creative!"
+   exit 99
+fi
+#------------------------------------------------------------------------------------------#
+
+
+
+#------------------------------------------------------------------------------------------#
+#    Initialise executable.                                                                #
+#------------------------------------------------------------------------------------------#
+rm -f ${sbatch}
+touch ${sbatch}
+chmod u+x ${sbatch}
+echo "#!/bin/bash" >> ${sbatch}
+echo "#SBATCH --ntasks=myntasks               # Number of tasks"               >> ${sbatch}
+echo "#SBATCH --cpus-per-task=${n_cpt}        # Number of CPUs per task"       >> ${sbatch}
+echo "#SBATCH --partition=${global_queue}     # Queue that will run job"       >> ${sbatch}
+echo "#SBATCH --job-name=${jobname}           # Job name"                      >> ${sbatch}
+echo "#SBATCH --mem-per-cpu=${sim_memory}     # Memory per CPU"                >> ${sbatch}
+echo "#SBATCH --time=${runtime}               # Time for job"                  >> ${sbatch}
+echo "#SBATCH --output=${obatch}              # Standard output path"          >> ${sbatch}
+echo "#SBATCH --error=${ebatch}               # Standard error path"           >> ${sbatch}
+echo ""                                                                        >> ${sbatch}
+echo "#--- Initial settings."                                                  >> ${sbatch}
+echo "here=\"${here}\"                            # Main path"                 >> ${sbatch}
+echo "exec=\"${exec_full}\"                       # Executable"                >> ${sbatch}
+echo ""                                                                        >> ${sbatch}
+echo "#--- Print information about this job."                                  >> ${sbatch}
+echo "echo \"\""                                                               >> ${sbatch}
+echo "echo \"\""                                                               >> ${sbatch}
+echo "echo \"----- Summary of current job ---------------------------------\"" >> ${sbatch}
+echo "echo \" CPUs per task:   \${SLURM_CPUS_PER_TASK}\""                      >> ${sbatch}
+echo "echo \" Job:             \${SLURM_JOB_NAME} (\${SLURM_JOB_ID})\""        >> ${sbatch}
+echo "echo \" Queue:           \${SLURM_JOB_PARTITION}\""                      >> ${sbatch}
+echo "echo \" Number of nodes: \${SLURM_NNODES}\""                             >> ${sbatch}
+echo "echo \" Number of tasks: \${SLURM_NTASKS}\""                             >> ${sbatch}
+echo "echo \" Memory per CPU:  \${SLURM_MEM_PER_CPU}\""                        >> ${sbatch}
+echo "echo \" Memory per node: \${SLURM_MEM_PER_NODE}\""                       >> ${sbatch}
+echo "echo \" Node list:       \${SLURM_JOB_NODELIST}\""                       >> ${sbatch}
+echo "echo \" Time limit:      \${SLURM_TIMELIMIT}\""                          >> ${sbatch}
+echo "echo \" Std. Output:     \${SLURM_STDOUTMODE}\""                         >> ${sbatch}
+echo "echo \" Std. Error:      \${SLURM_STDERRMODE}\""                         >> ${sbatch}
+echo "echo \"--------------------------------------------------------------\"" >> ${sbatch}
+echo "echo \"\""                                                               >> ${sbatch}
+echo "echo \"\""                                                               >> ${sbatch}
+echo ""                                                                        >> ${sbatch}
+echo "echo \"----- Global settings for this array of simulations ----------\"" >> ${sbatch}
+echo "echo \" Main path:       \${here}\""                                     >> ${sbatch}
+echo "echo \" Executable:      \${exec}\""                                     >> ${sbatch}
+echo "echo \"--------------------------------------------------------------\"" >> ${sbatch}
+echo "echo \"\""                                                               >> ${sbatch}
+echo "echo \"\""                                                               >> ${sbatch}
+echo ""                                                                        >> ${sbatch}
+echo ""                                                                        >> ${sbatch}
+echo "#--- Define home in case home is not set"                                >> ${sbatch}
+echo "if [[ \"x\${HOME}\" == \"x\" ]]"                                         >> ${sbatch}
+echo "then"                                                                    >> ${sbatch}
+echo "   export HOME=\$(echo ~)"                                               >> ${sbatch}
+echo "fi"                                                                      >> ${sbatch}
+echo ""                                                                        >> ${sbatch}
+echo "#--- Load modules and settings."                                         >> ${sbatch}
+echo ". \${HOME}/.bashrc ${optsrc}"                                            >> ${sbatch}
+echo ""                                                                        >> ${sbatch}
+echo "#--- Get plenty of memory."                                              >> ${sbatch}
+echo "ulimit -s unlimited"                                                     >> ${sbatch}
+echo "ulimit -u unlimited"                                                     >> ${sbatch}
+echo ""                                                                        >> ${sbatch}
+echo "#--- Set OpenMP parameters"                                              >> ${sbatch}
+echo "if [ \"\${SLURM_CPUS_PER_TASK}\" == \"\" ]"                              >> ${sbatch}
+echo "then"                                                                    >> ${sbatch}
+echo "   export OMP_NUM_THREADS=1"                                             >> ${sbatch}
+echo "else"                                                                    >> ${sbatch}
+echo "   export OMP_NUM_THREADS=\${SLURM_CPUS_PER_TASK}"                       >> ${sbatch}
+echo "fi"                                                                      >> ${sbatch}
+echo ""                                                                        >> ${sbatch}
+echo "#----- Task list."                                                       >> ${sbatch}
+#------------------------------------------------------------------------------------------#
 
 
 
 #------------------------------------------------------------------------------------------#
 #     Loop over all polygons.                                                              #
 #------------------------------------------------------------------------------------------#
-ff=0
-mc2=0
-while [ ${ff} -lt ${npolys} ]
+n_submit=0
+while [ ${ff} -lt ${polyz} ]
 do
    let ff=${ff}+1
    let line=${ff}+3
-   ffout=$(printf ${pfmt} ${ff})
+
+
+   #---------------------------------------------------------------------------------------#
+   #    Format count.                                                                      #
+   #---------------------------------------------------------------------------------------#
+   if   [ ${npolys} -lt 100   ]
+   then
+      ffout=$(printf '%2.2i' ${ff})
+   elif [ ${npolys} -lt 1000  ]
+   then
+      ffout=$(printf '%3.3i' ${ff})
+   elif [ ${npolys} -lt 10000 ]
+   then
+      ffout=$(printf '%4.4i' ${ff})
+   else
+      ffout=${ff}
+   fi
+   #---------------------------------------------------------------------------------------#
+
 
 
    #---------------------------------------------------------------------------------------#
@@ -418,11 +726,7 @@ do
       #----- Save the last tolerance in case we are going to make it more strict. ---------#
       oldtol=$(grep NL%RK4_TOLERANCE ${here}/${polyname}/ED2IN | awk '{print $3}')
       rm -f ${here}/${polyname}/ED2IN 
-      rm -f ${here}/${polyname}/callserial.sh
-      rm -f ${here}/${polyname}/callunpa.sh 
-      rm -f ${here}/${polyname}/skipper.txt
       cp ${here}/Template/ED2IN         ${here}/${polyname}/ED2IN
-      cp ${here}/Template/callserial.sh ${here}/${polyname}/callserial.sh
    else
       echo -n "${ffout} ${polyname}: creating directory..."
       #----- Copy the Template directory to a unique polygon directory. -------------------#
@@ -504,42 +808,44 @@ do
    /bin/cp -f ${here}/Template/whichrun.r ${here}/${polyname}/whichrun.r
    whichrun="${here}/${polyname}/whichrun.r"
    outwhich="${here}/${polyname}/outwhichrun.txt"
-   sed -i s@thispoly@${polyname}@g           ${whichrun}
-   sed -i s@thisqueue@${queue}@g             ${whichrun}
-   sed -i s@pathhere@${here}@g               ${whichrun}
-   sed -i s@paththere@${here}@g              ${whichrun}
-   sed -i s@thisyeara@${yeara}@g             ${whichrun}
-   sed -i s@thismontha@${montha}@g           ${whichrun}
-   sed -i s@thisdatea@${datea}@g             ${whichrun}
-   sed -i s@thistimea@${timea}@g             ${whichrun}
-   sed -i s@thischecksteady@FALSE@g          ${whichrun}
-   sed -i s@thismetcyc1@${metcyc1}@g         ${whichrun}
-   sed -i s@thismetcycf@${metcycf}@g         ${whichrun}
-   sed -i s@thisnyearmin@10000@g             ${whichrun}
-   sed -i s@thisststcrit@0.0@g               ${whichrun}
+   sed -i~ s@thispoly@${polyname}@g           ${whichrun}
+   sed -i~ s@thisqueue@${queue}@g             ${whichrun}
+   sed -i~ s@pathhere@${here}@g               ${whichrun}
+   sed -i~ s@paththere@${here}@g              ${whichrun}
+   sed -i~ s@thisyeara@${yeara}@g             ${whichrun}
+   sed -i~ s@thismontha@${montha}@g           ${whichrun}
+   sed -i~ s@thisdatea@${datea}@g             ${whichrun}
+   sed -i~ s@thistimea@${timea}@g             ${whichrun}
+   sed -i~ s@thischecksteady@FALSE@g          ${whichrun}
+   sed -i~ s@thismetcyc1@${metcyc1}@g         ${whichrun}
+   sed -i~ s@thismetcycf@${metcycf}@g         ${whichrun}
+   sed -i~ s@thisnyearmin@10000@g             ${whichrun}
+   sed -i~ s@thisststcrit@0.0@g               ${whichrun}
    R CMD BATCH --no-save --no-restore ${whichrun} ${outwhich}
    while [ ! -s ${here}/${polyname}/statusrun.txt ]
    do
-      sleep 0.5
+      sleep 0.2
    done
-   year=$(cat ${here}/${polyname}/statusrun.txt  | awk '{print $2}')
+   year=$(cat  ${here}/${polyname}/statusrun.txt | awk '{print $2}')
    month=$(cat ${here}/${polyname}/statusrun.txt | awk '{print $3}')
-   date=$(cat ${here}/${polyname}/statusrun.txt  | awk '{print $4}')
-   time=$(cat ${here}/${polyname}/statusrun.txt  | awk '{print $5}')
-   runt=$(cat ${here}/${polyname}/statusrun.txt  | awk '{print $6}')
+   date=$(cat  ${here}/${polyname}/statusrun.txt | awk '{print $4}')
+   time=$(cat  ${here}/${polyname}/statusrun.txt | awk '{print $5}')
+   runt=$(cat  ${here}/${polyname}/statusrun.txt | awk '{print $6}')
    #---------------------------------------------------------------------------------------#
 
 
 
    #---------------------------------------------------------------------------------------#
-   #     This should no longer occur, but it runtype is set to INITIAL, replace it with    #
-   # RESTORE.                                                                              #
+   #    To ensure simulations can be requeued, we no longer set RUNTYPE to INITIAL or      #
+   # HISTORY (except when we should force history).  Instead, we select RESTORE and let    #
+   # the model decide between initial or history.                                          #
    #---------------------------------------------------------------------------------------#
-   if [[ "${runt}" == "INITIAL" ]] || [[ "${runt}" == "HISTORY" ]]
+   if [ "${runt}" == "INITIAL" ] || [ "${runt}" == "HISTORY" ]
    then
       runt="RESTORE"
    fi
    #---------------------------------------------------------------------------------------#
+
 
 
 
@@ -1186,6 +1492,7 @@ do
 
 
 
+
    #---------------------------------------------------------------------------------------#
    #     Define whether we use the met cycle to define the first and last year, or the     #
    # default year.                                                                         #
@@ -1827,6 +2134,22 @@ do
          esac
          #---------------------------------------------------------------------------------#
          ;;
+      3)
+         #---------------------------------------------------------------------------------#
+         #     ALS initialisation using intensity. ISIZEPFT has disturbance history        #
+         # information.                                                                    #
+         #---------------------------------------------------------------------------------#
+         thissfilin="${intinit}/${polyiata}_${isizepft}."
+         #---------------------------------------------------------------------------------#
+         ;;
+      4)
+         #---------------------------------------------------------------------------------#
+         #     ALS initialisation using the lookup table. ISIZEPFT has disturbance history #
+         # information.                                                                    #
+         #---------------------------------------------------------------------------------#
+         thissfilin="${lutinit}/${polyiata}_${isizepft}."
+         #---------------------------------------------------------------------------------#
+         ;;
       esac
       #------------------------------------------------------------------------------------#
    else
@@ -2047,16 +2370,16 @@ do
    callserial="${here}/${polyname}/callserial.sh"
    rm -f ${callserial}
    cp -f ${here}/Template/callserial.sh ${callserial}
-   sed -i~ s@thisroot@${here}@g          ${callserial}
-   sed -i~ s@thispoly@${polyname}@g      ${callserial}
-   sed -i~ s@myname@${moi}@g             ${callserial}
-   sed -i~ s@myexec@${exec_sub}@g        ${callserial}
-   sed -i~ s@mypackdata@${packdatasrc}@g ${callserial}
-   sed -i~ s@myscenario@${iscenario}@g   ${callserial}
-   sed -i~ s@myscenmain@${scentype}@g    ${callserial}
-   sed -i~ s@mycopy@${copy2scratch}@g    ${callserial}
-   sed -i~ s@mycpus@${n_cpt}@g           ${callserial}
-   sed -i~ s@myoptsrc@${optsrc}@g        ${callserial}
+   sed -i s@thisroot@${here}@g          ${callserial}
+   sed -i s@thispoly@${polyname}@g      ${callserial}
+   sed -i s@myname@${moi}@g             ${callserial}
+   sed -i s@myexec@${exec_sub}@g        ${callserial}
+   sed -i s@mypackdata@${packdatasrc}@g ${callserial}
+   sed -i s@myscenario@${iscenario}@g   ${callserial}
+   sed -i s@myscenmain@${scentype}@g    ${callserial}
+   sed -i s@mycopy@${copy2scratch}@g    ${callserial}
+   sed -i s@mycpus@${n_cpt}@g           ${callserial}
+   sed -i s@myoptsrc@${optsrc}@g        ${callserial}
    #---------------------------------------------------------------------------------------#
 
 
@@ -2065,106 +2388,89 @@ do
    #---------------------------------------------------------------------------------------#
    #     We will not even consider the files that have gone extinct.                       #
    #---------------------------------------------------------------------------------------#
-   jobname="${desc}-${polyname}"
-   running=$(cat ${jobstat} | grep ${jobname} 2> /dev/null | wc -l)
-   case ${runt} in
+   case "${runt}" in
    "THE_END")
       echo "Polygon has reached the end.  No need to re-submit it."
-      submit_now=false
       ;;
    "STSTATE")
       echo "Polygon has reached steady state.  No need to re-submit it."
-      submit_now=false
       ;;
    "EXTINCT")
       echo "Polygon population has gone extinct.  No need to re-submit it."
-      submit_now=false
       ;;
    "CRASHED"|"METMISS"|"SIGSEGV"|"BAD_MET"|"STOPPED")
-      echo "Polygon has serious errors.  Script will not submit the job this time."
-      submit_now=false
+      echo "Polygon has serious errors.  Script will not submit any job this time."
+      submit=false
       ;;
-   "INITIAL"|"RESTORE"|"HISTORY")
+
+   "RESTORE"|"HISTORY")
+
       #------------------------------------------------------------------------------------#
-      #     Check whether the job is still running
+      #      Update job count.                                                             #
       #------------------------------------------------------------------------------------#
-      case "${running}" in
-      ""|"0")
-         case "${submit}" in
-         n|N)
-            echo "Polygon will be prepared and ready to be submitted."
-            submit_now=false
-            ;;
-         *)
-            echo "Submit polygon:"
-            submit_now=true
-            ;;
-         esac
-         ;;
-      *)
-         echo "Polygon is running.  Do not submit this time."
-         submit_now=false
-         ;;
-      esac
+      echo "  Polygon scheduled for submission."
+      let n_submit=${n_submit}+1
+      let dtwait=${dtwait}+2
       #------------------------------------------------------------------------------------#
+
+
+      #----- Append job to submission list. -----------------------------------------------#
+      srun="srun --nodes=1 --ntasks=1 --cpu_bind=cores"
+      srun="${srun} --cpus-per-task=\${SLURM_CPUS_PER_TASK}"
+      srun="${srun} --mem-per-cpu=\${SLURM_MEM_PER_CPU}"
+      srun="${srun} --job-name=${polyname}"
+      srun="${srun} --chdir=\${here}/${polyname}"
+      srun="${srun} --output=\${here}/${polyname}/serial_slm.out"
+      srun="${srun} --error=\${here}/${polyname}/serial_slm.err"
+      echo "${srun} \${here}/${polyname}/callserial.sh &" >> ${sbatch}
+      echo "sleep ${dttask}" >> ${sbatch}
+      #------------------------------------------------------------------------------------#
+      ;;
+   *)
+      echo "Unknown polygon state (${runt})! Script will not submit any job this time."
+      submit=false
       ;;
    esac
-   #---------------------------------------------------------------------------------------#
-
-
-   #---------------------------------------------------------------------------------------#
-   #     Submit the job using the specific comments.                                       #
-   #---------------------------------------------------------------------------------------#
-   if ${submit_now}
-   then
-      #----- Job options. -----------------------------------------------------------------#
-      options="walltime=${runtime},mem=${memory_max}mb,ncpus=${n_cpt}"
-      pbsout="${here}/${polyname}/serial_pbs.out"
-      #------------------------------------------------------------------------------------#
-
-
-      #------------------------------------------------------------------------------------#
-      #     Submit, then check whether it went through.  If not, keep trying until         #
-      # it works (or give up after nsubtry_max attempts).                                  #
-      #------------------------------------------------------------------------------------#
-      nfail=1
-      attempt=0
-      while [[ ${nfail} -gt 0 ]] && [[ ${attempt} -lt ${nsubtry_max} ]]
-      do
-         let attempt=${attempt}+1
-
-         #----- Submit job. ---------------------------------------------------------------#
-         echo -n "  + Attempt number: ${attempt}..."
-         qsub -q ${global_queue} -o ${pbsout} -j oe -N ${jobname} -l ${options}            \
-                 ${callserial} 1> /dev/null 2> /dev/null
-         #---------------------------------------------------------------------------------#
-
-
-         #----- Wait a bit, then check whether the submission went through. ---------------#
-         sleep 3
-         nfail=$(qclean | wc -l)
-         #---------------------------------------------------------------------------------#
-
-
-
-         #------ Check result. ------------------------------------------------------------#
-         if [[ ${nfail} -gt 0 ]] && [[ ${attempt} -eq ${nsubtry_max} ]]
-         then
-            echo "  Failed.  Giving up, check for errors in your script."
-         elif [ ${nfail} -eq 0 ]
-         then
-            echo "  Success."
-         else
-            echo "  Failed."
-         fi
-         #---------------------------------------------------------------------------------#
-      done
-      #------------------------------------------------------------------------------------#
-   fi
    #---------------------------------------------------------------------------------------#
 done
 #------------------------------------------------------------------------------------------#
 
-#----- Delete temporary job status. -------------------------------------------------------#
-/bin/rm -f ${jobstat}
+
+
+#------------------------------------------------------------------------------------------#
+#      Make sure job list doesn't request too many nodes.                                  #
+#------------------------------------------------------------------------------------------#
+if [ ${n_submit} -gt ${n_tasks_max} ]
+then
+   echo " Number of jobs to submit: ${n_submit}"
+   echo " Maximum number of tasks in queue ${global_queue}: ${n_tasks_max}"
+   echo " Reduce the number of simulations or try another queue..."
+   exit 99
+else
+   #----- Update the number of tasks in batch script. -------------------------------------#
+   sed -i~ s@myntasks@${n_submit}@g ${sbatch}
+   #---------------------------------------------------------------------------------------#
+fi
+#------------------------------------------------------------------------------------------#
+
+
+#----- Make sure the script waits until all tasks are completed... ------------------------#
+echo ""                                                                        >> ${sbatch}
+echo ""                                                                        >> ${sbatch}
+echo "#----- Make sure that jobs complete before terminating script"           >> ${sbatch}
+echo "wait"                                                                    >> ${sbatch}
+echo ""                                                                        >> ${sbatch}
+echo "#----- Report efficiency of this job"                                    >> ${sbatch}
+echo "seff \${SLURM_JOBID}"                                                    >> ${sbatch}
+echo ""                                                                        >> ${sbatch}
+#------------------------------------------------------------------------------------------#
+
+
+#------------------------------------------------------------------------------------------#
+#    In case all looks good, go for it!                                                    #
+#------------------------------------------------------------------------------------------#
+if ${submit}
+then
+   sbatch ${sbatch} 
+fi
 #------------------------------------------------------------------------------------------#

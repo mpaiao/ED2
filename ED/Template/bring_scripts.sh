@@ -13,7 +13,7 @@ then
    case ${host} in
       rclogin*|holy*|moorcroft*|rcnx*) platform="SLURM"    ;;
       au*|ha*)                         platform="PBS"      ;;
-      sdumont*)                        platform="SLURM"    ;;
+      sdumont*)                        platform="SDUMONT"  ;;
       sun-master|cmm*)                 platform="sun-lncc" ;;
       *)
          echo -n "Failed guessing platform from node name.  Please type the name:   "

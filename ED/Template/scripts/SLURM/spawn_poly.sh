@@ -12,11 +12,7 @@ moi=$(whoami)
 desc=$(basename ${here})
 #----- Original and scratch main data paths. ----------------------------------------------#
 ordinateur=$(hostname -s)
-case ${ordinateur} in
-  sdumont*)                        export d_path="${SCRATCH}/Data"                 ;;
-  rclogin*|holy*|moorcroft*|rcnx*) export d_path="${HOME}/data"                    ;;
-  *)  echo " Invalid computer ${ordinateur}.  Check script header."; exit          ;;
-esac
+d_path="${HOME}/data"
 #----- Path where biomass initialisation files are: ---------------------------------------#
 bioinit="${d_path}/ed2_data/site_bio_data"
 alsinit="${d_path}/ed2_data/lidar_spline_bio_data"
@@ -199,102 +195,52 @@ fi
 #------------------------------------------------------------------------------------------#
 #     Configurations depend on the global_queue.                                           #
 #------------------------------------------------------------------------------------------#
-case ${ordinateur} in
-rclogin*|holy*|moorcroft*|rcnx*)
-   #----- Odyssey queues. -----------------------------------------------------------------#
-   case ${global_queue} in
-   "serial_requeue")
-      n_nodes_max=900
-      n_cpt_max=12
-      n_cpn=24
-      runtime_max="7-00:00:00"
-      node_memory=126820
-      ;;
-   "shared,huce_intel"|"huce_intel,shared")
-      n_nodes_max=276
-      n_cpt_max=12
-      n_cpn=24
-      runtime_max="7-00:00:00"
-      node_memory=126820
-      ;;
-   "shared")
-      n_nodes_max=456
-      n_cpt_max=24
-      n_cpn=48
-      runtime_max="7-00:00:00"
-      node_memory=192892
-      ;;
-   "huce_intel")
-      n_nodes_max=276
-      n_cpt_max=12
-      n_cpn=24
-      runtime_max="14-00:00:00"
-      node_memory=126820
-      ;;
-   "unrestricted")
-      n_nodes_max=8
-      n_cpt_max=24
-      n_cpn=48
-      runtime_max="infinite"
-      node_memory=262499
-      ;;
-   *)
-      echo "Global queue ${global_queue} is not recognised!"
-      exit
-      ;;
-   esac
-   #---------------------------------------------------------------------------------------#
+case ${global_queue} in
+"serial_requeue")
+   n_nodes_max=900
+   n_cpt_max=12
+   n_cpn=24
+   runtime_max="7-00:00:00"
+   node_memory=126820
    ;;
-sdumont*)
-   #----- SantosDumont. -------------------------------------------------------------------#
-   case ${global_queue} in
-   cpu_long|nvidia_long)
-      n_nodes_max=10
-      n_cpt_max=12
-      n_cpn=24
-      runtime_max="31-00:00:00"
-      node_memory=64000
-      ;;
-   cpu|nvidia|phi)
-      n_nodes_max=50
-      n_cpt_max=12
-      n_cpn=24
-      runtime_max="2-00:00:00"
-      node_memory=64000
-      ;;
-   cpu_dev)
-      n_nodes_max=20
-      n_cpt_max=12
-      n_cpn=24
-      runtime_max="02:00:00"
-      node_memory=64000
-      ;;
-   nvidia_dev|phi_dev)
-      n_nodes_max=2
-      n_cpt_max=12
-      n_cpn=24
-      runtime_max="02:00:00"
-      node_memory=64000
-      ;;
-   cpu_scal|nvidia_scal)
-      n_nodes_max=128
-      n_cpt_max=12
-      n_cpn=24
-      runtime_max="18:00:00"
-      node_memory=64000
-      ;;
-   *)
-      echo "Global queue ${global_queue} is not recognised!"
-      exit
-      ;;
-   esac
-   #---------------------------------------------------------------------------------------#
+"test")
+   n_nodes_max=12
+   n_cpt=1
+   n_tpn=48
+   runtime_max="8:00:00"
+   node_memory=192892
+   ;;
+"shared,huce_intel"|"huce_intel,shared")
+   n_nodes_max=276
+   n_cpt_max=12
+   n_cpn=24
+   runtime_max="7-00:00:00"
+   node_memory=126820
+   ;;
+"shared")
+   n_nodes_max=456
+   n_cpt_max=24
+   n_cpn=48
+   runtime_max="7-00:00:00"
+   node_memory=192892
+   ;;
+"huce_intel")
+   n_nodes_max=276
+   n_cpt_max=12
+   n_cpn=24
+   runtime_max="14-00:00:00"
+   node_memory=126820
+   ;;
+"unrestricted")
+   n_nodes_max=8
+   n_cpt_max=24
+   n_cpn=48
+   runtime_max="infinite"
+   node_memory=262499
    ;;
 *)
-   #----- Computer is not listed.  Crash. -------------------------------------------------#
-   echo " Invalid computer ${ordinateur}.  Check queue settings in the script."
-   exit 31
-   #---------------------------------------------------------------------------------------#
+   echo "Global queue ${global_queue} is not recognised!"
+   exit
    ;;
 esac
 #------------------------------------------------------------------------------------------#
@@ -468,22 +414,13 @@ then
    then
       polyz=${npolys}
    fi
-   pfmt="%${ndig}.${ndig}i"
-   partlabel=$(printf "${pfmt}" ${polya})-$(printf "${pfmt}" ${polyz})
-   sbatch="${here}/sub_batch_${partlabel}.sh"
-   obatch="${here}/out_batch_${partlabel}.log"
-   ebatch="${here}/err_batch_${partlabel}.log"
-   jobname="${desc}-sims_${partlabel}"
 else
    ff=0
    polya=1
    polyz=${npolys}
-   sbatch="${here}/sub_batch.sh"
-   obatch="${here}/out_batch.log"
-   ebatch="${here}/err_batch.log"
-   jobname="${desc}-sims"
 fi
 let ntasks=1+${polyz}-${polya}
+sbatch="${here}/sub_batch.sh"
 #------------------------------------------------------------------------------------------#
 
 
@@ -499,30 +436,16 @@ echo "  Run time:            ${runtime}"
 echo "  First polygon:       ${polya}"
 echo "  Last polygon:        ${polyz}"
 echo "  Potl. task count:    ${ntasks}"
-echo "  Job Name:            ${jobname}"
 echo "  Total polygon count: ${npolys}"
 echo " "
 echo " Partial submission:   ${partial}"
 echo " Automatic submission: ${submit}"
+echo " Script:               $(basename ${sbatch})"
 echo "------------------------------------------------"
 echo ""
 echo -n " Waiting five seconds before proceeding... "
 sleep 5
 echo "Done!"
-#------------------------------------------------------------------------------------------#
-
-
-
-#------------------------------------------------------------------------------------------#
-#   Check whether there is already a job submitted that looks like this one.               #
-#------------------------------------------------------------------------------------------#
-queued=$(${squeue} -o "${outform}" | grep ${jobname} | wc -l)
-if [ ${queued} -gt 0 ]
-then
-   echo "There is already a job called \"${jobname}\" running."
-   echo "New submissions must have different names: be creative!"
-   exit 99
-fi
 #------------------------------------------------------------------------------------------#
 
 
@@ -534,37 +457,10 @@ rm -f ${sbatch}
 touch ${sbatch}
 chmod u+x ${sbatch}
 echo "#!/bin/bash" >> ${sbatch}
-echo "#SBATCH --ntasks=myntasks               # Number of tasks"               >> ${sbatch}
-echo "#SBATCH --cpus-per-task=${n_cpt}        # Number of CPUs per task"       >> ${sbatch}
-echo "#SBATCH --partition=${global_queue}     # Queue that will run job"       >> ${sbatch}
-echo "#SBATCH --job-name=${jobname}           # Job name"                      >> ${sbatch}
-echo "#SBATCH --mem-per-cpu=${sim_memory}     # Memory per CPU"                >> ${sbatch}
-echo "#SBATCH --time=${runtime}               # Time for job"                  >> ${sbatch}
-echo "#SBATCH --output=${obatch}              # Standard output path"          >> ${sbatch}
-echo "#SBATCH --error=${ebatch}               # Standard error path"           >> ${sbatch}
 echo ""                                                                        >> ${sbatch}
 echo "#--- Initial settings."                                                  >> ${sbatch}
 echo "here=\"${here}\"                            # Main path"                 >> ${sbatch}
 echo "exec=\"${exec_full}\"                       # Executable"                >> ${sbatch}
-echo ""                                                                        >> ${sbatch}
-echo "#--- Print information about this job."                                  >> ${sbatch}
-echo "echo \"\""                                                               >> ${sbatch}
-echo "echo \"\""                                                               >> ${sbatch}
-echo "echo \"----- Summary of current job ---------------------------------\"" >> ${sbatch}
-echo "echo \" CPUs per task:   \${SLURM_CPUS_PER_TASK}\""                      >> ${sbatch}
-echo "echo \" Job:             \${SLURM_JOB_NAME} (\${SLURM_JOB_ID})\""        >> ${sbatch}
-echo "echo \" Queue:           \${SLURM_JOB_PARTITION}\""                      >> ${sbatch}
-echo "echo \" Number of nodes: \${SLURM_NNODES}\""                             >> ${sbatch}
-echo "echo \" Number of tasks: \${SLURM_NTASKS}\""                             >> ${sbatch}
-echo "echo \" Memory per CPU:  \${SLURM_MEM_PER_CPU}\""                        >> ${sbatch}
-echo "echo \" Memory per node: \${SLURM_MEM_PER_NODE}\""                       >> ${sbatch}
-echo "echo \" Node list:       \${SLURM_JOB_NODELIST}\""                       >> ${sbatch}
-echo "echo \" Time limit:      \${SLURM_TIMELIMIT}\""                          >> ${sbatch}
-echo "echo \" Std. Output:     \${SLURM_STDOUTMODE}\""                         >> ${sbatch}
-echo "echo \" Std. Error:      \${SLURM_STDERRMODE}\""                         >> ${sbatch}
-echo "echo \"--------------------------------------------------------------\"" >> ${sbatch}
-echo "echo \"\""                                                               >> ${sbatch}
-echo "echo \"\""                                                               >> ${sbatch}
 echo ""                                                                        >> ${sbatch}
 echo "echo \"----- Global settings for this array of simulations ----------\"" >> ${sbatch}
 echo "echo \" Main path:       \${here}\""                                     >> ${sbatch}
@@ -586,14 +482,6 @@ echo ""                                                                        >
 echo "#--- Get plenty of memory."                                              >> ${sbatch}
 echo "ulimit -s unlimited"                                                     >> ${sbatch}
 echo "ulimit -u unlimited"                                                     >> ${sbatch}
-echo ""                                                                        >> ${sbatch}
-echo "#--- Set OpenMP parameters"                                              >> ${sbatch}
-echo "if [ \"\${SLURM_CPUS_PER_TASK}\" == \"\" ]"                              >> ${sbatch}
-echo "then"                                                                    >> ${sbatch}
-echo "   export OMP_NUM_THREADS=1"                                             >> ${sbatch}
-echo "else"                                                                    >> ${sbatch}
-echo "   export OMP_NUM_THREADS=\${SLURM_CPUS_PER_TASK}"                       >> ${sbatch}
-echo "fi"                                                                      >> ${sbatch}
 echo ""                                                                        >> ${sbatch}
 echo "#----- Task list."                                                       >> ${sbatch}
 #------------------------------------------------------------------------------------------#
@@ -758,6 +646,22 @@ do
    skidlarge=$(echo ${oi}    | awk '{print $121}')
    fellingsmall=$(echo ${oi} | awk '{print $122}')
    #---------------------------------------------------------------------------------------#
+
+
+
+   #---------------------------------------------------------------------------------------#
+   #   Check whether there is already a job submitted that looks like this one.            #
+   #---------------------------------------------------------------------------------------#
+   jobname="${desc}-${polyname}"
+   queued=$(${squeue} -o "${outform}" | grep ${jobname} | wc -l)
+   if [ ${queued} -gt 0 ]
+   then
+      echo "There is already a job called \"${jobname}\" running."
+      echo "New submissions must have different names: be creative!"
+      exit 99
+   fi
+   #---------------------------------------------------------------------------------------#
+
 
 
 
@@ -2427,10 +2331,91 @@ do
       ;;
    esac
 
-   #----- Change the callserial.sh file. --------------------------------------------------#
+
+   #----- Script names. -------------------------------------------------------------------#
+   tempserial="${here}/Template/callserial.sh"
    callserial="${here}/${polyname}/callserial.sh"
-   rm -f ${callserial}
-   cp -f ${here}/Template/callserial.sh ${callserial}
+   obatch="${here}/${polyname}/serial_slm.out"
+   ebatch="${here}/${polyname}/serial_slm.err"
+   #---------------------------------------------------------------------------------------#
+
+   #----- Initialise the callserial.sh file. ----------------------------------------------#
+   rm -f     ${callserial}
+   touch     ${callserial}
+   chmod u+x ${callserial}
+   echo "#!/bin/bash" >> ${callserial}
+   echo "#SBATCH --ntasks=1                  # Number of tasks"            >> ${callserial}
+   echo "#SBATCH --cpus-per-task=${n_cpt}    # Number of CPUs per task"    >> ${callserial}
+   echo "#SBATCH --partition=${global_queue} # Queue that will run job"    >> ${callserial}
+   echo "#SBATCH --job-name=${jobname}       # Job name"                   >> ${callserial}
+   echo "#SBATCH --mem-per-cpu=${sim_memory} # Memory per CPU"             >> ${callserial}
+   echo "#SBATCH --time=${runtime}           # Time for job"               >> ${callserial}
+   echo "#SBATCH --output=${obatch}          # Standard output path"       >> ${callserial}
+   echo "#SBATCH --error=${ebatch}           # Standard error path"        >> ${callserial}
+   echo "#SBATCH --chdir=${here}/${polyname} # Main directory"             >> ${callserial}
+   echo ""                                                                 >> ${callserial}
+   echo "#--- Initial settings."                                           >> ${callserial}
+   echo "here=\"${here}\"                        # Main path"              >> ${callserial}
+   echo "exec=\"${exec_full}\"                   # Executable"             >> ${callserial}
+   echo ""                                                                 >> ${callserial}
+   echo "#--- Print information about this job."                           >> ${callserial}
+   echo "echo \"\""                                                        >> ${callserial}
+   echo "echo \"\""                                                        >> ${callserial}
+   echo "echo \"----- Summary of current job --------------------------\"" >> ${callserial}
+   echo "echo \" CPUs per task:   \${SLURM_CPUS_PER_TASK}\""               >> ${callserial}
+   echo "echo \" Job:             \${SLURM_JOB_NAME} (\${SLURM_JOB_ID})\"" >> ${callserial}
+   echo "echo \" Queue:           \${SLURM_JOB_PARTITION}\""               >> ${callserial}
+   echo "echo \" Number of nodes: \${SLURM_NNODES}\""                      >> ${callserial}
+   echo "echo \" Number of tasks: \${SLURM_NTASKS}\""                      >> ${callserial}
+   echo "echo \" Memory per CPU:  \${SLURM_MEM_PER_CPU}\""                 >> ${callserial}
+   echo "echo \" Memory per node: \${SLURM_MEM_PER_NODE}\""                >> ${callserial}
+   echo "echo \" Node list:       \${SLURM_JOB_NODELIST}\""                >> ${callserial}
+   echo "echo \" Time limit:      \${SLURM_TIMELIMIT}\""                   >> ${callserial}
+   echo "echo \" Std. Output:     \${SLURM_STDOUTMODE}\""                  >> ${callserial}
+   echo "echo \" Std. Error:      \${SLURM_STDERRMODE}\""                  >> ${callserial}
+   echo "echo \"-------------------------------------------------------\"" >> ${callserial}
+   echo "echo \"\""                                                        >> ${callserial}
+   echo "echo \"\""                                                        >> ${callserial}
+   echo ""                                                                 >> ${callserial}
+   echo "echo \"----- Global settings for this array of simulations ---\"" >> ${callserial}
+   echo "echo \" Main path:       \${here}\""                              >> ${callserial}
+   echo "echo \" Executable:      \${exec}\""                              >> ${callserial}
+   echo "echo \"-------------------------------------------------------\"" >> ${callserial}
+   echo "echo \"\""                                                        >> ${callserial}
+   echo "echo \"\""                                                        >> ${callserial}
+   echo ""                                                                 >> ${callserial}
+   echo ""                                                                 >> ${callserial}
+   echo "#--- Define home in case home is not set"                         >> ${callserial}
+   echo "if [[ \"x\${HOME}\" == \"x\" ]]"                                  >> ${callserial}
+   echo "then"                                                             >> ${callserial}
+   echo "   export HOME=\$(echo ~)"                                        >> ${callserial}
+   echo "fi"                                                               >> ${callserial}
+   echo ""                                                                 >> ${callserial}
+   echo "#--- Load modules and settings."                                  >> ${callserial}
+   echo ". \${HOME}/.bashrc ${optsrc}"                                     >> ${callserial}
+   echo ""                                                                 >> ${callserial}
+   echo "#--- Get plenty of memory."                                       >> ${callserial}
+   echo "ulimit -s unlimited"                                              >> ${callserial}
+   echo "ulimit -u unlimited"                                              >> ${callserial}
+   echo ""                                                                 >> ${callserial}
+   echo "#--- Set OpenMP parameters"                                       >> ${callserial}
+   echo "if [ \"\${SLURM_CPUS_PER_TASK}\" == \"\" ]"                       >> ${callserial}
+   echo "then"                                                             >> ${callserial}
+   echo "   export OMP_NUM_THREADS=1"                                      >> ${callserial}
+   echo "else"                                                             >> ${callserial}
+   echo "   export OMP_NUM_THREADS=\${SLURM_CPUS_PER_TASK}"                >> ${callserial}
+   echo "fi"                                                               >> ${callserial}
+   echo ""                                                                 >> ${callserial}
+   #---------------------------------------------------------------------------------------#
+
+
+
+   #----- Append the template callserial.sh, skipping the first line. ---------------------#
+   tail -n +2 ${tempserial} >> ${callserial}
+   #---------------------------------------------------------------------------------------#
+
+
+   #----- Substitute placeholders with specific data. -------------------------------------#
    sed -i s@thisroot@${here}@g          ${callserial}
    sed -i s@thispoly@${polyname}@g      ${callserial}
    sed -i s@myname@${moi}@g             ${callserial}
@@ -2441,6 +2426,18 @@ do
    sed -i s@mycopy@${copy2scratch}@g    ${callserial}
    sed -i s@mycpus@${n_cpt}@g           ${callserial}
    sed -i s@myoptsrc@${optsrc}@g        ${callserial}
+   #---------------------------------------------------------------------------------------#
+
+
+   #----- Make sure the script waits until all tasks are completed... ---------------------#
+   echo ""                                                               >> ${callserial}
+   echo ""                                                               >> ${callserial}
+   echo "#----- Make sure that jobs complete before terminating script"  >> ${callserial}
+   echo "wait"                                                           >> ${callserial}
+   echo ""                                                               >> ${callserial}
+   echo "#----- Report efficiency of this job"                           >> ${callserial}
+   echo "seff \${SLURM_JOBID}"                                           >> ${callserial}
+   echo ""                                                               >> ${callserial}
    #---------------------------------------------------------------------------------------#
 
 
@@ -2471,20 +2468,12 @@ do
       #------------------------------------------------------------------------------------#
       echo "  Polygon scheduled for submission."
       let n_submit=${n_submit}+1
-      let dtwait=${dtwait}+2
       #------------------------------------------------------------------------------------#
 
 
       #----- Append job to submission list. -----------------------------------------------#
-      srun="srun --nodes=1 --ntasks=1 --cpu_bind=cores"
-      srun="${srun} --cpus-per-task=\${SLURM_CPUS_PER_TASK}"
-      srun="${srun} --mem-per-cpu=\${SLURM_MEM_PER_CPU}"
-      srun="${srun} --job-name=${polyname}"
-      srun="${srun} --chdir=\${here}/${polyname}"
-      srun="${srun} --output=\${here}/${polyname}/serial_slm.out"
-      srun="${srun} --error=\${here}/${polyname}/serial_slm.err"
-      echo "${srun} \${here}/${polyname}/callserial.sh &" >> ${sbatch}
-      echo "sleep ${dttask}" >> ${sbatch}
+      echo "sbatch ${callserial}" >> ${sbatch}
+      echo "sleep  ${dttask}"     >> ${sbatch}
       #------------------------------------------------------------------------------------#
       ;;
    *)
@@ -2507,31 +2496,23 @@ then
    echo " Maximum number of tasks in queue ${global_queue}: ${n_tasks_max}"
    echo " Reduce the number of simulations or try another queue..."
    exit 99
+elif ${submit}
+then
+   echo " Submitting jobs, hold on."
+   ${sbatch}
 else
    #----- Update the number of tasks in batch script. -------------------------------------#
-   sed -i~ s@myntasks@${n_submit}@g ${sbatch}
+   echo "-------------------------------------------------------------------------"
+   echo " WARNING! WARNING! WARNING! WARNING! WARNING! WARNING! WARNING! WARNING! "
+   echo " WARNING! WARNING! WARNING! WARNING! WARNING! WARNING! WARNING! WARNING! "
+   echo " WARNING! WARNING! WARNING! WARNING! WARNING! WARNING! WARNING! WARNING! "
+   echo " WARNING! WARNING! WARNING! WARNING! WARNING! WARNING! WARNING! WARNING! "
+   echo "-------------------------------------------------------------------------"
+   echo " Do not use sbatch ${sbatch}."
+   echo " Instead, call the following script directly in your terminal."
+   echo " "
+   echo "       ${sbatch}"
+   echo " "
    #---------------------------------------------------------------------------------------#
-fi
-#------------------------------------------------------------------------------------------#
-
-
-#----- Make sure the script waits until all tasks are completed... ------------------------#
-echo ""                                                                        >> ${sbatch}
-echo ""                                                                        >> ${sbatch}
-echo "#----- Make sure that jobs complete before terminating script"           >> ${sbatch}
-echo "wait"                                                                    >> ${sbatch}
-echo ""                                                                        >> ${sbatch}
-echo "#----- Report efficiency of this job"                                    >> ${sbatch}
-echo "seff \${SLURM_JOBID}"                                                    >> ${sbatch}
-echo ""                                                                        >> ${sbatch}
-#------------------------------------------------------------------------------------------#
-
-
-#------------------------------------------------------------------------------------------#
-#    In case all looks good, go for it!                                                    #
-#------------------------------------------------------------------------------------------#
-if ${submit}
-then
-   sbatch ${sbatch} 
 fi
 #------------------------------------------------------------------------------------------#

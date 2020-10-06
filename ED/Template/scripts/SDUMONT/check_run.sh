@@ -1,102 +1,74 @@
-#!/bin/sh
+#!/bin/bash
 here=$(pwd)
-moi=$(whoami)
-diskthere=""
 joborder="${here}/joborder.txt"
-
-#----- Find the output path (both local and remote paths will be cleaned). ----------------#
-basehere=$(basename ${here})
-dirhere=$(dirname ${here})
-while [ ${basehere} != ${moi} ]
-do
-   basehere=$(basename ${dirhere})
-   dirhere=$(dirname ${dirhere})
-done
-diskhere=${dirhere}
-echo "-------------------------------------------------------------------------------"
-echo " - Simulation control on disk: ${diskhere}"
-echo " - Output on disk:             ${diskthere}"
-echo "-------------------------------------------------------------------------------"
-there=$(echo ${here} | sed s@${diskhere}@${diskthere}@g)
-#------------------------------------------------------------------------------------------#
-
-
-
-
+desc=$(basename ${here})
+jobname="${desc}-sims"
+moi=$(whoami)
+outform="JobName%200,State%12"
 #----- Determine the number of polygons to run. -------------------------------------------#
 let npolys=$(wc -l ${joborder} | awk '{print $1 }')-3
-#------------------------------------------------------------------------------------------#
+echo "Number of polygons: ${npolys}..."
 
 
+polya=1
+polyz=${npolys}
 
-
-#----- Check that the user is aware that it will remove everything... ---------------------#
-if [ "x${1}" == "x-d" ]
-then
-   echo "Are you sure that you want to remove all files and directories? [y/N]"
-else
-   echo "Are you sure that you want to remove all files? [y/N]"
-fi
-read proceed
-if [ "x${proceed}" != "xy" ] && [ "x${proceed}" != "xY" ]
-then
-   exit
-fi
-#------------------------------------------------------------------------------------------#
-
-
-
-#----- Check that the user is aware that it will remove everything... ---------------------#
-echo " "
-if [ "x${1}" == "x-d" ]
-then
-   echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-   echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-   echo " "
-   echo "     Look, this will REALLY delete all ${npolys} output directories and files..."
-   echo " "
-   echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-   echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-else
-   echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-   echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-   echo " "
-   echo "     Look, this will REALLY delete all ${npolys} output files..."
-   echo " "
-   echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-   echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-fi
-
-echo "This is PERMANENT, once they are gone, adieu, no chance to recover them!"
-echo "Is that what you really want? [y/N]"
-read proceed
-
-echo " "
-
-if [ "x${proceed}" != "xy" ] && [ "x${proceed}" != "xY" ]
-then 
-   exit
-fi
-
-echo "Okay then, but if you regret later do not say that I did not warn you..."
-echo "I am giving you a few seconds to kill this script in case you change your mind..."
-delfun=16
-while [ ${delfun} -gt 1 ]
+#----- Argument parsing. ------------------------------------------------------------------#
+while [[ ${#} > 0 ]]
 do
-   let delfun=${delfun}-1
-   echo "  - Deletion will begin in ${delfun} seconds..."
-   sleep 1
+key="${1}"
+   case ${key} in
+   -a)
+      polya="${2}"
+      shift
+      ;;
+   -z)
+      polyz="${2}"
+      shift
+      ;;
+   --polya=*)
+      polya=$(echo ${key} | sed s@"-polya=="@""@g)
+      ;;
+   --polyz=*)
+      polyz=$(echo ${key} | sed s@"-polyz=="@""@g)
+      ;;
+   *)
+      echo "Unknown key-value argument pair."
+      exit 2
+      ;;
+   esac
+
+   shift # past argument or value
 done
 #------------------------------------------------------------------------------------------#
+
 
 #------------------------------------------------------------------------------------------#
 #     Loop over all polygons.                                                              #
 #------------------------------------------------------------------------------------------#
-ff=0
-while [ ${ff} -lt ${npolys} ]
+let ff=${polya}-1
+while [ ${ff} -lt ${polyz} ]
 do
    let ff=${ff}+1
    let line=${ff}+3
+
+   #---------------------------------------------------------------------------------------#
+   #    Format count.                                                                      #
+   #---------------------------------------------------------------------------------------#
+   if   [ ${npolys} -ge 10   ] && [ ${npolys} -lt 100   ]
+   then
+      ffout=$(printf '%2.2i' ${ff})
+   elif [ ${npolys} -ge 100  ] && [ ${npolys} -lt 1000  ]
+   then
+      ffout=$(printf '%2.2i' ${ff})
+   elif [ ${npolys} -ge 100  ] && [ ${npolys} -lt 10000 ]
+   then
+      ffout=$(printf '%2.2i' ${ff})
+   else
+      ffout=${ff}
+   fi
+   #---------------------------------------------------------------------------------------#
+
    #---------------------------------------------------------------------------------------#
    #      Read the ffth line of the polygon list.  There must be smarter ways of doing     #
    # this, but this works.  Here we obtain the polygon name, and its longitude and         #
@@ -227,19 +199,95 @@ do
    fellingsmall=$(echo ${oi} | awk '{print $122}')
    #---------------------------------------------------------------------------------------#
 
+   #---------------------------------------------------------------------------------------#
+   #     Set some variables to check whether the simulation is running.                    #
+   #---------------------------------------------------------------------------------------#
+   stdout="${here}/${polyname}/serial_out.out"
+   stderr="${here}/${polyname}/serial_out.err"
+   lsfout="${here}/${polyname}/serial_lsf.out"
+   skipper="${here}/${polyname}/skipper.txt"
+   #---------------------------------------------------------------------------------------#
 
 
-   if [ "x${1}" == "x-d" ]
+   #---------------------------------------------------------------------------------------#
+   #     Check whether the simulation is still running, and if not, why it isn't.          #
+   #---------------------------------------------------------------------------------------#
+   if [ -s ${stdout} ]
    then
-      rm -frv "${here}/${polyname}"
-      rm -frv "${there}/${polyname}"
+      #----- Check whether the simulation is running, and when in model time it is. -------#
+      stask="stask --noheader -u ${moi} -t ${polyname} -j ${jobname}"
+      running=$(${stask}   -o "${outform}" | grep "RUNNING"   | wc -l)
+      pending=$(${stask}   -o "${outform}" | grep "PENDING"   | wc -l)
+      suspended=$(${stask} -o "${outform}" | grep "SUSPENDED" | wc -l)
+      simline=$(grep "Simulating: "   ${stdout} | tail -1)
+      runtime=$(echo ${simline} | awk '{print $3}')
+      #------------------------------------------------------------------------------------#
+
+
+
+      #----- Check for segmentation violations. -------------------------------------------#
+      if [ -s ${stderr} ]
+      then
+         segv1=$(grep -i "sigsegv"            ${stderr} | wc -l)
+         segv2=$(grep -i "segmentation fault" ${stderr} | wc -l)
+         let sigsegv=${segv1}+${segv2}
+      else
+         sigsegv=0
+      fi
+      #------------------------------------------------------------------------------------#
+
+
+
+      #----- Check whether met files are missing... (bad start) ---------------------------#
+      metbs1=$(grep "Cannot open met driver input file" ${stdout} | wc -l)
+      metbs2=$(grep "Specify ED_MET_DRIVER_DB properly" ${stdout} | wc -l)
+      let metmiss=${metbs1}+${metbs2}
+      #------------------------------------------------------------------------------------#
+
+
+
+      #----- Check for other possible outcomes. -------------------------------------------#
+      stopped=$(grep "FATAL ERROR"           ${stdout} | wc -l)
+      crashed=$(grep "IFLAG1 problem."       ${stdout} | wc -l)
+      the_end=$(grep "ED-2.2 execution ends" ${stdout} | wc -l)
+      #------------------------------------------------------------------------------------#
+
+
+      #------------------------------------------------------------------------------------#
+      #     Plot a message so the user knows what is going on.                             #
+      #------------------------------------------------------------------------------------#
+      if [ ${pending} -gt 0 ]
+      then
+         echo -e "${ffout}: ${polyname} is pending..."
+      elif [ ${suspended} -gt 0 ]
+      then
+         echo -e "${ffout}: ${polyname} is suspended!!!"
+      elif [ ${running} -gt 0 ] || [ -s ${skipper} ] && [ ${sigsegv} -eq 0 ]
+      then
+         echo -e "${ffout}: ${polyname} is running (${runtime})..."
+      elif [ ${sigsegv} -gt 0 ]
+      then
+         echo -e "${ffout}: ${polyname} HAD SEGMENTATION VIOLATION... <==========="
+      elif [ ${crashed} -gt 0 ]
+      then 
+         echo -e "${ffout}: ${polyname} HAS CRASHED (RK4 PROBLEM)... <==========="
+      elif [ ${metmiss} -gt 0 ]
+      then 
+         echo -e "${ffout}: ${polyname} DID NOT FIND MET DRIVERS... <==========="
+      elif [ ${stopped} -gt 0 ]
+      then
+         echo -e "${ffout}: ${polyname} STOPPED (UNKNOWN REASON)... <==========="
+      elif [ ${the_end} -gt 0 ]
+      then
+         echo -e "${ffout}: ${polyname} has finished o/\o..."
+      else
+         echo -e "${ffout}: ${polyname} status is unknown..."
+      fi
+      #------------------------------------------------------------------------------------#
    else
-      /bin/cp "${here}/Template/purge.sh" "${here}/${polyname}/purge.sh"
-      /bin/cp "${here}/Template/purge.sh" "${there}/${polyname}/purge.sh"
-      cd "${here}/${polyname}"
-      ./purge.sh
-      cd "${there}/${polyname}"
-      ./purge.sh
+      echo -e "${ffout}: ${polyname} is pending ..."
    fi
+   #---------------------------------------------------------------------------------------#
 done
 #------------------------------------------------------------------------------------------#
+

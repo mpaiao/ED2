@@ -225,6 +225,7 @@ echo "Number of polygons: ${n_polygon}..."
 
 #----- Set job name. ----------------------------------------------------------------------#
 desc=$(basename ${here})
+jobname="${desc}-sims"
 #------------------------------------------------------------------------------------------#
 
 
@@ -464,9 +465,6 @@ do
       #------------------------------------------------------------------------------------#
 
 
-      #----- Set job name. ----------------------------------------------------------------#
-      jobname="${desc}-${polyname}"
-      #------------------------------------------------------------------------------------#
 
 
 
@@ -988,7 +986,7 @@ do
       if [ -s ${stdout} ]
       then
          #----- Check whether the simulation is running, and when in model time it is. ----#
-         stask="stask --noheader -u $(whoami) -j ${jobname} "
+         stask="stask --noheader -u $(whoami) -t ${polyname} -j ${jobname} "
          running=$(${stask}   -o "${outform}" | grep "RUNNING"   | wc -l)
          pending=$(${stask}   -o "${outform}" | grep "PENDING"   | wc -l)
          suspended=$(${stask} -o "${outform}" | grep "SUSPENDED" | wc -l)
@@ -1069,6 +1067,36 @@ do
       else
          let n_pending=${n_pending}+1
          echo -e "${ffout}: ${polyname} is pending."
+      fi
+      #------------------------------------------------------------------------------------#
+
+
+
+      #------------------------------------------------------------------------------------#
+      #     Update the history time for ED2IN so it doesn't start from the beginning in    #
+      # case the job is resubmitted automatically.                                         #
+      #------------------------------------------------------------------------------------#
+      if [ -s ${stdout} ]
+      then
+         ED2IN="${here}/${polyname}/ED2IN"
+         runtype_new="   NL%RUNTYPE = 'HISTORY'"
+         sfilin_new="   NL%SFILIN = '${here}/${polyname}/histo/${polyname}'"
+         itimeh_new="   NL%ITIMEH = ${timeh}"
+         idateh_new="   NL%IDATEH = ${dateh}"
+         imonthh_new="   NL%IMONTHH = ${monthh}"
+         iyearh_new="   NL%IYEARH = ${yearh}"
+         runtype_old=$(grep  -i "NL%RUNTYPE" ${ED2IN} | grep -v "\!")
+         sfilin_old=$(grep  -i "NL%SFILIN"   ${ED2IN} | grep -v "\!")
+         itimeh_old=$(grep  -i "NL%ITIMEH"   ${ED2IN} )
+         idateh_old=$(grep  -i "NL%IDATEH"   ${ED2IN} )
+         imonthh_old=$(grep -i "NL%IMONTHH"  ${ED2IN} )
+         iyearh_old=$(grep -i  "NL%IYEARH"   ${ED2IN} )
+         sed -i~ s@"${runtype_old}"@"${runtype_new}"@g ${ED2IN}
+         sed -i~ s@"${sfilin_old}"@"${sfilin_new}"@g   ${ED2IN}
+         sed -i~ s@"${itimeh_old}"@"${itimeh_new}"@g   ${ED2IN}
+         sed -i~ s@"${idateh_old}"@"${idateh_new}"@g   ${ED2IN}
+         sed -i~ s@"${imonthh_old}"@"${imonthh_new}"@g ${ED2IN}
+         sed -i~ s@"${iyearh_old}"@"${iyearh_new}"@g   ${ED2IN}
       fi
       #------------------------------------------------------------------------------------#
    done
