@@ -306,7 +306,7 @@ for (n in sequence(nvars)){
       joborder$istemresp   = c(0,1,1)[idx]
       joborder$istomata    = c(0,0,1)[idx]
       joborder$growthresp  = c(0.30,0.45,0.45)[idx]
-      joborder$iphen       = c(3,3,4)[idx]
+      joborder$iphen       = c(2,2,4)[idx]
       joborder$iplastic    = c(2,3,3)[idx]
       joborder$icarbonmort = c(1,2,2)[idx]
       joborder$ihydromort  = c(0,0,1)[idx]

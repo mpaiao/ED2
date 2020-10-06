@@ -829,20 +829,20 @@ do
       #      This step is necessary because we may have killed the run while it was        #
       # writing, and as a result, the file may be corrupt.                                 #
       #------------------------------------------------------------------------------------#
-      nhdf5=$(ls -1 ${here}/${polyname}/histo/* 2> /dev/null | wc -l)
+      nhdf5=$(ls -1 ${here}/${polyname}/histo/*.h5 2> /dev/null | wc -l)
       if [ ${nhdf5} -gt 0 ]
       then
          h5fine=0
 
          while [ ${h5fine} -eq 0 ]
          do
-            lasthdf5=$(ls -1 ${here}/${polyname}/histo/* | tail -1)
+            lasthdf5=$(ls -1 ${here}/${polyname}/histo/*.h5 | tail -1)
             h5dump -H ${lasthdf5} 1> /dev/null 2> ${here}/badfile.txt
 
             if [ -s ${here}/badfile.txt ]
             then
                /bin/rm -fv ${lasthdf5}
-               nhdf5=$(ls -1 ${here}/${polyname}/histo/* 2> /dev/null | wc -l)
+               nhdf5=$(ls -1 ${here}/${polyname}/histo/*.h5 2> /dev/null | wc -l)
                if [ ${nhdf5} -eq 0 ]
                then
                   h5fine=1

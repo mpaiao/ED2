@@ -530,6 +530,7 @@ module ed_init
       use grid_coms   , only : nzg               & ! intent(in)
                              , nzs               ! ! intent(in)
       use soil_coms   , only : ed_nstyp          & ! intent(in)
+                             , soil_hydro_scheme & ! intent(in)
                              , slz               & ! intent(in)
                              , dslz              & ! intent(out)
                              , dslzo2            & ! intent(out)
@@ -565,6 +566,7 @@ module ed_init
       integer                :: k
       integer                :: nnn
       integer                :: kzs
+      logical                :: is_hydr_decay
       real                   :: thik
       real                   :: stretch
       real                   :: slz0
@@ -626,14 +628,13 @@ module ed_init
 
 
       !----- Find layer-dependent hydraulic conductivity. ---------------------------------!
+      is_hydr_decay = (ipercol == 2) .or. (soil_hydro_scheme == 2)
+      if (is_hydr_decay) then
+      else
+      end if
       do nnn = 1,ed_nstyp
          do k = 0,nzg
-            select case (ipercol)
-            case (0,1)
-               !----- Original form, constant with depth.  --------------------------------!
-               slcons1(k,nnn) = soil(nnn)%slcons
-               !---------------------------------------------------------------------------!
-            case (2)
+            if (is_hydr_decay) then
                !---------------------------------------------------------------------------!
                !    Define conductivity using the SIMTOP approach (N05).                   !
                !                                                                           !
@@ -645,7 +646,12 @@ module ed_init
                !---------------------------------------------------------------------------!
                slcons1(k,nnn) = soil(nnn)%slcons * exp ( soil(nnn)%fhydraul * slzt(k))
                !---------------------------------------------------------------------------!
-            end select
+            else
+               !----- Original form, constant with depth.  --------------------------------!
+               slcons1(k,nnn) = soil(nnn)%slcons
+               !---------------------------------------------------------------------------!
+            end if
+            !------------------------------------------------------------------------------!
 
             !------ Find the double precision. --------------------------------------------!
             slcons18(k,nnn) = dble(slcons1(k,nnn))
