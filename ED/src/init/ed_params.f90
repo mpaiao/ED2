@@ -1602,6 +1602,7 @@ subroutine init_soil_coms
    real(kind=4), parameter :: slpots_MPa  = -0.0005  ! Saturation for vG80         [   MPa]
    real(kind=4), parameter :: slpot33_MPa = -0.033   ! Potential for soilep (O19)  [   MPa]
    real(kind=4), parameter :: slpotfc_MPa = -0.010   ! Field capacity (TH98)       [   MPa]
+   real(kind=4), parameter :: slpotdg_MPa = -5.0     ! Matric pot. - air dry vG80  [   MPa]
    real(kind=4), parameter :: slpotcp_MPa = -3.1     ! Matric pot. - air dry soil  [   MPa]
    real(kind=4), parameter :: slpotwp_MPa = -1.5     ! Matric pot. - wilting point [   MPa]
    real(kind=4), parameter :: sand_hcapv  =  2.128e6 ! Sand vol. heat capacity     [J/m3/K]
@@ -2179,7 +2180,12 @@ subroutine init_soil_coms
       case default
          !----- First guess, use water potential. -----------------------------------------!
          soil(s)%slpotwp = slpotwp_MPa * 1.e6 / ( grav * wdns )
-         soil(s)%slpotcp = slpotcp_MPa * wdns / grav
+         select case (trim(soil(s)%method))
+         case ('vG80')
+            soil(s)%slpotcp = slpotdg_MPa * wdns / grav
+         case default
+            soil(s)%slpotcp = slpotcp_MPa * wdns / grav
+         end select
          soil(s)%soilwp  = soil_moisture(s,soil(s)%slpotwp)
          soil(s)%soilcp  = soil_moisture(s,soil(s)%slpotcp)
          !----- In case soilcp is less than the residual (very unlikely), recalculate it. -!

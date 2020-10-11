@@ -1956,11 +1956,6 @@ end do
                    ,'This requires PLANT_HYDRO_SCHEME > 0.'
       call opspec_fatal(reason,'opspec_misc')
       ifaterr = ifaterr +1
-   else if (h2o_plant_lim == 4 .and. (istomata_scheme == 0)) then
-      write (reason,fmt='(a,1x,i4,a)')                                                     &
-                    'H2O_PLANT_LIM cannot be set to 4 with istomata_scheme set to '        &
-                    ,istomata_scheme,'...'
-      call opspec_fatal(reason,'opspec_misc')
    else if (h2o_plant_lim == 5 .and. istomata_scheme /= 0) then
       write (reason,fmt='(a,1x,i4,a)')                                                     &
                     'H2O_PLANT_LIM cannot be set to 5 with istomata_scheme set to '        &

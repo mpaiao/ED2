@@ -1,8 +1,8 @@
 #!/bin/bash
-rm -fvr analy
-rm -fvr histo
-rm -fvr output
-rm -fvr rdata_*
+find analy -print -delete
+find histo -print -delete
+find output -print -delete
+find rdata_* -print -delete
 mkdir analy
 mkdir histo
 mkdir output

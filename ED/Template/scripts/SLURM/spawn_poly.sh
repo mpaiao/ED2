@@ -404,6 +404,12 @@ fi
 #------------------------------------------------------------------------------------------#
 
 
+#----- Limit the memory per CPU based on the simulation memory. ---------------------------#
+let cpu_memory=${sim_memory}/${n_cpt}
+#------------------------------------------------------------------------------------------#
+
+
+
 
 #---- Partial or complete. ----------------------------------------------------------------#
 if ${partial}
@@ -428,7 +434,8 @@ sbatch="${here}/sub_batch.sh"
 echo "------------------------------------------------"
 echo "  Submission summary: "
 echo ""
-echo "  Memory per cpu:      ${sim_memory}"
+echo "  Memory per task:     ${sim_memory}"
+echo "  Memory per cpu:      ${cpu_memory}"
 echo "  CPUs per node:       ${n_cpn}"
 echo "  CPUs per task:       ${n_cpt}"
 echo "  Queue:               ${global_queue}"
@@ -2348,7 +2355,7 @@ do
    echo "#SBATCH --cpus-per-task=${n_cpt}    # Number of CPUs per task"    >> ${callserial}
    echo "#SBATCH --partition=${global_queue} # Queue that will run job"    >> ${callserial}
    echo "#SBATCH --job-name=${jobname}       # Job name"                   >> ${callserial}
-   echo "#SBATCH --mem-per-cpu=${sim_memory} # Memory per CPU"             >> ${callserial}
+   echo "#SBATCH --mem-per-cpu=${cpu_memory} # Memory per CPU"             >> ${callserial}
    echo "#SBATCH --time=${runtime}           # Time for job"               >> ${callserial}
    echo "#SBATCH --output=${obatch}          # Standard output path"       >> ${callserial}
    echo "#SBATCH --error=${ebatch}           # Standard error path"        >> ${callserial}

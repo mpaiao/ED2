@@ -434,7 +434,7 @@ plot_fast.r)
    #     If the script is here, then it could not find the script... And this should never #
    # happen, so interrupt the script!                                                      #
    #---------------------------------------------------------------------------------------#
-   echo " Script ${script} is not recognised by epost.sh!"
+   echo " Script ${rscript} is not recognised by epost.sh!"
    exit 1
    #---------------------------------------------------------------------------------------#
    ;;

@@ -1,7 +1,7 @@
-#!/bin/bash
+#!/bin/sh
 here=$(pwd)
 moi=$(whoami)
-diskthere=""
+diskthere="/n/moorcroftfs2"
 joborder="${here}/joborder.txt"
 
 desc=$(basename ${here})
@@ -9,6 +9,23 @@ desc=$(basename ${here})
 #----- Executable name. -------------------------------------------------------------------#
 execname="ed_2.2-opt"
 execsrc="${HOME}/EDBRAMS/ED/build"
+#------------------------------------------------------------------------------------------#
+
+
+#----- Find out which platform we are using. ----------------------------------------------#
+host=$(hostname -s)
+case ${host} in
+rclogin*|holy*|moorcroft*|rcnx*|sdumont*)
+   platform="SLURM"
+   ;;
+au*|ha*|sun-master|cmm*)
+   platform="PBS"
+   ;;
+*)
+   echo -n "Failed guessing platform from node name.  Please type the name:   "
+   read platform
+   ;;
+esac
 #------------------------------------------------------------------------------------------#
 
 
@@ -21,23 +38,6 @@ do
    dirhere=$(dirname ${dirhere})
 done
 diskhere=${dirhere}
-#------------------------------------------------------------------------------------------#
-
-
-#------------------------------------------------------------------------------------------#
-#    If diskthere is empty, assume diskthere=diskhere.                                     #
-#------------------------------------------------------------------------------------------#
-if [ "x${diskthere}" == "x" ]
-then
-   diskthere=${diskhere}
-fi
-#------------------------------------------------------------------------------------------#
-   
-
-
-#------------------------------------------------------------------------------------------#
-#     Find where stuff to be delete are located.                                           #
-#------------------------------------------------------------------------------------------#
 echo "-------------------------------------------------------------------------------"
 echo " - Simulation control on disk: ${diskhere}"
 echo " - Output on disk:             ${diskthere}"
@@ -59,14 +59,11 @@ else
    echo "Are you sure you want to stop all jobs, and remove all files? [y/N]"
 fi
 read proceed
-#------------------------------------------------------------------------------------------#
 
-#----- Quit in case the user is not sure about. -------------------------------------------#
 if [ "x${proceed}" != "xy" ] && [ "x${proceed}" != "xY" ]
 then
    exit
 fi
-#------------------------------------------------------------------------------------------#
 
 echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
 echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
@@ -83,7 +80,7 @@ then
    exit
 fi
 
-echo "Alright then, but in case you regret later don't say that I didn't warn you..."
+echo "Okay then, but if you regret later don't say that I did not warn you..."
 echo "I'm giving you a few seconds to kill this script in case you change your mind..."
 delfun=11
 while [ ${delfun} -gt 1 ]
@@ -235,11 +232,24 @@ do
    #---------------------------------------------------------------------------------------#
 
 
+   #------ Define job name. ---------------------------------------------------------------#
+   jobname="${desc}-${polyname}"
+   #---------------------------------------------------------------------------------------#
+
 
    #------- Delete jobs. ------------------------------------------------------------------#
-   jobname="${desc}-${polyname}"
-   jobid=$(qjobs -j ${jobname} -n | awk '{print $1}')
-   qdel ${jobid}
+   case "${platform}" in
+   SLURM)
+      scancel -n ${jobname}
+      ;;
+   PBS)
+      jobid=$(qjobs -j ${jobname} -n | awk '{print $1}')
+      if [[ "${jobid}" != "" ]]
+      then
+         qdel ${jobid}
+      fi
+      ;;
+   esac
    #---------------------------------------------------------------------------------------#
 done
 #------------------------------------------------------------------------------------------#
@@ -396,8 +406,8 @@ do
 
    if [ "x${1}" == "x-d" ]
    then
-      rm -frv "${here}/${polyname}"
-      rm -frv "${there}/${polyname}"
+      find "${here}/${polyname}" -print -delete
+      find "${there}/${polyname}" -print -delete
    else
       /bin/cp "${here}/Template/purge.sh" "${here}/${polyname}/purge.sh"
       /bin/cp "${here}/Template/purge.sh" "${there}/${polyname}/purge.sh"

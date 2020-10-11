@@ -435,7 +435,7 @@ plot_fast.r)
    #     If the script is here, then it could not find the script... And this should never #
    # happen, so interrupt the script!                                                      #
    #---------------------------------------------------------------------------------------#
-   echo " Script ${script} is not recognised by epost.sh!"
+   echo " Script ${rscript} is not recognised by epost.sh!"
    exit 1
    #---------------------------------------------------------------------------------------#
    ;;
@@ -554,7 +554,7 @@ echo "Done!"
 rm -f ${sbatch}
 touch ${sbatch}
 chmod u+x ${sbatch}
-echo "#!/bin/bash" >> ${sbatch}
+echo "#!/bin/bash"                                                             >> ${sbatch}
 echo ""                                                                        >> ${sbatch}
 echo "#--- Initial settings."                                                  >> ${sbatch}
 echo "here=\"${here}\"                            # Main path"                 >> ${sbatch}
@@ -1201,7 +1201,7 @@ do
    rm -fr ${epostsh}
    touch ${epostsh}
    chmod u+x ${epostsh}
-   echo "#!/bin/bash" >> ${sbatch}
+   echo "#!/bin/bash"                                                        >> ${epostsh}
    echo "#SBATCH --ntasks=1                      # Number of tasks"          >> ${epostsh}
    echo "#SBATCH --cpus-per-task=1               # Number of CPUs per task"  >> ${epostsh}
    echo "#SBATCH --partition=${global_queue}     # Queue that will run job"  >> ${epostsh}

@@ -817,6 +817,7 @@ for (place in myplaces){
                bottom = rep(0.,times=ntimes)
             }#end if
 
+            thisvar = ifelse(test=is.finite(thisvar),yes=thisvar,no=0.)
             thisvar = cbind(bottom,thisvar[,sequence(npft),drop=FALSE])
             thisvar = t(apply(X=thisvar,MARGIN=1,FUN=cumsum))
          }#end if (stackit)
@@ -1061,6 +1062,7 @@ for (place in myplaces){
                   bottom = rep(0.,times=ntimes)
                }#end if
                thisdbh = thisvar[,,p]
+               thisdbh = ifelse(test=is.finite(thisdbh),yes=thisdbh,no=0.)
                thisdbh = cbind(bottom,thisdbh[,sequence(ndbh),drop=FALSE])
                thisdbh = t(apply(X=thisdbh,MARGIN=1,FUN=cumsum))
             }else{

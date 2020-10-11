@@ -397,6 +397,11 @@ fi
 #------------------------------------------------------------------------------------------#
 
 
+#----- Limit the memory per CPU based on the simulation memory. ---------------------------#
+let cpu_memory=${sim_memory}/${n_cpt}
+#------------------------------------------------------------------------------------------#
+
+
 
 #---- Partial or complete. ----------------------------------------------------------------#
 if ${partial}
@@ -430,7 +435,8 @@ let ntasks=1+${polyz}-${polya}
 echo "------------------------------------------------"
 echo "  Submission summary: "
 echo ""
-echo "  Memory per cpu:      ${sim_memory}"
+echo "  Memory per task:     ${sim_memory}"
+echo "  Memory per cpu:      ${cpu_memory}"
 echo "  CPUs per node:       ${n_cpn}"
 echo "  CPUs per task:       ${n_cpt}"
 echo "  Queue:               ${global_queue}"
@@ -477,7 +483,7 @@ echo "#SBATCH --ntasks=myntasks               # Number of tasks"               >
 echo "#SBATCH --cpus-per-task=${n_cpt}        # Number of CPUs per task"       >> ${sbatch}
 echo "#SBATCH --partition=${global_queue}     # Queue that will run job"       >> ${sbatch}
 echo "#SBATCH --job-name=${jobname}           # Job name"                      >> ${sbatch}
-echo "#SBATCH --mem-per-cpu=${sim_memory}     # Memory per CPU"                >> ${sbatch}
+echo "#SBATCH --mem-per-cpu=${cpu_memory}     # Memory per CPU"                >> ${sbatch}
 echo "#SBATCH --time=${runtime}               # Time for job"                  >> ${sbatch}
 echo "#SBATCH --output=${obatch}              # Standard output path"          >> ${sbatch}
 echo "#SBATCH --error=${ebatch}               # Standard error path"           >> ${sbatch}
