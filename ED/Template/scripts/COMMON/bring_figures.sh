@@ -9,7 +9,7 @@ joborder="${here}/joborder.txt"         # ! File with the job instructions
 #----- Sub-directory to copy. -------------------------------------------------------------#
 subdir="monthly"
 #----- Sub-sub-directory to copy (for all, set all). --------------------------------------#
-subsub="compemean compmmean tspft tsdbh"
+subsub="compemean compmmean tspft tsdbh theme_mmean"
 #------------------------------------------------------------------------------------------#
 
 
@@ -117,7 +117,7 @@ do
          ;;
       tsdbh)
          mkdir -p ${outpoly}/tsdbh
-         rsync -Purtv ${inpoly}/*/*-pft-00-* ${outpoly}/tsdbh
+         rsync -Purtv ${inpoly}/tsdbh/*/*-pft-00-* ${outpoly}/tsdbh
          ;;
       *)
          rsync -Purtv ${inpoly}/${subnow} ${outpoly}
