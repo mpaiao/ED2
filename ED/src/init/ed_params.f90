@@ -3022,13 +3022,13 @@ subroutine init_pft_alloc_params()
    real, dimension(3)    , parameter :: nleaf       = (/ 0.0192512, 0.9749494, 2.5858509 /)
    real, dimension(2)    , parameter :: ncrown_area = (/ 0.1184295, 1.0521197            /)
    !---------------------------------------------------------------------------------------!
-   !   Coefficients for leaf and structural biomass (iallom = 3).  For adult individuals,  !
-   ! we use the pantropical allometric equation from C14 that estimates AGB and the leaf   !
-   ! biomass from an allometric equation derived from F15 data (tropical forest, wild      !
-   ! flowering trees only), and the size- and site-dependent stratified sampling and       !
-   ! aggregation (J17).  Total individual leaf area was fitted, so to get biomass we must  !
-   ! divide by SLA.  The C2B term is added here but is removed when the coefficients are   !
-   ! set.                                                                                  !
+   !   Coefficients for leaf and structural biomass (iallom = 3, described in L20).  For   !
+   ! adult individuals, we use the pantropical allometric equation from C14 that estimates !
+   ! AGB and the leaf biomass from an allometric equation derived from F15 data (tropical  !
+   ! forest, wild flowering trees only), and the size- and site-dependent stratified       !
+   ! sampling and aggregation (J17).  Total individual leaf area was fitted, so to get     !
+   ! biomass we must divide by SLA, and this is done internally in the allometric          !
+   ! functions.                                                                            !
    !                                                                                       !
    !  References:                                                                          !
    !                                                                                       !
@@ -3046,8 +3046,14 @@ subroutine init_pft_alloc_params()
    !      integrating remote sensing imagery into forest monitoring programmes.            !
    !      Glob. Change Biol., 23(1):177-190. doi:10.1111/gcb.13388 (J17).                  !
    !                                                                                       !
+   !   Longo M, Saatchi SS, Keller M, Bowman KW, Ferraz A, Moorcroft PR, Morton D,         !
+   !      Bonal D, Brando P, Burban B et al. 2020. Impacts of degradation on water,        !
+   !      energy, and carbon cycling of the Amazon tropical forests.                       !
+   !      J. Geophys. Res.-Biogeosci., 125: e2020JG005677.                                 !
+   !      doi:10.1029/2020JG005677 (L20).                                                  !
+   !                                                                                       !
    !---------------------------------------------------------------------------------------!
-   real, dimension(2)    , parameter :: c14f15_bl_xx  = (/ 0.46769540,0.6410495 /)
+   real, dimension(2)    , parameter :: c14f15_bl_xx  = (/ 0.23384770,0.6410495 /)
    real, dimension(3)    , parameter :: c14f15_la_wd  = (/-0.5874,0.5679,0.5476 /)
    real, dimension(3)    , parameter :: c14f15_ht_xx  = (/0.5709,-0.1007,0.6734 /)
    real, dimension(2)    , parameter :: c14f15_bs_tf  = (/ 0.06080334,1.0044785 /)
@@ -3965,7 +3971,8 @@ subroutine init_pft_alloc_params()
             !------------------------------------------------------------------------------!
             !    Allometry based on the BAAD data based (F15).  We only used leaves from   !
             ! wild tropical, flowering trees, and applied a stratified sample by DBH class !
-            ! and location and cross-validation, following (J17).                          !
+            ! and location and cross-validation, following (J17).  This is the allometry   !
+            ! used in L20.                                                                 !
             !                                                                              !
             ! References:                                                                  !
             !                                                                              !
@@ -3979,8 +3986,14 @@ subroutine init_pft_alloc_params()
             !    biomass variability across intact and degraded forests in the Brazilian   !
             !    Amazon.  Global Biogeochem. Cycles, 30(11):1639-1660.                     !
             !    doi:10.1002/2016GB005465 (L16).                                           !
+            !                                                                              !
+            ! Longo M, Saatchi SS, Keller M, Bowman KW, Ferraz A, Moorcroft PR, Morton D,  !
+            !    Bonal D, Brando P, Burban B et al. 2020. Impacts of degradation on water, !
+            !    energy, and carbon cycling of the Amazon tropical forests.                !
+            !    J. Geophys. Res.-Biogeosci., 125: e2020JG005677.                          !
+            !    doi:10.1029/2020JG005677 (L20).
             !------------------------------------------------------------------------------!
-            b1Bl(ipft) = c14f15_bl_xx(1) / SLA(ipft) ! XX --> MLO: should ther be a C2B here given c14f15_bl_xx is in m2 (?) and SLA is m2/kgC
+            b1Bl(ipft) = c14f15_bl_xx(1) ! C2B / SLA(ipft) !! Using IALLOM=4 approach
             b2Bl(ipft) = c14f15_bl_xx(2)
             !------------------------------------------------------------------------------!
         case (4)
@@ -8236,8 +8249,9 @@ subroutine init_derived_params_after_xml()
                                    , srf_decay_elow            & ! intent(inout)
                                    , srf_decay_ehigh           & ! intent(inout)
                                    , srf_hor                   & ! intent(inout)
-                                   , srf_q10                   & ! intent(inout) 
+                                   , srf_q10                   & ! intent(inout)
                                    , bleaf_crit                & ! intent(inout)
+                                   , ddh_allom                 & ! intent(out)
                                    , d1DBH_small               & ! intent(out)
                                    , d2DBH_small               & ! intent(out)
                                    , d1DBH_large               & ! intent(out)
@@ -8643,6 +8657,10 @@ subroutine init_derived_params_after_xml()
       !------------------------------------------------------------------------------------!
 
 
+      !----- Set allometric formula. ------------------------------------------------------!
+      ddh_allom(ipft) =       (iallom == 3 .or. iallom == 4) .and. is_tropical(ipft)       &
+                        .and. (.not. is_liana(ipft))
+      !------------------------------------------------------------------------------------!
 
 
       !------------------------------------------------------------------------------------!
@@ -8650,8 +8668,7 @@ subroutine init_derived_params_after_xml()
       ! the size2bd and size2bl functions, and to be consistent, they cannot be            !
       ! initialised through XML.                                                           !
       !------------------------------------------------------------------------------------!
-      if ((iallom == 3 .or. iallom == 4)                             &
-          .and. is_tropical(ipft) .and. (.not. is_liana(ipft)) ) then
+      if (ddh_allom(ipft)) then
          !---------------------------------------------------------------------------------!
          !    Incorporate both heartwood and height allometric equations to derive DBH.    !
          !---------------------------------------------------------------------------------!
@@ -8666,9 +8683,11 @@ subroutine init_derived_params_after_xml()
          !---------------------------------------------------------------------------------!
 
 
-         !------ Inverse of the leaf biomass function. ------------------------------------!
+         !------ Inverse of the leaf area function. ---------------------------------------!
          l2DBH(ipft) = 1.  / ( ( 2. + b2Ht(ipft) ) * b2Bl(ipft) )
-         l1DBH(ipft) = ( C2B / (b1Bl(ipft) * exp(b1Ht(ipft) * b2Bl(ipft)) ) ) ** l2DBH(ipft)
+         l1DBH(ipft) = ( 1. / (b1Bl(ipft) * exp(b1Ht(ipft) * b2Bl(ipft)) ) ) ** l2DBH(ipft)
+         ! l1DBH(ipft) =  ( C2B / (b1Bl(ipft) * exp(b1Ht(ipft) * b2Bl(ipft)) ) )           &
+         !             ** l2DBH(ipft)
          !---------------------------------------------------------------------------------!
       else
          !---------------------------------------------------------------------------------!
@@ -9653,41 +9672,43 @@ subroutine init_derived_params_after_xml()
    !----- Print allometric coefficients. --------------------------------------------------!
    if (print_zero_table) then
       open (unit=18,file=trim(allom_file),status='replace',action='write')
-      write(unit=18,fmt='(54(1x,a))') '          PFT','     TROPICAL','        GRASS'      &
+      write(unit=18,fmt='(55(1x,a))') '          PFT','     TROPICAL','        GRASS'      &
                                      ,'      CONIFER','     SAVANNAH','        LIANA'      &
-                                     ,'          RHO','         B1HT','         B2HT'      &
-                                     ,'      HGT_REF','         B1BL','         B2BL'      &
-                                     ,'   B1BS_SMALL','   B2BS_SMALL','   B1BS_LARGE'      &
-                                     ,'   B2BS_LARGE','  D1DBH_SMALL','  D2DBH_SMALL'      &
-                                     ,'  D1DBH_LARGE','  D2DBH_LARGE','        L1DBH'      &
-                                     ,'        L2DBH','         B1CA','         B2CA'      &
-                                     ,'        B1WAI','        B2WAI','         B1SA'      &
-                                     ,'         B2SA','         B1RD','         B2RD'      &
-                                     ,'         B1XS','         B1XB','      HGT_MIN'      &
-                                     ,'      HGT_MAX','      MIN_DBH','     DBH_CRIT'      &
-                                     ,'  DBH_BIGLEAF','   BDEAD_CRIT','   BLEAF_CRIT'      &
-                                     ,'  BALIVE_CRIT','  BEVERY_CRIT','    INIT_DENS'      &
-                                     ,'          SLA',' F_BSTOR_INIT','            Q'      &
-                                     ,'          QSW','        QBARK','        QRHOB'      &
-                                     ,'     d18O_REF','      B1_D18O','      B2_D18O'      &
-                                     ,'      B1_EFRD','      B2_EFRD','  INIT_LAIMAX'
+                                     ,'    DDH_ALLOM','          RHO','         B1HT'      &
+                                     ,'         B2HT','      HGT_REF','         B1BL'      &
+                                     ,'         B2BL','   B1BS_SMALL','   B2BS_SMALL'      &
+                                     ,'   B1BS_LARGE','   B2BS_LARGE','  D1DBH_SMALL'      &
+                                     ,'  D2DBH_SMALL','  D1DBH_LARGE','  D2DBH_LARGE'      &
+                                     ,'        L1DBH','        L2DBH','         B1CA'      &
+                                     ,'         B2CA','        B1WAI','        B2WAI'      &
+                                     ,'         B1SA','         B2SA','         B1RD'      &
+                                     ,'         B2RD','         B1XS','         B1XB'      &
+                                     ,'      HGT_MIN','      HGT_MAX','      MIN_DBH'      &
+                                     ,'     DBH_CRIT','  DBH_BIGLEAF','   BDEAD_CRIT'      &
+                                     ,'   BLEAF_CRIT','  BALIVE_CRIT','  BEVERY_CRIT'      &
+                                     ,'    INIT_DENS','          SLA',' F_BSTOR_INIT'      &
+                                     ,'            Q','          QSW','        QBARK'      &
+                                     ,'        QRHOB','     d18O_REF','      B1_D18O'      &
+                                     ,'      B2_D18O','      B1_EFRD','      B2_EFRD'      &
+                                     ,'  INIT_LAIMAX'
                                      
 
       do ipft=1,n_pft
-         write (unit=18,fmt='(9x,i5,5(13x,l1),47(1x,f13.6),1(1x,es13.6))')                 &
+         write (unit=18,fmt='(9x,i5,6(13x,l1),47(1x,f13.6),1(1x,es13.6))')                 &
                         ipft,is_tropical(ipft),is_grass(ipft),is_conifer(ipft)             &
-                       ,is_savannah(ipft),is_liana(ipft),rho(ipft),b1Ht(ipft),b2Ht(ipft)   &
-                       ,hgt_ref(ipft),b1Bl(ipft),b2Bl(ipft),b1Bs_small(ipft)               &
-                       ,b2Bs_small(ipft),b1Bs_large(ipft),b2Bs_large(ipft)                 &
-                       ,d1DBH_small(ipft),d2DBH_small(ipft),d1DBH_large(ipft)              &
-                       ,d2DBH_large(ipft),l1DBH(ipft),l2DBH(ipft),b1Ca(ipft),b2Ca(ipft)    &
-                       ,b1WAI(ipft),b2WAI(ipft),b1SA(ipft),b2SA(ipft),b1Rd(ipft)           &
-                       ,b2Rd(ipft),b1Xs(ipft),b1Xb(ipft),hgt_min(ipft),hgt_max(ipft)       &
-                       ,min_dbh(ipft),dbh_crit(ipft),dbh_bigleaf(ipft),bdead_crit(ipft)    &
-                       ,bleaf_crit(ipft),balive_crit(ipft),bevery_crit(ipft)               &
-                       ,init_density(ipft),sla(ipft),f_bstorage_init(ipft),q(ipft)         &
-                       ,qsw(ipft),qbark(ipft),qrhob(ipft),d18O_ref(ipft),b1d18O(ipft)      &
-                       ,b2d18O(ipft),b1Efrd(ipft),b2Efrd(ipft),init_laimax(ipft)
+                       ,is_savannah(ipft),is_liana(ipft),ddh_allom(ipft),rho(ipft)         &
+                       ,b1Ht(ipft),b2Ht(ipft),hgt_ref(ipft),b1Bl(ipft),b2Bl(ipft)          &
+                       ,b1Bs_small(ipft),b2Bs_small(ipft),b1Bs_large(ipft)                 &
+                       ,b2Bs_large(ipft),d1DBH_small(ipft),d2DBH_small(ipft)               &
+                       ,d1DBH_large(ipft),d2DBH_large(ipft),l1DBH(ipft),l2DBH(ipft)        &
+                       ,b1Ca(ipft),b2Ca(ipft),b1WAI(ipft),b2WAI(ipft),b1SA(ipft)           &
+                       ,b2SA(ipft),b1Rd(ipft),b2Rd(ipft),b1Xs(ipft),b1Xb(ipft)             &
+                       ,hgt_min(ipft),hgt_max(ipft),min_dbh(ipft),dbh_crit(ipft)           &
+                       ,dbh_bigleaf(ipft),bdead_crit(ipft),bleaf_crit(ipft)                &
+                       ,balive_crit(ipft),bevery_crit(ipft),init_density(ipft),sla(ipft)   &
+                       ,f_bstorage_init(ipft),q(ipft),qsw(ipft),qbark(ipft),qrhob(ipft)    &
+                       ,d18O_ref(ipft),b1d18O(ipft),b2d18O(ipft),b1Efrd(ipft),b2Efrd(ipft) &
+                       ,init_laimax(ipft)
       end do
       close(unit=18,status='keep')
    end if

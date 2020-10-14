@@ -142,6 +142,7 @@ soil.params <<- function(ntext,isoilflg,slxsand,slxclay,slsoc,slph,slcec,sldbd
    slpotst.MPa = 5.e-4 # "saturated" soil approximation for van Genuchten         [    MPa]
    slpotth.MPa = 0.01  # soil-water potential: field capacity (Tomasella-Hodnett) [    MPa]
    slpotsr.MPa = 0.033 # soil-water potential: field capacity (Saxton-Rawls)      [    MPa]
+   slpotdg.MPa = 5.0   # soil-water potential: air dry soil (van Genuchten)       [    MPa]
    slpotcp.MPa = 3.1   # soil-water potential: air dry soil                       [    MPa]
    slpotwp.MPa = 1.5   # soil-water potential: wilting point                      [    MPa]
    slpotld.MPa = 0.75  # soil-water potential that plants start dropping leaves   [    MPa]
@@ -544,7 +545,11 @@ soil.params <<- function(ntext,isoilflg,slxsand,slxclay,slsoc,slph,slcec,sldbd
    #---------------------------------------------------------------------------------------#
    if (mysoil$ntext != 13){
       mysoil$fhydraul  = 2.0
-      mysoil$slpotcp   = - slpotcp.MPa * 1.e6 / ( wdns * grav )
+      if (mysoil$method %in% "vG80"){
+         mysoil$slpotcp   = - slpotdg.MPa * 1.e6 / ( wdns * grav )
+      }else{
+         mysoil$slpotcp   = - slpotcp.MPa * 1.e6 / ( wdns * grav )
+      }#end if (mysoil$method %in% "vG80")
       mysoil$slpotld   = - slpotld.MPa * 1.e6 / ( wdns * grav )
       mysoil$slpotfr   = - slpotfr.MPa * 1.e6 / ( wdns * grav )
       mysoil$soilcp    = mpot2smoist(mysoil$slpotcp, mysoil)

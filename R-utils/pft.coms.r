@@ -366,7 +366,7 @@ hgt.max.trop = c(     35.,     35.,     35.,     46.,     46.)[iallom+1]
 #      Glob. Change Biol., 23(1):177-190. doi:10.1111/gcb.13388 (J17).                     #
 #                                                                                          #
 #------------------------------------------------------------------------------------------#
-c14f15.bl.xx  = c(0.46769540,0.6410495) # c(0.09747026,0.7587000)
+c14f15.bl.xx  = c(0.23384770,0.6410495) # c(0.09747026,0.7587000)
 c14f15.bs.tf  = c(0.06080334,1.0044785) # c(0.08204475,0.9814422)
 c14f15.bs.sv  = c(0.05602791,1.0093501) # c(0.08013971,0.9818603)
 c14f15.bs.gr  = c(1.e-5,1.0) * c14f15.bl.xx
@@ -1089,6 +1089,12 @@ for (p in sequence(npft+1)){
   }# end if
 } #end for
 pft = as.data.frame(pft,stringsAsFactors=FALSE)
+#------------------------------------------------------------------------------------------#
+
+
+
+#----- Create flag to identify PFTs that should use the D^2*H allometry. ------------------#
+pft$ddh.allom = (iallom %in% c(3,4)) & pft$tropical & (! pft$liana)
 #------------------------------------------------------------------------------------------#
 
 
@@ -1946,7 +1952,7 @@ for (ipft in sequence(npft+1)){
       }else if(iallom %in% c(3)){
          #---------------------------------------------------------------------------------#
          #    Leaf allometry, use the individual leaf area allometry derived from the BAAD #
-         # data base (F15), scaled by the specific leaf area.                              #
+         # data base (F15), scaled by the specific leaf area, and described in L20.        #
          #                                                                                 #
          # Reference:                                                                      #
          #                                                                                 #
@@ -1955,8 +1961,15 @@ for (ipft in sequence(npft+1)){
          #      database for woody plants. Ecology, 96 (5):1445-1445.                      #
          #      doi:10.1890/14-1889.1 (F15).                                               #
          #                                                                                 #
+         # Longo M, Saatchi SS, Keller M, Bowman KW, Ferraz A, Moorcroft PR, Morton D,     #
+         #    Bonal D, Brando P, Burban B et al. 2020. Impacts of degradation on water,    #
+         #    energy, and carbon cycling of the Amazon tropical forests.                   #
+         #    J. Geophys. Res.-Biogeosci., 125: e2020JG005677.                             #
+         #    doi:10.1029/2020JG005677 (L20).                                              #
+         #                                                                                 #
          #---------------------------------------------------------------------------------#
-         pft$b1Bl[ipft] = c14f15.bl.xx[1] / pft$SLA[ipft] 
+         # pft$b1Bl[ipft] = C2B * c14f15.bl.xx[1] / pft$SLA[ipft] 
+         pft$b1Bl[ipft] = c14f15.bl.xx[1]
          pft$b2Bl[ipft] = c14f15.bl.xx[2]
          #---------------------------------------------------------------------------------#
       }else{
@@ -2125,34 +2138,34 @@ if (iallom %in% c(0)){
 #     BDead -> DBH parameters.  These are calculated a posteriori because they are just    #
 # the inverse of size->BDead allometry.                                                    #
 #------------------------------------------------------------------------------------------#
-pft$d2DBH.small = ifelse( test = pft$tropical & (! pft$liana) & (iallom %in% c(3,4))
+pft$d2DBH.small = ifelse( test = pft$ddh.allom
                         , yes  = 1.  / ( ( 2. + pft$b2Ht ) * pft$b2Bs.small )
                         , no   = 1.  / pft$b2Bs.small
                         )#end ifelse
-pft$d1DBH.small = ifelse( test = pft$tropical & (! pft$liana) & (iallom %in% c(3,4))
+pft$d1DBH.small = ifelse( test = pft$ddh.allom
                         , yes  = ( C2B / ( pft$b1Bs.small * exp(pft$b1Ht*pft$b2Bs.small) ) )
                                ^ pft$d2DBH.small
                         , no   = ( C2B / pft$b1Bs.small ) ^ pft$d2DBH.small
                         )#end ifelse
-pft$d2DBH.large = ifelse( test = pft$tropical & (! pft$liana) & (iallom %in% c(3,4))
+pft$d2DBH.large = ifelse( test = pft$ddh.allom
                         , yes  = 1.  / ( ( 2. + pft$b2Ht ) * pft$b2Bs.large )
                         , no   = 1.  / pft$b2Bs.large
                         )#end ifelse
-pft$d1DBH.large = ifelse( test = pft$tropical & (! pft$liana) & (iallom %in% c(3,4))
+pft$d1DBH.large = ifelse( test = pft$ddh.allom
                         , yes  = ( C2B / ( pft$b1Bs.large * exp(pft$b1Ht*pft$b2Bs.large) ) )
                                ^ pft$d2DBH.large
                         , no   = ( C2B / pft$b1Bs.large ) ^ pft$d2DBH.large
                         )#end ifelse
-pft$l2DBH       = ifelse( test = pft$tropical & (! pft$liana) & (iallom %in% c(3,4))
+pft$l2DBH       = ifelse( test = pft$ddh.allom
                         , yes  = 1.  / ( ( 2. + pft$b2Ht ) * pft$b2Bl )
                         , no   = 1.  / pft$b2Bl
                         )#end ifelse
-pft$l1DBH       = ifelse( test = pft$tropical & (! pft$liana) & (iallom %in% c(3,4))
-                        , yes  = ( C2B / ( pft$b1Bl * exp(pft$b1Ht*pft$b2Bl) ) )
+pft$l1DBH       = ifelse( test = pft$ddh.allom
+                        , yes  = ( 1. / ( pft$b1Bl * exp(pft$b1Ht*pft$b2Bl) ) )
                                ^ pft$l2DBH
                         , no   = ( C2B / pft$b1Bl ) ^ pft$l2DBH
                         )#end ifelse
-pft$bdead.crit  = ifelse( test = pft$tropical & (! pft$liana) & (iallom %in% c(3,4))
+pft$bdead.crit  = ifelse( test = pft$ddh.allom
                         , yes  = pft$b1Bs.small / C2B
                                * ( pft$dbh.crit * pft$dbh.crit * pft$hgt.max)
                                ^ pft$b2Bs.small
@@ -2214,8 +2227,7 @@ pft$b2Efrd   = rep(x=0.1822,times=npft+1)
 #------------------------------------------------------------------------------------------#
 pft$b1WAI = ifelse( test = pft$grass
                   , yes  = 0.0
-                  , no   = ifelse( test = pft$tropical & (! pft$liana)
-                                                       & (iallom %in% c(3,4))
+                  , no   = ifelse( test = pft$ddh.allom
                                  , yes  = ifelse( test = pft$conifer
                                                 , yes  = 0.01148449
                                                 , no   = 0.00378399
@@ -2228,8 +2240,7 @@ pft$b1WAI = ifelse( test = pft$grass
                   )#end ifelse
 pft$b2WAI = ifelse( test = pft$grass
                   , yes  = 0.0
-                  , no   = ifelse( test = pft$tropical & (! pft$liana)
-                                                       & (iallom %in% c(3,4))
+                  , no   = ifelse( test = pft$ddh.allom
                                  , yes  = ifelse( test = pft$conifer
                                                 , yes  = 0.77075160
                                                 , no   = 0.81667933

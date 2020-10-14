@@ -461,7 +461,9 @@ for (if90 in sequence(nall.f90)){
       dummy = if (file.exists(flib.so)){file.remove(flib.so)}else{character(0)}
       dummy = if (file.exists(flib.sl)){file.remove(flib.sl)}else{character(0)}
       dummy = if (file.exists(flib.o )){file.remove(flib.o )}else{character(0)}
-      dummy = rcmd(cmd="SHLIB",cmdargs=fnow,libpath=srcdir)
+      dummy = rcmd(cmd="SHLIB",cmdargs=fnow  )
+      dummy = rcmd(cmd="SHLIB",cmdargs=flib.o)
+      #------------------------------------------------------------------------------------#
    }#end if ("try-error" %in% is(dummy))
    #---------------------------------------------------------------------------------------#
 }#end for (if90 in sequence(nall.f90))

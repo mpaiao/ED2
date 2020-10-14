@@ -102,7 +102,7 @@ size2bl <<- function(dbh,hgt,sla,ipft,use.crit=TRUE){
 
 
    #----- Decide which variable to use as dependent variable (DBH or DBH^2*Hgt). ----------#
-   size     = ifelse( test = pft$tropical[zpft] & (! pft$liana[zpft]) & (iallom %in% c(3,4))
+   size     = ifelse( test = pft$ddh.allom[zpft]
                     , yes  = dbhuse * dbhuse * hgt
                     , no   = dbhuse
                     )#end ifelse
@@ -113,7 +113,7 @@ size2bl <<- function(dbh,hgt,sla,ipft,use.crit=TRUE){
    #      For iallom == 4 (tropical trees), b1Bl and b2Bl represents leaf area based       #
    # allometry, we need to convert it to biomass using cohort-level SLA.                   #
    #---------------------------------------------------------------------------------------#
-   bleaf = ifelse( test = pft$tropical[zpft] & (! pft$liana[zpft]) & (iallom %in% c(4))
+   bleaf = ifelse( test = pft$ddh.allom[zpft]
                  , yes  = pft$b1Bl[zpft] / sla * size ^ pft$b2Bl[zpft]
                  , no   = pft$b1Bl[zpft] / C2B * size ^ pft$b2Bl[zpft]
                  )#end ifelse
@@ -182,7 +182,7 @@ size2bd <<- function(dbh,hgt,ipft){
 
 
    #----- Decide which variable to use as dependent variable (DBH or DBH^2*Hgt). ----------#
-   size     = ifelse( test = pft$tropical[zpft] & (! pft$liana[zpft]) & (iallom %in% c(3,4))
+   size     = ifelse( test = pft$ddh.allom[zpft]
                     , yes  = dbh * dbh * dbh2h(dbh,ipft=zpft)
                     , no   = dbh
                     )#end ifelse
@@ -321,7 +321,7 @@ size2ca <<- function(dbh,hgt,sla,ipft,use.crit=TRUE){
 
 
    #----- Decide which variable to use as dependent variable (DBH or DBH^2*Hgt). ----------#
-   size     = ifelse( test = pft$tropical[zpft] & (! pft$liana[zpft]) & (iallom %in% c(3,4))
+   size     = ifelse( test = pft$ddh.allom[zpft]
                     , yes  = dbhuse * dbhuse * hgt
                     , no   = dbhuse
                     )#end ifelse
@@ -368,7 +368,7 @@ size2wai <<- function(dbh,hgt,ipft,use.crit=TRUE){
 
 
    #----- Decide which variable to use as dependent variable (DBH or DBH^2*Hgt). ----------#
-   size     = ifelse( test = pft$tropical[zpft] & (! pft$liana[zpft]) & (iallom %in% c(3,4))
+   size     = ifelse( test = pft$ddh.allom[zpft]
                     , yes  = dbhuse * dbhuse * hgt
                     , no   = dbhuse
                     )#end ifelse

@@ -119,6 +119,23 @@ squeue="squeue --noheader -u ${moi}"
 #------------------------------------------------------------------------------------------#
 
 
+#----- Find out which platform we are using. ----------------------------------------------#
+host=$(hostname -s)
+case ${host} in
+rclogin*|holy*|moorcroft*|rcnx*)
+   cluster="CANNON"
+   ;;
+sdumont*)
+   cluster="SDUMONT"
+   ;;
+*)
+   echo -n "Failed guessing cluster from node name.  Please type the name:   "
+   read cluster
+   ;;
+esac
+#------------------------------------------------------------------------------------------#
+
+
 #----- Set the main path for the site, pseudo past and Sheffield met drivers. -------------#
 if ${copy2scratch}
 then
