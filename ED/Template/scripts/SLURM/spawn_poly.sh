@@ -2496,8 +2496,9 @@ do
 
 
       #----- Append job to submission list. -----------------------------------------------#
-      echo "sbatch ${callserial}" >> ${sbatch}
-      echo "sleep  ${dttask}"     >> ${sbatch}
+      echo "echo \" + Submit job: ${polyname}.\""    >> ${sbatch}
+      echo "sbatch ${callserial}"                    >> ${sbatch}
+      echo "sleep  ${dttask}"                        >> ${sbatch}
       #------------------------------------------------------------------------------------#
       ;;
    *)
