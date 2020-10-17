@@ -898,10 +898,12 @@ simul.description <<- function(ici,testpoi,iata=TRUE,max.char=66){
                                        )#end list
    flagvar[["hydrodyn.set" ]]    = list( descr  = "Model settings"
                                        , numeric = TRUE
-                                       , values = c(0,1,2)
+                                       , values = c(0,1,2,3,4)
                                        , names  = c( "ED-2.2"
                                                    , "Hybrid"
                                                    , "Xu"
+                                                   , "Xu-Allom"
+                                                   , "LightPhen"
                                                    )#end c
                                        )#end list
    flagvar[["ianth.dataset"]]    = list( descr  = "LULCC dataset"

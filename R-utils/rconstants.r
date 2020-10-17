@@ -98,6 +98,7 @@ ss60      <<- 1.8663          # Polar stereo conversion to 60 deg               
 omega     <<- 7.292e-5        # Earth's rotation speed                          [    rad/s]
 viscos    <<- .15e-4          # Viscosity coefficient                           [         ]
 solar     <<- 1.3533e3        # Solar constant                                  [     W/m2]
+tsun      <<- 5780            # Sun temperature                                 [        K]
 p00       <<- 1.e5            # Reference pressure                              [       Pa]
 prefsea   <<- 101325.         # Reference sea level pressure                    [       Pa]
 p00i      <<- 1. / p00        # 1/p00                                           [     1/Pa]
