@@ -1958,6 +1958,7 @@ theme[[n]] = list( vnam      = c(        "gpp", "plant.resp",  "het.resp",      
                  , mmean     = TRUE
                  , qmean     = TRUE
                  , ymean     = TRUE
+                 , stack     = FALSE
                  , emean.lim = c(NA,NA)
                  , mmean.lim = c(NA,NA)
                  , qmean.lim = c(NA,NA)
@@ -1982,6 +1983,7 @@ theme[[n]] = list( vnam      = c(   "rshort",      "rlong","rshort.gnd",    "qwf
                  , mmean     = TRUE
                  , qmean     = TRUE
                  , ymean     = TRUE
+                 , stack     = FALSE
                  , emean.lim = c(NA,NA)
                  , mmean.lim = c(NA,NA)
                  , qmean.lim = c(NA,NA)
@@ -2006,6 +2008,7 @@ theme[[n]] = list( vnam      = c(        "wflxgc",         "wflxca",        "wfl
                  , mmean     = TRUE
                  , qmean     = TRUE
                  , ymean     = TRUE
+                 , stack     = FALSE
                  , emean.lim = c(NA,NA)
                  , mmean.lim = c(0,5.0)
                  , qmean.lim = c(NA,NA)
@@ -2030,6 +2033,7 @@ theme[[n]] = list( vnam      = c(        "hflxgc",         "hflxca",        "hfl
                  , mmean     = TRUE
                  , qmean     = TRUE
                  , ymean     = TRUE
+                 , stack     = FALSE
                  , emean.lim = c(NA,NA)
                  , mmean.lim = c(NA,NA)
                  , qmean.lim = c(NA,NA)
@@ -2054,6 +2058,7 @@ theme[[n]] = list( vnam      = c(     "atm.temp",  "can.temp",  "leaf.temp"
                  , mmean     = TRUE
                  , qmean     = TRUE
                  , ymean     = TRUE
+                 , stack     = FALSE
                  , emean.lim = c(NA,NA)
                  , mmean.lim = c(NA,NA)
                  , qmean.lim = c(NA,NA)
@@ -2074,6 +2079,7 @@ theme[[n]] = list( vnam      = c(    "atm.shv",   "can.shv",      "gnd.shv")
                  , mmean     = TRUE
                  , qmean     = TRUE
                  , ymean     = TRUE
+                 , stack     = FALSE
                  , emean.lim = c(NA,NA)
                  , mmean.lim = c(NA,NA)
                  , qmean.lim = c(NA,NA)
@@ -2094,6 +2100,7 @@ theme[[n]] = list( vnam      = c(    "atm.co2",    "can.co2")
                  , mmean     = TRUE
                  , qmean     = TRUE
                  , ymean     = TRUE
+                 , stack     = FALSE
                  , emean.lim = c(NA,NA)
                  , mmean.lim = c(NA,NA)
                  , qmean.lim = c(NA,NA)
@@ -2114,6 +2121,7 @@ theme[[n]] = list( vnam      = c(         "rain",      "runoff", "intercepted", 
                  , mmean     = TRUE
                  , qmean     = TRUE
                  , ymean     = TRUE
+                 , stack     = FALSE
                  , emean.lim = c(NA,NA)
                  , mmean.lim = c(NA,NA)
                  , qmean.lim = c(NA,NA)
@@ -2134,6 +2142,7 @@ theme[[n]] = list( vnam      = c("npat.global")
                  , mmean     = TRUE
                  , qmean     = FALSE
                  , ymean     = TRUE
+                 , stack     = TRUE
                  , emean.lim = c(NA,NA)
                  , mmean.lim = c(NA,NA)
                  , qmean.lim = c(NA,NA)
@@ -2154,6 +2163,7 @@ theme[[n]] = list( vnam      = c( "ncoh.global")
                  , mmean     = TRUE
                  , qmean     = FALSE
                  , ymean     = TRUE
+                 , stack     = TRUE
                  , emean.lim = c(NA,NA)
                  , mmean.lim = c(NA,NA)
                  , qmean.lim = c(NA,NA)
@@ -2174,6 +2184,7 @@ theme[[n]] = list( vnam      = c(         "workload",                "specwork")
                  , mmean     = TRUE
                  , qmean     = FALSE
                  , ymean     = TRUE
+                 , stack     = FALSE
                  , emean.lim = c(NA,NA)
                  , mmean.lim = c(NA,NA)
                  , qmean.lim = c(NA,NA)
@@ -2194,20 +2205,17 @@ theme[[n]] = list( vnam      = c(                "rk4step")
                  , mmean     = TRUE
                  , qmean     = TRUE
                  , ymean     = TRUE
+                 , stack     = FALSE
                  , emean.lim = c(NA,NA)
                  , mmean.lim = c(NA,NA)
                  , qmean.lim = c(NA,NA)
                  , ymean.lim = c(NA,NA)
                  )#end list
 n          = n + 1
-theme[[n]] = list( vnam      = c(    "plant.resp",     "leaf.resp",     "stem.resp"
-                                ,     "root.resp")
-                 , desc      = c(   "Autotrophic",          "Leaf",          "Stem"
-                                ,          "Root")
-                 , colour    = c(       "#143305",       "#A3CC52",       "#E65C17"
-                                ,       "#990F0F")
-                 , lwd       = c(             2.5,             2.5,             2.5
-                                ,             2.5)
+theme[[n]] = list( vnam      = c(     "root.resp",     "stem.resp",     "leaf.resp")
+                 , desc      = c(          "Root",          "Stem",          "Leaf")
+                 , colour    = c(       "#DDCC77",       "#E69F00",       "#009E73")
+                 , lwd       = c(             2.5,             2.5,             2.5)
                  , type      = "o"
                  , plog      = FALSE
                  , prefix    = "pltissueresp"
@@ -2218,20 +2226,17 @@ theme[[n]] = list( vnam      = c(    "plant.resp",     "leaf.resp",     "stem.re
                  , mmean     = TRUE
                  , qmean     = FALSE
                  , ymean     = TRUE
+                 , stack     = TRUE
                  , emean.lim = c(NA,NA)
-                 , mmean.lim = c(0.,4.5)
+                 , mmean.lim = c(NA,NA)
                  , qmean.lim = c(NA,NA)
-                 , ymean.lim = c(0.,4.5)
+                 , ymean.lim = c(NA,NA)
                  )#end list
 n          = n + 1
-theme[[n]] = list( vnam      = c(    "plant.resp",  "aerobic.resp",   "growth.resp"
-                                ,  "storage.resp")
-                 , desc      = c(   "Autotrophic",       "Aerobic",        "Growth"
-                                ,       "Storage")
-                 , colour    = c(       "#143305",       "#2996CC",       "#3B24B3"
-                                ,       "#B49ED2")
-                 , lwd       = c(             2.5,             2.5,             2.5
-                                ,             2.5)
+theme[[n]] = list( vnam      = c(  "aerobic.resp",   "growth.resp",  "storage.resp")
+                 , desc      = c(       "Aerobic",        "Growth",       "Storage")
+                 , colour    = c(       "#0072B2",       "#E69F00",       "#785EF0")
+                 , lwd       = c(             2.5,             2.5,             2.5)
                  , type      = "o"
                  , plog      = FALSE
                  , prefix    = "plprocresp"
@@ -2242,24 +2247,25 @@ theme[[n]] = list( vnam      = c(    "plant.resp",  "aerobic.resp",   "growth.re
                  , mmean     = TRUE
                  , qmean     = FALSE
                  , ymean     = TRUE
+                 , stack     = TRUE
                  , emean.lim = c(NA,NA)
                  , mmean.lim = c(0.,4.5)
                  , qmean.lim = c(NA,NA)
                  , ymean.lim = c(0.,4.5)
                  )#end list
 n          = n + 1
-theme[[n]] = list( vnam      = c(       "het.resp",       "fgc.resp",       "fsc.resp"
-                                ,      "stgc.resp",      "stsc.resp",       "msc.resp"
-                                ,       "ssc.resp",       "psc.resp")
-                 , desc      = c(  "Heterotrophic",      "AG Litter",      "BG Litter"
-                                ,"AG Woody Debris","BG Woody Debris",      "Microbial"
-                                ,  "Humified soil",   "Passive soil")
-                 , colour    = c(        "#143305",        "#A3CC52",        "#E65C17"
-                                ,        "#990F0F",        "#3B24B3",        "#2996CC"
-                                ,        "#B49ED2",        "#F1BD3B")
+theme[[n]] = list( vnam      = c(       "psc.resp",       "ssc.resp",      "stsc.resp"
+                                ,       "msc.resp",       "fsc.resp",      "stgc.resp"
+                                ,       "fgc.resp")
+                 , desc      = c(   "Passive soil",  "Humified soil","BG Woody Debris"
+                                ,      "Microbial",      "BG Litter","AG Woody Debris"
+                                ,      "AG Litter")
+                 , colour    = c(        "#811F9E",        "#1BA2F7",        "#880D32"
+                                ,        "#CCCA3D",        "#107C92",        "#F87856"
+                                ,        "#2BD2DB",        "#383838")
                  , lwd       = c(              2.5,              2.5,              2.5
                                 ,              2.5,              2.5,              2.5
-                                ,              2.5,              2.5)
+                                ,              2.5)
                  , type      = "o"
                  , plog      = FALSE
                  , prefix    = "hetresp"
@@ -2270,18 +2276,19 @@ theme[[n]] = list( vnam      = c(       "het.resp",       "fgc.resp",       "fsc
                  , mmean     = TRUE
                  , qmean     = FALSE
                  , ymean     = TRUE
+                 , stack     = TRUE
                  , emean.lim = c(NA,NA)
-                 , mmean.lim = c(0.,4.5)
+                 , mmean.lim = c(NA,NA)
                  , qmean.lim = c(NA,NA)
-                 , ymean.lim = c(0.,4.5)
+                 , ymean.lim = c(NA,NA)
                  )#end list
 n          = n + 1
-theme[[n]] = list( vnam      = c(         "fgc.in",         "fsc.in"
-                                ,        "stgc.in",        "stsc.in")
-                 , desc      = c(      "AG Litter",      "BG Litter"
-                                ,"AG Woody Debris","BG Woody Debris")
-                 , colour    = c(        "#A3CC52",        "#E65C17"
-                                ,        "#990F0F",        "#3B24B3")
+theme[[n]] = list( vnam      = c(        "stsc.in",         "fsc.in"
+                                ,        "stgc.in",         "fgc.in")
+                 , desc      = c("BG Woody Debris",      "BG Litter"
+                                ,"AG Woody Debris",      "AG Litter")
+                 , colour    = c(        "#880D32",        "#107C92"
+                                ,        "#F87856",        "#2BD2DB")
                  , lwd       = c(              2.5,              2.5
                                 ,              2.5,              2.5)
                  , type      = "o"
@@ -2294,6 +2301,7 @@ theme[[n]] = list( vnam      = c(         "fgc.in",         "fsc.in"
                  , mmean     = TRUE
                  , qmean     = FALSE
                  , ymean     = TRUE
+                 , stack     = TRUE
                  , emean.lim = c(NA,NA)
                  , mmean.lim = c(NA,NA)
                  , qmean.lim = c(NA,NA)
@@ -2314,28 +2322,25 @@ theme[[n]] = list( vnam      = c(  "atm.vels",            "ustar")
                  , mmean     = TRUE
                  , qmean     = TRUE
                  , ymean     = TRUE
+                 , stack     = FALSE
                  , emean.lim = c(NA,NA)
                  , mmean.lim = c(NA,NA)
                  , qmean.lim = c(NA,NA)
                  , ymean.lim = c(NA,NA)
                  )#end list
 n          = n + 1
-theme[[n]] = list( vnam      = c(    "fast.grnd.c",    "fast.soil.c"
-                                ,  "struct.grnd.c",  "struct.soil.c"
-                                , "microbe.soil.c",    "slow.soil.c"
-                                , "passive.soil.c")
-                 , desc      = c(      "AG Litter",      "BG Litter"
-                                ,"AG Woody Debris","BG Woody Debris"
-                                ,     "Microbial",        "Humified"
-                                ,       "Passive")
-                 , colour    = c(       "#A3CC52",         "#1E4C08"
-                                ,       "#E65C17",         "#990F0F"
-                                ,       "#2996CC",         "#3B24B3"
-                                ,       "#F1BD3B")
-                 , lwd       = c(             2.5,               2.5
-                                ,             2.5,               2.5
-                                ,             2.5,               2.5
-                                ,             2.5)
+theme[[n]] = list( vnam      = c( "passive.soil.c",    "slow.soil.c", "microbe.soil.c"
+                                ,  "struct.soil.c",    "fast.soil.c",  "struct.grnd.c"
+                                ,    "fast.grnd.c")
+                 , desc      = c(        "Passive",       "Humified",      "Microbial"
+                                ,"BG Woody Debris",      "BG Litter","AG Woody Debris"
+                                ,      "AG Litter")
+                 , colour    = c(        "#811F9E",        "#1BA2F7",        "#880D32"
+                                ,        "#CCCA3D",        "#107C92",        "#F87856"
+                                ,        "#2BD2DB",        "#383838")
+                 , lwd       = c(              2.5,              2.5,              2.5
+                                ,              2.5,              2.5,              2.5
+                                ,              2.5)
                  , type      = "o"
                  , plog      = FALSE
                  , prefix    = "soil_carbon"
@@ -2346,6 +2351,7 @@ theme[[n]] = list( vnam      = c(    "fast.grnd.c",    "fast.soil.c"
                  , mmean     = TRUE
                  , qmean     = FALSE
                  , ymean     = TRUE
+                 , stack     = TRUE
                  , emean.lim = c(NA,NA)
                  , mmean.lim = c(NA,NA)
                  , qmean.lim = c(NA,NA)
@@ -2370,6 +2376,7 @@ theme[[n]] = list( vnam      = c(       "crop.yield",     "crop.harvest"
                  , mmean     = TRUE
                  , qmean     = FALSE
                  , ymean     = TRUE
+                 , stack     = TRUE
                  , emean.lim = c(NA,NA)
                  , mmean.lim = c(NA,NA)
                  , qmean.lim = c(NA,NA)
@@ -2390,6 +2397,7 @@ theme[[n]] = list( vnam      = c(    "atm.vpd",    "can.vpd",   "leaf.vpd")
                  , mmean     = TRUE
                  , qmean     = TRUE
                  , ymean     = TRUE
+                 , stack     = FALSE
                  , emean.lim = c(NA,NA)
                  , mmean.lim = c(NA,NA)
                  , qmean.lim = c(NA,NA)
@@ -2410,6 +2418,7 @@ theme[[n]] = list( vnam      = c(         "paw")
                  , mmean     = TRUE
                  , qmean     = FALSE
                  , ymean     = TRUE
+                 , stack     = TRUE
                  , emean.lim = c(NA,NA)
                  , mmean.lim = c(NA,NA)
                  , qmean.lim = c(NA,NA)
@@ -2430,6 +2439,7 @@ theme[[n]] = list( vnam      = c(         "smpot")
                  , mmean     = TRUE
                  , qmean     = FALSE
                  , ymean     = TRUE
+                 , stack     = FALSE
                  , emean.lim = c(NA,NA)
                  , mmean.lim = c(NA,NA)
                  , qmean.lim = c(NA,NA)
@@ -2450,6 +2460,7 @@ theme[[n]] = list( vnam      = c("water.deficit",      "malhi.deficit")
                  , mmean     = TRUE
                  , qmean     = FALSE
                  , ymean     = TRUE
+                 , stack     = FALSE
                  , emean.lim = c(NA,NA)
                  , mmean.lim = c(NA,NA)
                  , qmean.lim = c(NA,NA)
@@ -2470,6 +2481,7 @@ theme[[n]] = list( vnam      = c(        "nee",   "cflxca",     "cflxst")
                  , mmean     = TRUE
                  , qmean     = TRUE
                  , ymean     = TRUE
+                 , stack     = FALSE
                  , emean.lim = c(NA,NA)
                  , mmean.lim = c(NA,NA)
                  , qmean.lim = c(NA,NA)
@@ -2494,6 +2506,7 @@ theme[[n]] = list( vnam      = c(         "rshort",  "rshort.beam","rshort.diff"
                  , mmean     = TRUE
                  , qmean     = TRUE
                  , ymean     = TRUE
+                 , stack     = FALSE
                  , emean.lim = c(NA,NA)
                  , mmean.lim = c(NA,NA)
                  , qmean.lim = c(NA,NA)
@@ -2514,6 +2527,7 @@ theme[[n]] = list( vnam      = c(          "rlong",  "rlongup",    "rlong.gnd")
                  , mmean     = TRUE
                  , qmean     = TRUE
                  , ymean     = TRUE
+                 , stack     = FALSE
                  , emean.lim = c(NA,NA)
                  , mmean.lim = c(NA,NA)
                  , qmean.lim = c(NA,NA)
@@ -2534,6 +2548,7 @@ theme[[n]] = list( vnam      = c(         "albedo", "albedo.par","albedo.nir")
                  , mmean     = TRUE
                  , qmean     = TRUE
                  , ymean     = TRUE
+                 , stack     = FALSE
                  , emean.lim = c(NA,NA)
                  , mmean.lim = c(NA,NA)
                  , qmean.lim = c(NA,NA)
@@ -2558,6 +2573,7 @@ theme[[n]] = list( vnam      = c(        "par.tot",     "par.beam", "par.diff"
                  , mmean     = TRUE
                  , qmean     = TRUE
                  , ymean     = TRUE
+                 , stack     = FALSE
                  , emean.lim = c(NA,NA)
                  , mmean.lim = c(NA,NA)
                  , qmean.lim = c(NA,NA)
@@ -2578,6 +2594,7 @@ theme[[n]] = list( vnam      = c(       "leaf.gsw",        "leaf.gbw",        "w
                  , mmean     = TRUE
                  , qmean     = TRUE
                  , ymean     = TRUE
+                 , stack     = FALSE
                  , emean.lim = c(NA,NA)
                  , mmean.lim = c(NA,NA)
                  , qmean.lim = c(NA,NA)
@@ -2596,8 +2613,9 @@ theme[[n]] = list( vnam      = c(                "vm0")
                  , legpos    = "topleft"
                  , emean     = TRUE
                  , mmean     = TRUE
-                 , qmean     = TRUE
+                 , qmean     = FALSE
                  , ymean     = TRUE
+                 , stack     = FALSE
                  , emean.lim = c(NA,NA)
                  , mmean.lim = c(NA,NA)
                  , qmean.lim = c(NA,NA)
@@ -2616,8 +2634,9 @@ theme[[n]] = list( vnam      = c(                "sla")
                  , legpos    = "topleft"
                  , emean     = TRUE
                  , mmean     = TRUE
-                 , qmean     = TRUE
+                 , qmean     = FALSE
                  , ymean     = TRUE
+                 , stack     = FALSE
                  , emean.lim = c(NA,NA)
                  , mmean.lim = c(NA,NA)
                  , qmean.lim = c(NA,NA)
@@ -2636,8 +2655,9 @@ theme[[n]] = list( vnam      = c(         "llspan")
                  , legpos    = "topleft"
                  , emean     = TRUE
                  , mmean     = TRUE
-                 , qmean     = TRUE
+                 , qmean     = FALSE
                  , ymean     = TRUE
+                 , stack     = FALSE
                  , emean.lim = c(NA,NA)
                  , mmean.lim = c(NA,NA)
                  , qmean.lim = c(NA,NA)
@@ -2664,6 +2684,7 @@ theme[[n]] = list( vnam      = c(          "veg.height",           "can.depth"
                  , mmean     = TRUE
                  , qmean     = FALSE
                  , ymean     = TRUE
+                 , stack     = FALSE
                  , emean.lim = c(NA,NA)
                  , mmean.lim = c(NA,NA)
                  , qmean.lim = c(NA,NA)
