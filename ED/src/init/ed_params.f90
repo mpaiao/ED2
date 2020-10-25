@@ -3366,7 +3366,7 @@ subroutine init_pft_alloc_params()
    !                                                                                       !
    !---------------------------------------------------------------------------------------!
    select case (iallom)
-   case (3)
+   case (3,5)
       do ipft=1,n_pft
          if (is_liana(ipft)) then
             !------------------------------------------------------------------------------!
@@ -3543,7 +3543,7 @@ subroutine init_pft_alloc_params()
    ! qbark - ratio between leaf biomass and bark biomass per unit height.                  !
    !---------------------------------------------------------------------------------------!
    select case (iallom)
-   case (3)
+   case (3,5)
       !------ New allometry, use estimate based on M01. -----------------------------------!
       b1Xs(:) = 0.315769481
       !------------------------------------------------------------------------------------!
@@ -3638,7 +3638,7 @@ subroutine init_pft_alloc_params()
             !----- hgt_ref is their "Hmax". -----------------------------------------------!
             hgt_ref(ipft) = 61.7
             !------------------------------------------------------------------------------!
-        case (3)
+        case (3,5)
             !------------------------------------------------------------------------------!
             !     Allometric equation based on the fitted curve using the Sustainable      !
             ! Landscapes data set (L16) and the size- and site-dependent stratified        !
@@ -3729,7 +3729,7 @@ subroutine init_pft_alloc_params()
    !    Minimum and maximum height allowed for each cohort.                                !
    !---------------------------------------------------------------------------------------!
    select case (iallom)
-   case (3,4)
+   case (3,4,5)
       !------------------------------------------------------------------------------------!
       !    This value corresponds to the 99% quantile of all trees measured by the         !
       ! Sustainable Landscapes.                                                            !
@@ -3824,7 +3824,7 @@ subroutine init_pft_alloc_params()
             b1Ca(ipft) = exp(ncrown_area(1))
             b2Ca(ipft) = ncrown_area(2)
             !------------------------------------------------------------------------------!
-         case (3,4)
+         case (3,4,5)
             !------------------------------------------------------------------------------!
             !     Allometry using the Sustainable Landscapes data.                         !
             !------------------------------------------------------------------------------!
@@ -3897,7 +3897,7 @@ subroutine init_pft_alloc_params()
       elseif (is_tropical(ipft)) then
          !----- Tropical PFTs: check allometry settings. ----------------------------------!
          select case (iallom)
-         case (3,4)
+         case (3,4,5)
             b1Cl(ipft) = 0.29754
             b2Cl(ipft) = 1.0324
          case default
@@ -3967,7 +3967,7 @@ subroutine init_pft_alloc_params()
             b1Bl (ipft) = C2B * exp(nleaf(1)) * rho(ipft) / nleaf(3)
             b2Bl (ipft) = nleaf(2)
             !------------------------------------------------------------------------------!
-        case (3) 
+        case (3,5) 
             !------------------------------------------------------------------------------!
             !    Allometry based on the BAAD data based (F15).  We only used leaves from   !
             ! wild tropical, flowering trees, and applied a stratified sample by DBH class !
@@ -4116,7 +4116,7 @@ subroutine init_pft_alloc_params()
             b1Bs_large (ipft) = C2B * exp(ndead_large(1)) * rho(ipft) / ndead_large(3)
             b2Bs_large (ipft) = ndead_large(2)
             !------------------------------------------------------------------------------!
-         case (3,4)
+         case (3,4,5)
             !------------------------------------------------------------------------------!
             ! Trees:   set parameters based on Chave et al. (2014).                        !
             ! Grasses: set numbers to small values, too keep bdead at a minimum but still  !
@@ -4257,7 +4257,7 @@ subroutine init_pft_alloc_params()
    !    WAI parameters, the choice depends on IALLOM.                                      !
    !---------------------------------------------------------------------------------------!
    select case (iallom)
-   case (3,4)
+   case (3,4,5)
       !------------------------------------------------------------------------------------!
       !    WAI is defined as a fraction of (potential) LAI.   This is just a refit of      !
       ! allometry 2 but using DBH*DBH*Height as predictor for consistency.                 !
@@ -4412,7 +4412,7 @@ subroutine init_pft_alloc_params()
                      , +0.4223014                                                          &
                      , is_tropical(:) .and. (.not. is_liana(:)) )
       !------------------------------------------------------------------------------------!
-   case (4)
+   case (4,5)
       !------------------------------------------------------------------------------------!
       !    Test allometry based on excavation data in Panama based on  H.                  !
       !    Multiply it by 2 so that a 40 m tree can get access to water below 5m depth     !
@@ -5237,7 +5237,7 @@ subroutine init_pft_resp_params()
    ! names already in use in c2n factors.                                                  !
    !---------------------------------------------------------------------------------------!
    select case (iallom)
-   case (2,3,4)
+   case (2,3,4,5)
       !------------------------------------------------------------------------------------!
       !   For tropical leaves/fine roots, assume the metabolic/structural ratio obtained   !
       ! by B17.  For grasses and temperate plants, use B17 equation and R96 values for     !
@@ -5772,8 +5772,8 @@ subroutine init_pft_mort_params()
    !---------------------------------------------------------------------------------------!
    select case (include_fire)
    case (3)
-      fire_s_min  (:) = merge(0.2,0.2,is_grass(:))
-      fire_s_max  (:) = merge(0.2,0.9,is_grass(:))
+      fire_s_min  (:) = merge(0.1,0.1,is_grass(:))
+      fire_s_max  (:) = merge(0.1,0.9,is_grass(:))
       fire_s_inter(:) =  1.5
       fire_s_slope(:) = -1.0
    case default
@@ -8658,8 +8658,12 @@ subroutine init_derived_params_after_xml()
 
 
       !----- Set allometric formula. ------------------------------------------------------!
-      ddh_allom(ipft) =       (iallom == 3 .or. iallom == 4) .and. is_tropical(ipft)       &
-                        .and. (.not. is_liana(ipft))
+      select case (iallom)
+      case (3,4,5)
+         ddh_allom(ipft) = is_tropical(ipft) .and. (.not. is_liana(ipft))
+      case default
+         ddh_allom(ipft) = .false.
+      end select
       !------------------------------------------------------------------------------------!
 
 
@@ -8776,7 +8780,7 @@ subroutine init_derived_params_after_xml()
       ! allometry sets define the minimum sizes as before, for back-compability.           !
       !------------------------------------------------------------------------------------!
       select case (iallom)
-      case (3,4)
+      case (3,4,5)
          !---------------------------------------------------------------------------------!
          !     New method, each PFT has a minimum resolvable density. The fraction ensures !
          ! that plants start as resolvable.                                                !

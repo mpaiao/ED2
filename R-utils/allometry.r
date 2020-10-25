@@ -8,7 +8,7 @@ h2dbh <<- function(h,ipft){
      zpft = ipft
    }#end if
 
-   tropo = pft$tropical[zpft] & iallom %in% c(0,1,3,4)
+   tropo = pft$tropical[zpft] & iallom %in% c(0,1,3,4,5)
    tropn = pft$tropical[zpft] & iallom %in% c(2)
    tempe = ! pft$tropical[zpft]
 
@@ -54,7 +54,7 @@ dbh2h <<- function(dbh,ipft,use.crit=TRUE){
       dbhuse = dbh
    }#end if (use.crit)
 
-   tropo         = pft$tropical[zpft] & iallom %in% c(0,1,3,4)
+   tropo         = pft$tropical[zpft] & iallom %in% c(0,1,3,4,5)
    tropn         = pft$tropical[zpft] & iallom %in% c(2)
    tempe         = ! pft$tropical[zpft]
 
@@ -505,7 +505,7 @@ size2rd <<- function(hgt,dbh,ipft){
       #------------------------------------------------------------------------------------#
       vol  = size2vol(hgt=hgt,dbh=dbh,ipft=zpft)
       rd   = pft$b1Rd[zpft] * (hgt * dbh * dbh) ^ pft$b2Rd[zpft]
-   }else if (iallom %in% c(1,2,4)){
+   }else if (iallom %in% c(1,2,4,5)){
       #------------------------------------------------------------------------------------#
       #    This is just a test allometry, that imposes root depth to be 0.5 m for          #
       # plants that are 0.15-m tall, and 5.0 m for plants that are 35-m tall.              #

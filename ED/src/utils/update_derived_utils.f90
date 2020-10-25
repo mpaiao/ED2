@@ -390,34 +390,52 @@ module update_derived_utils
       cpatch%sla       (ico) = new_sla
       cpatch%psi_open  (ico) = cpatch%psi_open  (ico) * sla_scaler
       cpatch%psi_closed(ico) = cpatch%psi_closed(ico) * sla_scaler
+      !------------------------------------------------------------------------------------!
 
-      ! Since SLA is changed, we might need to adjust leaf biomass if leaf area based 
-      ! allometry is used
+
+
+      !------------------------------------------------------------------------------------!
+      ! 6.  Because SLA may have changed, we must adjust leaf biomass if we are using the  !
+      !     leaf-area based allometry.                                                     !
+      !------------------------------------------------------------------------------------!
       select case (iallom)
-      case (4)
-        bl_max = size2bl(cpatch%dbh(ico),cpatch%hite(ico),cpatch%sla(ico),cpatch%pft(ico))
+      case (3,4,5)
+         !---- Maximum leaf biomass. ------------------------------------------------------!
+         bl_max = size2bl(cpatch%dbh(ico),cpatch%hite(ico),cpatch%sla(ico),cpatch%pft(ico))
+         !---------------------------------------------------------------------------------!
 
-        if (cpatch%bleaf(ico) > bl_max) then
-            ! if the new bl_max is smaller than current bleaf, we need to dump
-            ! the extra carbon into bstorage and change phenology_status
-            cpatch%bstorage(ico) = cpatch%bstorage(ico)             &
-                                 + (cpatch%bleaf(ico) - bl_max)
 
-            ! Water content will be updated later in structural_growth
+
+         !---------------------------------------------------------------------------------!
+         !     Check that plasticity doesn't violate allometry.                            !
+         !---------------------------------------------------------------------------------!
+         if (cpatch%bleaf(ico) > bl_max) then
+            !------------------------------------------------------------------------------!
+            !     If the new bl_max is smaller than current bleaf, we need to dump the     !
+            ! extra carbon into bstorage and change phenology_status.                      !
+            !------------------------------------------------------------------------------!
+            cpatch%bstorage(ico) = cpatch%bstorage(ico) + (cpatch%bleaf(ico) - bl_max)
+
+            !----- Water content will be updated later in structural_growth. --------------!
             cpatch%bleaf(ico) = bl_max
+            !------------------------------------------------------------------------------!
 
-            ! we also update balive since bleaf changed
+            !----- We also update balive since bleaf changed. -----------------------------!
             cpatch%balive(ico) = ed_balive(cpatch,ico)
+            !------------------------------------------------------------------------------!
 
+            !----- Leaves are at maximum elongation, update phenology flag accordingly. ---!
             cpatch%phenology_status(ico) = 0
-        endif
+            !------------------------------------------------------------------------------!
+         end if
+         !---------------------------------------------------------------------------------!
       end select
       !------------------------------------------------------------------------------------!
 
 
 
       !------------------------------------------------------------------------------------!
-      ! 6.  Update leaf life span.                                                         !
+      ! 7.  Update leaf life span.                                                         !
       !------------------------------------------------------------------------------------!
       if (leaf_turnover_rate(ipft) > 0.0) then
          !---------------------------------------------------------------------------------!

@@ -333,9 +333,9 @@ wdr.fs     <<- 0.30
 #------------------------------------------------------------------------------------------#
 #      Define reference heights for tropical allometry.                                    #
 #------------------------------------------------------------------------------------------#
-# IALLOM ........       0,       1,       2,       3,       4..............................#
-hgt.ref.trop = c(NA_real_,NA_real_,    61.7,NA_real_,NA_real_)[iallom+1]
-hgt.max.trop = c(     35.,     35.,     35.,     46.,     46.)[iallom+1]
+# IALLOM ........       0,       1,       2,       3,       4,       5.....................#
+hgt.ref.trop = c(NA_real_,NA_real_,    61.7,NA_real_,NA_real_,NA_real_)[iallom+1]
+hgt.max.trop = c(     35.,     35.,     35.,     46.,     46.,     46.)[iallom+1]
 #------------------------------------------------------------------------------------------#
 
 
@@ -1094,7 +1094,7 @@ pft = as.data.frame(pft,stringsAsFactors=FALSE)
 
 
 #----- Create flag to identify PFTs that should use the D^2*H allometry. ------------------#
-pft$ddh.allom = (iallom %in% c(3,4)) & pft$tropical & (! pft$liana)
+pft$ddh.allom = (iallom %in% c(3,4,5)) & pft$tropical & (! pft$liana)
 #------------------------------------------------------------------------------------------#
 
 
@@ -1527,7 +1527,7 @@ if (iallom %in% c(0,1)){
    pft$b1Ht[tropical] = 0.0352
    pft$b2Ht[tropical] = 0.694
    #---------------------------------------------------------------------------------------#
-}else if (iallom %in% c(3)){
+}else if (iallom %in% c(3,5)){
    #---------------------------------------------------------------------------------------#
    #     Allometric equation based on the fitted curve using the Sustainable Landscapes    #
    # data set (L16) and the size- and site-dependent stratified sampling and aggregation   #
@@ -1601,15 +1601,15 @@ pft$hgt.show = pft$hgt.min + 0.015 * (pft$hgt.max - pft$hgt.min)
 pft$qsw = pft$SLA / sapwood.ratio.orig
 for (ipft in sequence(npft+1)){
    #---- Check PFT and allometry. ---------------------------------------------------------#
-   if (pft$tropical[ipft] && pft$conifer[ipft] && iallom %in% c(3)){
+   if (pft$tropical[ipft] && pft$conifer[ipft] && iallom %in% c(3,5)){
       pft$qsw[ipft] = pft$SLA[ipft] * pft$rho[ipft] / sapwood.factor["aa"]
-   }else if (pft$tropical[ipft] && pft$grass[ipft] && iallom %in% c(3)){
+   }else if (pft$tropical[ipft] && pft$grass[ipft] && iallom %in% c(3,5)){
       pft$qsw[ipft] = 1.0e-5
-   }else if (pft$tropical[ipft] && iallom %in% c(3)){
+   }else if (pft$tropical[ipft] && iallom %in% c(3,5)){
       pft$qsw[ipft] = pft$SLA[ipft] * pft$rho[ipft] / sapwood.factor["bl"]
    }else{
       pft$qsw[ipft] = pft$SLA[ipft] / sapwood.ratio.orig
-   }#end if (pft$tropical[ipft] && is.finite(pft$rho[ipft]) && iallom %in% c(3,4))
+   }#end if (pft$tropical[ipft] && is.finite(pft$rho[ipft]) && iallom %in% c(3,5))
    #---------------------------------------------------------------------------------------#
 }#end for (ipft in sequence(npft))
 #------------------------------------------------------------------------------------------#
@@ -1723,7 +1723,9 @@ pft$b1Xs  = 0.315769481
 pft$b1Xb  = 0.
 pft$qbark = 0.
 for (ipft in sequence(npft+1)){
-   skip = pft$grass[ipft] || pft$liana[ipft] || (! pft$tropical[ipft]) || ( iallom != 3 )
+   skip = (  pft$grass[ipft] || pft$liana[ipft] || (! pft$tropical[ipft])
+          || ( ! (iallom %in% c(3,5) ) ) 
+          )#end skip
    if (! skip){
       #------------------------------------------------------------------------------------#
       #     Variable b1Xs is the ratio between sapwood thickness and DBH.  It is currently #
@@ -1769,7 +1771,7 @@ pft$dbh.min   = rep(NA,times=npft+1)
 pft$dbh.crit  = rep(NA,times=npft+1)
 for (ipft in sequence(npft+1)){
    if (pft$tropical[ipft]){
-      if (iallom %in% c(0,1,3,4)){
+      if (iallom %in% c(0,1,3,4,5)){
          pft$dbh.min  [ipft] = exp((log(pft$hgt.min[ipft])-pft$b1Ht[ipft])/pft$b2Ht[ipft])
          pft$dbh.crit [ipft] = exp((log(pft$hgt.max[ipft])-pft$b1Ht[ipft])/pft$b2Ht[ipft])
       }else if (iallom %in% c(2)){
@@ -1848,7 +1850,7 @@ for (ipft in sequence(npft+1)){
          pft$b2Bs.small[ipft] = ndead.small[2]
          pft$b1Bs.large[ipft] = C2B * exp(ndead.large[1]) * pft$rho[ipft] / ndead.large[3]
          pft$b2Bs.large[ipft] = ndead.large[2]
-      }else if (iallom %in% c(3,4)){
+      }else if (iallom %in% c(3,4,5)){
          if (pft$grass[ipft]){
             c14f15.bs.xx = c14f15.bs.gr
          }else if (pft$savannah[ipft]){
@@ -1877,7 +1879,7 @@ for (ipft in sequence(npft+1)){
       }else if (iallom %in% c(2)){
          pft$b1Ca[ipft] = exp(ncrown.area[1])
          pft$b2Ca[ipft] = ncrown.area[2]
-      }else if (iallom %in% c(3,4)){
+      }else if (iallom %in% c(3,4,5)){
          #---------------------------------------------------------------------------------#
          #     Allometry using the Sustainable Landscapes data.                            #
          #---------------------------------------------------------------------------------#
@@ -1924,7 +1926,7 @@ for (ipft in sequence(npft+1)){
       # R2      = 0.673                                                                    #
       # RMSE    = 2.29                                                                     #
       #------------------------------------------------------------------------------------#
-      if (iallom %in% c(3,4) && (! pft$grass[ipft])){
+      if (iallom %in% c(3,4,5) && (! pft$grass[ipft])){
          pft$b1Cl[ipft] = 0.29754
          pft$b2Cl[ipft] = 1.0324
       }#end if
@@ -1949,7 +1951,7 @@ for (ipft in sequence(npft+1)){
       }else if(iallom %in% c(2)){
          pft$b1Bl[ipft] = C2B * exp(nleaf[1]) * pft$rho[ipft] / nleaf[3]
          pft$b2Bl[ipft] = nleaf[2]
-      }else if(iallom %in% c(3)){
+      }else if(iallom %in% c(3,5)){
          #---------------------------------------------------------------------------------#
          #    Leaf allometry, use the individual leaf area allometry derived from the BAAD #
          # data base (F15), scaled by the specific leaf area, and described in L20.        #
@@ -2121,9 +2123,9 @@ if (iallom %in% c(0)){
                     , no   = 0.4223014
                     )#end ifelse
    #---------------------------------------------------------------------------------------#
-}else if (iallom %in% c(3)){
+}else if (iallom %in% c(4,5)){
    #----- Test allometry based on excavation data in Panama, using height as predictor. ---#
-   pft$b1Rd  [sequence(npft+1)] = -0.609
+   pft$b1Rd  [sequence(npft+1)] = -0.609 * 2
    pft$b2Rd  [sequence(npft+1)] =  0.580
    #---------------------------------------------------------------------------------------#
 }#end if

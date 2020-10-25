@@ -691,7 +691,7 @@ subroutine read_ed21_history_file
                            !---------------------------------------------------------------!
                            !     Initialise size and structural pools.                     !
                            !---------------------------------------------------------------!
-                           if ((iallom == 3 .or. iallom == 4)) then
+                           if ((iallom >= 3 .and. iallom <= 5)) then
                               !----- New allometry, initialise with DBH. ------------------!
                               cpatch%hite(ico)   = dbh2h (ipft,cpatch%dbh  (ico))
                               bdeadx             = size2bd(cpatch%dbh(ico)                 &
@@ -2082,7 +2082,7 @@ subroutine read_ed21_history_unstruct
                            !---------------------------------------------------------------!
                            !     Initialise size and structural pools.                     !
                            !---------------------------------------------------------------!
-                           if (iallom == 3 .or. iallom == 4) then
+                           if ((iallom >= 3 .and. iallom <= 5)) then
                               !----- New allometry, initialise with DBH. ------------------!
                               cpatch%hite(ico)   = dbh2h (ipft,cpatch%dbh  (ico))
                               bdeadx             = size2bd(cpatch%dbh(ico)                 &
@@ -3456,7 +3456,7 @@ subroutine read_ed21_polyclone
                            !---------------------------------------------------------------!
                            !     Initialise size and structural pools.                     !
                            !---------------------------------------------------------------!
-                           if (iallom == 3 .or. iallom == 4) then
+                           if ((iallom >= 3 .and. iallom <= 5)) then
                               !----- New allometry, initialise with DBH. ------------------!
                               cpatch%hite(ico)   = dbh2h (ipft,cpatch%dbh  (ico))
                               bdeadx             = size2bd(cpatch%dbh(ico)                 &

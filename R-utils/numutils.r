@@ -1742,7 +1742,7 @@ thresh.cumsum <<- function(x,xthresh,thmax=TRUE,na.rm=FALSE){
    #---------------------------------------------------------------------------------------#
    if (all(! (is.na(x) | is.nan(x)))){
       #------------------------------------------------------------------------------------#
-      #      Decide what to do based on whether to limit maximum (thmax=TRUE) or maximum   #
+      #      Decide what to do based on whether to limit maximum (thmax=TRUE) or minimum   #
       # (thmax=FALSE) values.  I couldn't think of a vector way to solve this, so for now  #
       # I am using for loops.                                                              #
       #------------------------------------------------------------------------------------#
@@ -1755,9 +1755,9 @@ thresh.cumsum <<- function(x,xthresh,thmax=TRUE,na.rm=FALSE){
          #---------------------------------------------------------------------------------#
       }else{
          #----- Threshold is the maximum allowed value. -----------------------------------#
-         ans[1] = max(c(thresh,x[1]))
+         ans[1] = max(c(xthresh,x[1]))
          for (i in sequence(nx)[-1]){
-            ans[i] = max(thresh,ans[i-1]+x[i])
+            ans[i] = max(xthresh,ans[i-1]+x[i])
          }#end for (i in sequence(nx)[-1])
          #---------------------------------------------------------------------------------#
       }#end if (thmax)

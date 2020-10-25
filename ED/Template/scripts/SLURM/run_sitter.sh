@@ -32,6 +32,7 @@ situtils="${here}/sit_utils"
 #   runtitle -- Full name of this simulation, this is used only in the e-mail subject.     #
 #------------------------------------------------------------------------------------------#
 desc=$(basename ${here})
+jobname="${desc}-sims*"
 runtitle="Simulation group: ${desc}"
 #------------------------------------------------------------------------------------------#
 
@@ -186,6 +187,25 @@ then
 else
    echo "I am going to check your run." > ${here}/run_sitter.lock
 fi
+#------------------------------------------------------------------------------------------#
+
+
+
+
+#----- Find out which platform we are using. ----------------------------------------------#
+host=$(hostname -s)
+case ${host} in
+rclogin*|holy*|moorcroft*|rcnx*)
+   cluster="CANNON"
+   ;;
+sdumont*)
+   cluster="SDUMONT"
+   ;;
+*)
+   echo -n "Failed guessing cluster from node name.  Please type the name:   "
+   read cluster
+   ;;
+esac
 #------------------------------------------------------------------------------------------#
 
 
@@ -464,8 +484,21 @@ do
       #------------------------------------------------------------------------------------#
 
 
-      #----- Set job name. ----------------------------------------------------------------#
-      jobname="${desc}-${polyname}"
+      #------------------------------------------------------------------------------------#
+      #    Task name.  This depends on the type of submission (just to avoid clutter).     #
+      #------------------------------------------------------------------------------------#
+      case "${cluster}" in
+      SDUMONT) 
+         #----- Task name is bound to the global jobname, no need to add prefix. ----------#
+         taskname="${polyname}"
+         #---------------------------------------------------------------------------------#
+         ;;
+      CANNON )
+         #----- Add prefix to the task name, which will name this job. --------------------#
+         taskname="${desc}-${polyname}"
+         #---------------------------------------------------------------------------------#
+         ;;
+      esac
       #------------------------------------------------------------------------------------#
 
 
@@ -987,8 +1020,23 @@ do
       #------------------------------------------------------------------------------------#
       if [ -s ${stdout} ]
       then
+         #----- Set task inquire command. -------------------------------------------------#
+         case "${cluster}" in
+         SDUMONT)
+            #----- Multi-task job, search for specific task. ------------------------------#
+            stask="stask --noheader -u ${moi} -t ${taskname} -j ${jobname}"
+            #------------------------------------------------------------------------------#
+            ;;
+         CANNON)
+            #----- Single-task jobs, search the task using the job name. ------------------#
+            stask="stask --noheader -u ${moi} -j ${taskname}"
+            #------------------------------------------------------------------------------#
+            ;;
+         esac
+         #---------------------------------------------------------------------------------#
+
+
          #----- Check whether the simulation is running, and when in model time it is. ----#
-         stask="stask --noheader -u $(whoami) -j ${jobname} "
          running=$(${stask}   -o "${outform}" | grep "RUNNING"   | wc -l)
          pending=$(${stask}   -o "${outform}" | grep "PENDING"   | wc -l)
          suspended=$(${stask} -o "${outform}" | grep "SUSPENDED" | wc -l)

@@ -11,18 +11,28 @@ then
    #------ No platform provided.  Try to guess, and if failed, then prompts the user. -----#
    host=$(hostname -s)
    case ${host} in
-      rclogin*|holy*|moorcroft*|rcnx*) platform="SLURM"    ;;
-      au*|ha*)                         platform="PBS"      ;;
-      sdumont*)                        platform="SDUMONT"  ;;
-      sun-master|cmm*)                 platform="sun-lncc" ;;
+      rclogin*|holy*|moorcroft*|rcnx*|sdumont*)
+         #----- Use SLURM scripts. --------------------------------------------------------#
+         platform="SLURM"
+         #---------------------------------------------------------------------------------#
+         ;;
+      au*|ha*|sun-master|cmm*)
+         #----- Use PBS scripts. ----------------------------------------------------------#
+         platform="PBS"
+         #---------------------------------------------------------------------------------#
+         ;;
       *)
+         #----- Host name is not one of the known ones. -----------------------------------#
          echo -n "Failed guessing platform from node name.  Please type the name:   "
          read platform
+         #---------------------------------------------------------------------------------#
          ;;
    esac
-
+   #---------------------------------------------------------------------------------------#
 else
+   #------ Platform is provided as argument. ----------------------------------------------#
    platform=${1}
+   #---------------------------------------------------------------------------------------#
 fi
 #------------------------------------------------------------------------------------------#
 

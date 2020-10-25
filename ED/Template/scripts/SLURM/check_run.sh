@@ -2,11 +2,32 @@
 here=$(pwd)
 joborder="${here}/joborder.txt"
 desc=$(basename ${here})
+jobname="${desc}-sims*"
 moi=$(whoami)
 outform="JobName%200,State%12"
 #----- Determine the number of polygons to run. -------------------------------------------#
 let npolys=$(wc -l ${joborder} | awk '{print $1 }')-3
 echo "Number of polygons: ${npolys}..."
+
+
+
+
+#----- Find out which platform we are using. ----------------------------------------------#
+host=$(hostname -s)
+case ${host} in
+rclogin*|holy*|moorcroft*|rcnx*)
+   cluster="CANNON"
+   ;;
+sdumont*)
+   cluster="SDUMONT"
+   ;;
+*)
+   echo -n "Failed guessing cluster from node name.  Please type the name:   "
+   read cluster
+   ;;
+esac
+#------------------------------------------------------------------------------------------#
+
 
 
 polya=1
@@ -199,24 +220,58 @@ do
    #---------------------------------------------------------------------------------------#
 
 
+   #---------------------------------------------------------------------------------------#
+   #    Task name.  This depends on the type of submission (just to avoid clutter).        #
+   #---------------------------------------------------------------------------------------#
+   case "${cluster}" in
+   SDUMONT) 
+      #----- Task name is bound to the global jobname, no need to add prefix. -------------#
+      taskname="${polyname}"
+      #------------------------------------------------------------------------------------#
+      ;;
+   CANNON )
+      #----- Add prefix to the task name, which will name this job. -----------------------#
+      taskname="${desc}-${polyname}"
+      #------------------------------------------------------------------------------------#
+      ;;
+   esac
+   #---------------------------------------------------------------------------------------#
+
+
 
    #---------------------------------------------------------------------------------------#
    #     Set some variables to check whether the simulation is running.                    #
    #---------------------------------------------------------------------------------------#
-   jobname="${desc}-${polyname}"
    stdout="${here}/${polyname}/serial_out.out"
    stderr="${here}/${polyname}/serial_out.err"
-   lsfout="${here}/${polyname}/serial_lsf.out"
    skipper="${here}/${polyname}/skipper.txt"
    #---------------------------------------------------------------------------------------#
+
+
 
    #---------------------------------------------------------------------------------------#
    #     Check whether the simulation is still running, and if not, why it isn't.          #
    #---------------------------------------------------------------------------------------#
    if [ -s ${stdout} ]
    then
+
+      #----- Set task inquire command. ----------------------------------------------------#
+      case "${cluster}" in
+      SDUMONT)
+         #----- Multi-task job, search for specific task. ---------------------------------#
+         stask="stask --noheader -u ${moi} -t ${taskname} -j ${jobname}"
+         #---------------------------------------------------------------------------------#
+         ;;
+      CANNON)
+         #----- Single-task jobs, search the task using the job name. ---------------------#
+         stask="stask --noheader -u ${moi} -j ${taskname}"
+         #---------------------------------------------------------------------------------#
+         ;;
+      esac
+      #------------------------------------------------------------------------------------#
+
+
       #----- Check whether the simulation is running, and when in model time it is. -------#
-      stask="stask --noheader -u ${moi} -j ${jobname}"
       running=$(${stask}   -o "${outform}" | grep "RUNNING"   | wc -l)
       pending=$(${stask}   -o "${outform}" | grep "PENDING"   | wc -l)
       suspended=$(${stask} -o "${outform}" | grep "SUSPENDED" | wc -l)

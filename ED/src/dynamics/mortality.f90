@@ -298,7 +298,7 @@ module mortality
          ! intensity or flame height.  Survival rates are a function of bark thickness     !
          ! (and size as BT depends on DBH and height).   The original scheme kills all     !
          ! individuals and this is maintained by setting both fire_s_min and fire_s_max    !
-         ! to 1.                                                                           !
+         ! to 0.                                                                           !
          !---------------------------------------------------------------------------------!
          lnexp        = fire_s_inter(ipft) + fire_s_slope(ipft) * cpatch%thbark(ico)
          lnexp        = max(lnexp_min,min(lnexp_max,lnexp))
