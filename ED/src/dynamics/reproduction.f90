@@ -57,7 +57,8 @@ module reproduction
                                      , ed_biomass                  & ! function
                                      , ed_balive                   & ! function
                                      , area_indices                & ! subroutine
-                                     , size2krdepth                ! ! function
+                                     , size2krdepth                & ! function
+                                     , distrib_root                ! ! subroutine
       use grid_coms           , only : nzg                         ! ! intent(in)
       use ed_misc_coms        , only : ibigleaf                    & ! intent(in)
                                      , current_time                ! ! intent(in)
@@ -361,6 +362,15 @@ module reproduction
                            inew = inew + 1
                            call copy_recruit(rectest,recruit(inew))
                            !---------------------------------------------------------------!
+
+
+
+                           !----- Find the vertical distribution of roots. ----------------!
+                           call distrib_root( cpatch%krdepth  (  inew)                     &
+                                            , cpatch%pft      (  inew)                     &
+                                            , cpatch%root_frac(:,inew) )
+                           !---------------------------------------------------------------!
+
 
 
                            !----- Reset the carbon available for reproduction. ------------!

@@ -3479,12 +3479,18 @@ subroutine init_pft_alloc_params()
    !                                                                                       !
    !    The root fraction (Y) above depth D cm for a cohort with max rooting depth as      !
    !  D_max (cm) can be calculated as:                                                     !
-   !  Y = 1. - (root_beta) ** (D / D_max)                                                  !
    !                                                                                       !
-   !    Suggested values range from 0.0001 to 0.01.                                        !
+   !  Y = ( 1. - (root_beta) ** (D / D_max) ) / (1 - root_beta)                            !
+   !                                                                                       !
+   !                                                                                       !
+   !  MLO (2020-10-27): I added the denominator (1 - root_beta) to ensure that Y at        !
+   !                    D=D_max is always 1, regardless of the value of root_beta, as      !
+   !                    long as root_beta < 1.                                             !
+   !                                                                                       !
+   !    Suggested values range from 0.0001 to 0.1.                                         !
    !                                                                                       !
    !---------------------------------------------------------------------------------------!
-   root_beta(:)   =   0.01
+   root_beta(:)   =   0.1
    !---------------------------------------------------------------------------------------!
 
 

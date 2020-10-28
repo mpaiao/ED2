@@ -1995,7 +1995,8 @@ module fuse_fiss_utils
                                     , bl2h                   & ! function
                                     , dbh2h                  & ! function
                                     , size2xb                & ! function
-                                    , ed_balive              ! ! function
+                                    , ed_balive              & ! function
+                                    , distrib_root           ! ! subroutine
       use ed_max_dims        , only : n_mort                 ! ! intent(in)
       use ed_misc_coms       , only : writing_long           & ! intent(in)
                                     , writing_eorq           & ! intent(in)
@@ -2196,6 +2197,11 @@ module fuse_fiss_utils
                                          ,cpatch%pft(recc),lsl)
       !------------------------------------------------------------------------------------!
 
+
+
+      !----- Update the vertical distribution of roots. -----------------------------------!
+      call distrib_root(cpatch%krdepth(recc),cpatch%pft(recc),cpatch%root_frac(:,recc))
+      !------------------------------------------------------------------------------------!
 
 
 

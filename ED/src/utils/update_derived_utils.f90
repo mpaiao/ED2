@@ -65,7 +65,8 @@ module update_derived_utils
                                 , size2xb                 & ! function
                                 , ed_balive               & ! function
                                 , ed_biomass              & ! function
-                                , area_indices            ! ! subroutine
+                                , area_indices            & ! subroutine
+                                , distrib_root            ! ! subroutine
       use physiology_coms, only : trait_plasticity_scheme ! ! intent(in)
       use consts_coms    , only : pio4                    ! ! intent(in)
       use ed_misc_coms   , only : igrass                  & ! intent(in)
@@ -193,6 +194,13 @@ module update_derived_utils
       !----- Update rooting depth ---------------------------------------------------------!
       cpatch%krdepth(ico) = size2krdepth(cpatch%hite(ico),cpatch%dbh(ico),ipft,lsl)
       !if new root depth is smaller keep the old one
+      !------------------------------------------------------------------------------------!
+
+
+      !----- Update the vertical distribution of roots. -----------------------------------!
+      call distrib_root(cpatch%krdepth(ico),ipft,cpatch%root_frac(:,ico))
+      !------------------------------------------------------------------------------------!
+
       return
    end subroutine update_cohort_derived_props
    !=======================================================================================!
