@@ -1545,7 +1545,7 @@ module allometry
       !    The rooting fraction is the difference in cumulative rooting density.           !
       !------------------------------------------------------------------------------------!
       do k=kroot,nzg
-         root_frac(k) = root_cumul(k+1) - root_cumul(k)
+         root_frac(k) = root_cumul(k) - root_cumul(k+1)
       end do
       !------------------------------------------------------------------------------------!
 
