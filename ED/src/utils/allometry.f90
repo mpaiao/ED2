@@ -1510,8 +1510,9 @@ module allometry
 
 
       !----- Initialise the fractions. ----------------------------------------------------!
-      root_cumul(:) = 1.
-      root_frac (:) = 0.
+      root_cumul(:)     = 1.
+      root_frac (:)     = 0.
+      root_cumul(nzg+1) = 0.
       !------------------------------------------------------------------------------------!
 
 
@@ -1526,13 +1527,13 @@ module allometry
          !      Default ED-2.  Roots evenly distributed across depth.  Currently this is   !
          ! a diagnostic variable and not used anywhere in the code.                        !
          !---------------------------------------------------------------------------------!
-         do k=kroot,nzg+1
+         do k=kroot+1,nzg
             root_cumul(k) = slz(k) * slzboti
          end do
          !---------------------------------------------------------------------------------!
       case default
          !------ Plant hydrodynamics, assume a power decay. -------------------------------!
-         do k=kroot,nzg+1
+         do k=kroot+1,nzg
             root_cumul(k) = sbetai * ( 1. - root_beta(ipft) ** (slz(k) * slzboti) )
          end do
          !---------------------------------------------------------------------------------!
