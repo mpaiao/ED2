@@ -48,14 +48,6 @@ module phenology_driv
             end do
             
             select case (iphen_scheme)
-            case (-1,0,2)
-               !---------------------------------------------------------------------------!
-               !     Default predictive scheme (Botta et al.) or the modified drought      !
-               ! deciduous phenology for broadleaf PFTs.                                   !
-               !---------------------------------------------------------------------------!
-               call update_thermal_sums(month, cpoly, isi, cgrid%lat(ipy))
-               call update_phenology(doy,cpoly,isi,cgrid%lat(ipy),veget_dyn_on)
-               
             case (1)
                !----- Use prescribed phenology. -------------------------------------------!
                call prescribed_leaf_state(cgrid%lat(ipy), current_time%month               &
@@ -64,16 +56,21 @@ module phenology_driv
                                          ,cpoly%leaf_aging_factor(:,isi)                   &
                                          ,cpoly%phen_pars(isi) ) 
                call update_phenology(doy,cpoly,isi,cgrid%lat(ipy),veget_dyn_on)
-
-
-            case (3,4)
-               !----- Light-controlled predictive phenology scheme. -----------------------!
+               !---------------------------------------------------------------------------!
+            case default
+               !---------------------------------------------------------------------------!
+               !     Default predictive scheme.                                            !
+               !---------------------------------------------------------------------------!
                call update_thermal_sums(month, cpoly, isi, cgrid%lat(ipy))
                call update_turnover(cpoly,isi)
                call update_phenology(doy,cpoly,isi,cgrid%lat(ipy),veget_dyn_on)
+               !---------------------------------------------------------------------------!
             end select
+            !------------------------------------------------------------------------------!
          end do
+         !---------------------------------------------------------------------------------!
       end do
+      !------------------------------------------------------------------------------------!
 
       return
    end subroutine phenology_driver
@@ -285,6 +282,8 @@ module phenology_driv
             ! 4. Drought deciduous - similar to one, but the threshold is compared against !
             !                        a 10-day running average rather than the instant-     !
             !                        aneous value.                                         !
+            ! 5. Drought deciduous - thresholds are based on plant hydraulics.             !
+            ! 6. Light/hydraulics  - a combination of 3 and 5.                             !
             !------------------------------------------------------------------------------!
             select case (phenology(ipft))
             case (0)
@@ -628,7 +627,7 @@ module phenology_driv
                   !------------------------------------------------------------------------!
                end if
                !---------------------------------------------------------------------------!
-            case (5) 
+            case (5,6) 
                !---------------------------------------------------------------------------!
                !    Drought deciduous driven by plant hydrodynamics.  We track the number  !
                ! of consecutive wet days and dry days.  We then modify the phenology       !
@@ -921,15 +920,19 @@ module phenology_driv
 
 
                !---------------------------------------------------------------------------!
-               !      Adjust root biomass in case phenology is 5 (drought-deciduous driven !
-               ! by hydrodynamics).                                                        !
+               !      Adjust root biomass in case phenology is 5 or 6 (drought-deciduous   !
+               ! driven by hydrodynamics).                                                 !
                !---------------------------------------------------------------------------!
-               if (phenology(ipft) == 5 .and. root_phen_factor > 0.) then
-                  cpatch%broot(ico) = q(ipft) * (elongf_try + root_phen_factor - 1.)       &
-                                    * size2bl(cpatch%dbh(ico),cpatch%hite(ico)             &
-                                             ,cpatch%sla(ico),ipft)                        &
-                                    / root_phen_factor
-               end if
+               select case (phenology(ipft))
+               case (5,6)
+                  if (root_phen_factor > 0.) then
+                     cpatch%broot(ico) = q(ipft) * (elongf_try + root_phen_factor - 1.)    &
+                                       * size2bl(cpatch%dbh(ico),cpatch%hite(ico)          &
+                                                ,cpatch%sla(ico),ipft)                     &
+                                       / root_phen_factor
+                  end if
+                  !------------------------------------------------------------------------!
+               end select
                !---------------------------------------------------------------------------!
             end if
             !------------------------------------------------------------------------------!

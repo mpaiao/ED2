@@ -52,6 +52,11 @@ module phenology_coms
    !<     conifers  - evergreen;                                                          \n
    !<     hardwoods - cold-deciduous;                                                     \n
    !<                                                                                     \n
+   !<  5: grasses   - drought-deciduous (new scheme);                                     \n
+   !<     tropical  - drought-deciduous (light phenology and plant hydraulics);           \n
+   !<     conifers  - evergreen;                                                          \n
+   !<     hardwoods - cold-deciduous;                                                     \n
+   !<                                                                                     \n
    !<  Old scheme: plants shed their leaves once instantaneous amount of available water  \n
    !<              becomes less than a critical value.                                    \n
    !<  New scheme: plants shed their leaves once a 10-day running average of available    \n
