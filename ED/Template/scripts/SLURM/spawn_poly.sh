@@ -18,6 +18,7 @@ bioinit="${d_path}/ed2_data/site_bio_data"
 alsinit="${d_path}/ed2_data/lidar_spline_bio_data"
 intinit="${d_path}/ed2_data/lidar_intensity_bio_data"
 lutinit="${d_path}/ed2_data/lidar_lookup_bio_data"
+ebainit="${d_path}/ed2_data/lidar_eba_bio_data"
 biotype=0      # 0 -- "default" setting (isizepft controls default/nounder)
                # 1 -- isizepft controls number of PFTs, whereas iage controls patches.
                # 2 -- airborne lidar initialisation using return counts ("default"). 
@@ -2357,6 +2358,13 @@ do
          # information.                                                                    #
          #---------------------------------------------------------------------------------#
          thissfilin="${lutinit}/${polyiata}_${isizepft}."
+         #---------------------------------------------------------------------------------#
+         ;;
+      5)
+         #---------------------------------------------------------------------------------#
+         #     ALS initialisation from EBA data sets.                                      #
+         #---------------------------------------------------------------------------------#
+         thissfilin="${ebainit}/eba_tn_default."
          #---------------------------------------------------------------------------------#
          ;;
       esac

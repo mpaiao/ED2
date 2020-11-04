@@ -23,11 +23,13 @@ bioinit="${fs0}/Data/ed2_data/site_bio_data"
 alsinit="${fs0}/Data/ed2_data/lidar_spline_bio_data"
 intinit="${fs0}/Data/ed2_data/lidar_intensity_bio_data"
 lutinit="${fs0}/Data/ed2_data/lidar_lookup_bio_data"
+ebainit="${d_path}/ed2_data/lidar_eba_bio_data"
 biotype=0      # 0 -- "default" setting (isizepft controls default/nounder)
                # 1 -- isizepft controls number of PFTs, whereas iage controls patches.
                # 2 -- airborne lidar initialisation using return counts ("default"). 
                # 3 -- airborne lidar initialisation using intensity counts.
                # 4 -- airborne lidar/inventory hybrid initialisation ("lookup table"). 
+               # 5 -- EBA transects. 
                # For lidar initialisation (2-4), isizepft is the disturbance history key.
 #----- Path and file prefix for init_mode = 5. --------------------------------------------#
 restart="${fs0}/Data/ed2_data/restarts_XXX"
