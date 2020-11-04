@@ -122,7 +122,7 @@ module fire
                end select
             end do humanloop
             !----- Allow fires to ignite in intact forests. -------------------------------!
-            ! people_around = .true.
+            people_around = .true.
             !------------------------------------------------------------------------------!
 
 
