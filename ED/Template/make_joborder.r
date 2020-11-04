@@ -302,17 +302,17 @@ for (n in sequence(nvars)){
       joborder$felling.small = sapply(myruns$sl.type,FUN=switch,ril=0.35,cvl=0.10,NA)
    }else if (name.now %in% "ihydrodyn"){
       idx                  = myruns$ihydrodyn + 1
-      joborder$ihydro      = c(0,0,1)[idx]
-      joborder$istemresp   = c(0,1,1)[idx]
-      joborder$istomata    = c(0,0,1)[idx]
-      joborder$growthresp  = c(0.30,0.45,0.45)[idx]
-      joborder$iphen       = c(2,2,4)[idx]
-      joborder$iplastic    = c(2,3,3)[idx]
-      joborder$icarbonmort = c(1,2,2)[idx]
-      joborder$ihydromort  = c(0,0,1)[idx]
-      joborder$iallom      = c(3,4,4)[idx]
-      joborder$h2o.limit   = c(5,5,4)[idx]
-      joborder$igrass      = c(1,1,0)[idx]
+      joborder$ihydro      = c(   0,   1,   1,   1,   1,   1)[idx]
+      joborder$istemresp   = c(   0,   0,   1,   1,   0,   0)[idx]
+      joborder$istomata    = c(   0,   1,   1,   1,   1,   1)[idx]
+      joborder$growthresp  = c(0.30,0.45,0.45,0.40,0.40,0.40)[idx]
+      joborder$iphen       = c(   2,   2,   4,   4,   3,   5)[idx]
+      joborder$iplastic    = c(   2,   2,   3,   3,   2,   2)[idx]
+      joborder$icarbonmort = c(   1,   1,   2,   2,   1,   1)[idx]
+      joborder$ihydromort  = c(   0,   0,   1,   1,   0,   0)[idx]
+      joborder$iallom      = c(   3,   3,   4,   3,   3,   5)[idx]
+      joborder$h2o.limit   = c(   5,   3,   4,   3,   3,   3)[idx]
+      joborder$igrass      = c(   1,   0,   0,   0,   0,   0)[idx]
    }else if (name.now %in% names(joborder)){
       joborder[[name.now]] = myruns[[name.now]]
    }else{

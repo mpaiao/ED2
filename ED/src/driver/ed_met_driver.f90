@@ -527,8 +527,7 @@ module ed_met_driver
       !     We now retrieve the met driver year based on the stored sequence.              !
       !------------------------------------------------------------------------------------!
       iyear    = current_time%year-iyeara+1
-      year_use = metyears(iyear)
-
+ 
 
       gridloop: do igr = 1,ngrids
 
@@ -536,7 +535,6 @@ module ed_met_driver
 
          !----- Loop over the different file formats --------------------------------------!
          formloop: do iformat = 1, nformats
-               
             !------------------------------------------------------------------------------!
             !   SPECIAL CASE FOR CO2:                                                      !
             !     Usually we do not want to cycle CO2 but only the other meteorology.      !
@@ -545,8 +543,30 @@ module ed_met_driver
             !------------------------------------------------------------------------------!
             not_cycle_co2 = (met_nv(iformat) == 1 .and. trim(met_vars(iformat,1)) == 'co2')
             if (not_cycle_co2) then
-               year_use = current_time%year
-            endif
+               !---------------------------------------------------------------------------!
+               !      Make sure that the special CO2 file exists.  If not, then use the    !
+               ! default met cycle years.                                                  !
+               !---------------------------------------------------------------------------!
+               write(infile,fmt='(a,i4.4,a,a)') trim(met_names(iformat)),current_time%year &
+                                               ,mname(current_time%month),'.h5'
+               inquire(file=trim(infile),exist=exans)
+               if (exans) then
+                  !----- Allow CO2 outside met cycle. -------------------------------------!
+                  year_use = current_time%year
+                  !------------------------------------------------------------------------!
+               else
+                  !----- Typical case. Pool data from the meteorological cycle. -----------!
+                  year_use = metyears(iyear)
+                  !------------------------------------------------------------------------!
+               end if
+               !---------------------------------------------------------------------------!
+            else
+               !----- Typical case. Pool data from the meteorological cycle. --------------!
+               year_use = metyears(iyear)
+               !---------------------------------------------------------------------------!
+            end if
+            !------------------------------------------------------------------------------!
+
             !----- Create the file name and check whether it exists. ----------------------!
             write(infile,fmt='(a,i4.4,a,a)')   trim(met_names(iformat)), year_use          &
                                               ,mname(current_time%month),'.h5'
@@ -674,6 +694,7 @@ module ed_met_driver
       type(edtype)          , pointer :: cgrid
       character(len=str_len)          :: infile
       integer                         :: igr
+      integer                         :: year_cyc
       integer                         :: year_use
       integer                         :: ncyc
       integer                         :: iformat
@@ -694,17 +715,17 @@ module ed_met_driver
 
 
       !----- If we need to recycle over years, find the appropriate year to apply. --------!
-      year_use = current_time%year
+      year_cyc = current_time%year
       ncyc = metcycf - metcyc1 + 1
 
       !----- If we are after the last year... ---------------------------------------------!
-      do while(year_use > metcycf)
-         year_use = year_use - ncyc
+      do while(year_cyc > metcycf)
+         year_cyc = year_cyc - ncyc
       end do
 
       !----- If we are before the first year... -------------------------------------------!
-      do while(year_use < metcyc1)
-         year_use = year_use + ncyc
+      do while(year_cyc < metcyc1)
+         year_cyc = year_cyc + ncyc
       end do
 
       gridloop: do igr=1,ngrids
@@ -713,7 +734,6 @@ module ed_met_driver
 
          !----- Loop over the different file formats --------------------------------------!
          formloop: do iformat = 1, nformats
-            
             !------------------------------------------------------------------------------!
             !   SPECIAL CASE FOR CO2:                                                      !
             !     Usually we do not want to cycle CO2 but only the other meteorology.      !
@@ -722,8 +742,32 @@ module ed_met_driver
             !------------------------------------------------------------------------------!
             not_cycle_co2 = (met_nv(iformat) == 1 .and. trim(met_vars(iformat,1)) == 'co2')
             if (not_cycle_co2) then
-                year_use = current_time%year
-            endif
+               !---------------------------------------------------------------------------!
+               !      Make sure that the special CO2 file exists.  If not, then use the    !
+               ! default met cycle years.                                                  !
+               !---------------------------------------------------------------------------!
+               write(infile,fmt='(a,i4.4,a,a)') trim(met_names(iformat)),current_time%year &
+                                               ,mname(current_time%month),'.h5'
+               inquire(file=trim(infile),exist=exans)
+               if (exans) then
+                  !----- Allow CO2 outside met cycle. -------------------------------------!
+                  year_use = current_time%year
+                  !------------------------------------------------------------------------!
+               else
+                  !----- Typical case. Pool data from the meteorological cycle. -----------!
+                  year_use = year_cyc
+                  !------------------------------------------------------------------------!
+               end if
+               !---------------------------------------------------------------------------!
+            else
+               !----- Typical case. Pool data from the meteorological cycle. --------------!
+               year_use = year_cyc
+               !---------------------------------------------------------------------------!
+            end if
+            !------------------------------------------------------------------------------!
+
+
+
             !----- Create the file name and check whether it exists. ----------------------!
             write(infile,'(a,i4.4,a,a)')trim(met_names(iformat)), year_use,   &
                  mname(current_time%month),'.h5'

@@ -509,6 +509,11 @@ do
       case ${iscenario} in
       default)
          case ${metdriver} in
+         ERA5_CHIRPS)
+            #----- ERA5 (CHIRPS precipitation, Brazilian Amazon only). --------------------#
+            scentype="ERA5"
+            iscenario="ERAINT_AMZBR_CHIRPS"
+            ;;
          ERAINT_CHIRPS)
             #----- ERA-Interim (CHIRPS precipitation). ------------------------------------#
             scentype="ERA_Interim"
@@ -646,6 +651,12 @@ do
          metdriverdb="${fullscen}/Caxiuana/Caxiuana_HEADER"
          metcyc1=1999
          metcycf=2003
+         imetavg=1
+         ;;
+      ERA5_CHIRPS)
+         metdriverdb="${fullscen}/${iscenario}_HEADER"
+         metcyc1=1981
+         metcycf=2019
          imetavg=1
          ;;
       ERAINT_CHIRPS)
@@ -835,7 +846,7 @@ do
       #     Correct years so it is not tower-based or Sheffield.                           #
       #------------------------------------------------------------------------------------#
       case ${iscenario} in
-      default|eft|shr|sheffield|WFDEI*|ERAINT*|MERRA2*|PGMF3*)
+      default|eft|shr|ERA5*|ERAINT*|MERRA2*|PGMF3*|WFDEI*|Sheffield)
          echo "Nothing" > /dev/null
          ;;
       *)
