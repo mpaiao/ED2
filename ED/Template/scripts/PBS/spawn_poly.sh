@@ -29,7 +29,7 @@ biotype=0      # 0 -- "default" setting (isizepft controls default/nounder)
                # 2 -- airborne lidar initialisation using return counts ("default"). 
                # 3 -- airborne lidar initialisation using intensity counts.
                # 4 -- airborne lidar/inventory hybrid initialisation ("lookup table"). 
-               # 5 -- EBA transects. 
+               # 5 -- airborne lidar (EBA Transects).
                # For lidar initialisation (2-4), isizepft is the disturbance history key.
 #----- Path and file prefix for init_mode = 5. --------------------------------------------#
 restart="${fs0}/Data/ed2_data/restarts_XXX"
@@ -777,7 +777,7 @@ do
       ERA5_CHIRPS)
          #----- ERA5 (CHIRPS precipitation, Brazilian Amazon only). -----------------------#
          scentype="ERA5"
-         iscenario="ERAINT_AMZBR_CHIRPS"
+         iscenario="ERA5_AMZBR_CHIRPS"
          ;;
       ERAINT_CHIRPS)
          #----- ERA-Interim (CHIRPS precipitation). ---------------------------------------#

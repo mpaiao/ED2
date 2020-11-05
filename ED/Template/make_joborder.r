@@ -29,6 +29,9 @@ lonlat     = NULL                                     # NULL - define runs local
                                                       #        (varrun/varlabel)
 #lonlat  = file.path(here,"lonlat_input.txt")         # Not NULL - read lon/lat from file,
                                                       #    and finish up settings below
+add.coord  = TRUE                                     # Add coordinates to names
+varalways  = "ifire"                                  # Variables to always appear in the
+                                                      #    jobname
 #------------------------------------------------------------------------------------------#
 
 
@@ -421,6 +424,18 @@ if (is.null(lonlat)){
    #---------------------------------------------------------------------------------------#
 
 
+   #---------------------------------------------------------------------------------------#
+   #   In case coordinates are sought, add them right after iata.                          #
+   #---------------------------------------------------------------------------------------#
+   if (add.coord){
+      idx           = match(varrun$iata,poilist$iata)
+      lonlab        = sprintf("lon%+06.2f",poilist$lon[idx])
+      latlab        = sprintf("lat%+06.2f",poilist$lat[idx])
+      varlabel$iata = paste(varlabel$iata,lonlab,latlab,sep="_")
+   }#end if
+   #---------------------------------------------------------------------------------------#
+
+
 
    #---------------------------------------------------------------------------------------#
    #    Build the name of the simulations.  The polygon name always stays, even if the run #
@@ -430,7 +445,7 @@ if (is.null(lonlat)){
       runname = defname[! forbidden]
       metname = ""
    }else{
-      stay     = which(names(varlabel) %in% c("iata"))
+      stay     = which(names(varlabel) %in% c("iata",varalways))
       bye      = which(sapply(X=varlabel,FUN=length) == 1)
       bye      = bye[! bye %in% stay]
       if (length(bye) > 0) for (b in sort(bye,decreasing=TRUE)) varlabel[[b]] = NULL
@@ -452,11 +467,10 @@ if (is.null(lonlat)){
    #---------------------------------------------------------------------------------------#
    #     Job name by appending longitude and latitude.                                     #
    #---------------------------------------------------------------------------------------#
-   joborder$run = paste( joborder$iata
-                       , "_lon",sprintf("%+06.2f",joborder$lon)
-                       , "_lat",sprintf("%+06.2f",joborder$lat)
-                       , sep = ""
-                       )#end paste
+   joborder$run = paste0( joborder$iata
+                        , "_lon",sprintf("%+06.2f",joborder$lon)
+                        , "_lat",sprintf("%+06.2f",joborder$lat)
+                        )#end paste0
    #---------------------------------------------------------------------------------------#
 }#end if
 #------------------------------------------------------------------------------------------#
