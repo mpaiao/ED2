@@ -22,7 +22,10 @@ subroutine ed_driver()
                                    , filltab_alltypes              & ! sub-routine
                                    , edgrid_g                      ! ! intent(inout)
    use ed_misc_coms         , only : runtype                       & ! intent(in)
-                                   , iooutput                      ! ! intent(in)
+                                   , current_time                  & ! intent(in)
+                                   , isoutput                      & ! intent(in)
+                                   , iooutput                      & ! intent(in)
+                                   , restore_file                  ! ! intent(in)
    use soil_coms            , only : alloc_soilgrid                ! ! sub-routine
    use ed_node_coms         , only : mynum                         & ! intent(in)
                                    , nnodetot                      & ! intent(in)
@@ -55,6 +58,8 @@ subroutine ed_driver()
 #if defined(RAMS_MPI)
    integer                     :: ierr
 #endif
+   !----- Local constants (ensure this is the same as in ed_model.F90. --------------------!
+   character(len=26), parameter :: fmtrest = '(i4.4,2(1x,i2.2),1x,2i2.2)'
    !----- External functions. -------------------------------------------------------------!
    real             , external :: walltime    ! wall time
    !---------------------------------------------------------------------------------------!
@@ -375,10 +380,37 @@ subroutine ed_driver()
 
 
    !---------------------------------------------------------------------------------------!
-   ! STEP 14. Run the model or skip if it is a zero time run.                              !
+   ! STEP 14. Run the model or skip if it is a zero time run.  In case this is a zero time !
+   !          run, write the history file and the flag for restoring the run (this can     !
+   !          be useful for model initialisation with large number of patches in the input !
+   !          file, which can be memory-demanding.                                         !
    !---------------------------------------------------------------------------------------!
    if (time < timmax) then
       call ed_model()
+   else if ((timmax == 0.) .and. (isoutput /= 0)) then
+      !----- Write the zero-time output only if the run type is 'INITIAL'. ----------------!
+      select case (trim(runtype))
+      case ('INITIAL')
+         !----- Write the output file. ----------------------------------------------------!
+         call h5_output('HIST')
+         !---------------------------------------------------------------------------------!
+
+
+         !---------------------------------------------------------------------------------!
+         !     Write a file with the current history time.                                 !
+         !---------------------------------------------------------------------------------!
+         if (mynum == 1) then
+            open (unit=18,file=trim(restore_file),form='formatted',status='replace'        &
+                 ,action='write')
+            write(unit=18,fmt=fmtrest) current_time%year,current_time%month                &
+                                      ,current_time%date,current_time%hour                 &
+                                      ,current_time%min
+            close(unit=18,status='keep')
+         end if
+         !------------------------------------------------------------------------------------!
+
+      end select
+      !------------------------------------------------------------------------------------!
    end if
    !---------------------------------------------------------------------------------------!
 
