@@ -21,7 +21,8 @@ subroutine ed_driver()
    use ed_state_vars        , only : allocate_edglobals            & ! sub-routine
                                    , filltab_alltypes              & ! sub-routine
                                    , edgrid_g                      ! ! intent(inout)
-   use ed_misc_coms         , only : runtype                       & ! intent(in)
+   use ed_misc_coms         , only : dtlsm                         & ! intent(in)
+                                   , runtype                       & ! intent(in)
                                    , current_time                  & ! intent(in)
                                    , isoutput                      & ! intent(in)
                                    , iooutput                      & ! intent(in)
@@ -387,7 +388,7 @@ subroutine ed_driver()
    !---------------------------------------------------------------------------------------!
    if (time < timmax) then
       call ed_model()
-   else if ((timmax == 0.) .and. (isoutput /= 0)) then
+   else if ((timmax < dtlsm) .and. (isoutput /= 0)) then
       !----- Write the zero-time output only if the run type is 'INITIAL'. ----------------!
       select case (trim(runtype))
       case ('INITIAL')
