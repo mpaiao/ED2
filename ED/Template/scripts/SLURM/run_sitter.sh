@@ -123,6 +123,16 @@ outform="JobName%200,State%12"
 #------------------------------------------------------------------------------------------#
 
 
+#------------------------------------------------------------------------------------------#
+#     Optional feature to reset stalled polygons.  This feature is particularly useful     #
+# when using serial_requeue, as some jobs land in faulty nodes.  This feature is currently #
+# available for CANNON only.                                                               #
+#------------------------------------------------------------------------------------------#
+stall_reset=true
+nstall=2
+#------------------------------------------------------------------------------------------#
+
+
 
 
 
@@ -200,6 +210,7 @@ rclogin*|holy*|moorcroft*|rcnx*)
    ;;
 sdumont*)
    cluster="SDUMONT"
+   stall_reset=false
    ;;
 *)
    echo -n "Failed guessing cluster from node name.  Please type the name:   "
@@ -985,7 +996,7 @@ do
       #      Check whether the simulations are stalled.                                    #
       #------------------------------------------------------------------------------------#
       case ${runt} in
-      "HISTORY")
+      "HISTORY"|"RESTORE")
          #----- Check whether the runs are stalled. ---------------------------------------#
          if [ ${yearh} == ${yearh_old} ] && [ ${monthh} == ${monthh_old} ] &&
             [ ${dateh} == ${dateh_old} ] && [ ${timeh}  == ${timeh_old}  ]
@@ -1003,13 +1014,6 @@ do
          #---------------------------------------------------------------------------------#
          ;;
       esac
-      #------------------------------------------------------------------------------------#
-
-
-      #----- Write polygon check into a single table. -------------------------------------#
-      output="${polyname} ${polylon} ${polylat} ${yearh} ${monthh} ${dateh} ${timeh}"
-      output="${output} ${stall} ${runt} ${agb} ${bsa} ${lai} ${scb} ${npa}"
-      echo ${output} >> ${outcheck}
       #------------------------------------------------------------------------------------#
 
 
@@ -1053,6 +1057,27 @@ do
          suspended=$(${stask} -o "${outform}" | grep "SUSPENDED" | wc -l)
          simline=$(grep "Simulating: "   ${stdout} | tail -1)
          runtime=$(echo ${simline} | awk '{print $3}')
+         #---------------------------------------------------------------------------------#
+
+
+         #---------------------------------------------------------------------------------#
+         #     Check whether to kill and resubmit the job.                                 #
+         #---------------------------------------------------------------------------------#
+         if ${stall_reset} && [[ ${running} -gt 0 ]] && [[ ${stall} -ge ${nstall} ]]
+         then
+            #------------------------------------------------------------------------------#
+            #      Kill the job, it's stalled.                                             #
+            #------------------------------------------------------------------------------#
+            callserial="${here}/${polyname}/callserial.sh"
+            jobid=$(${stask} | head -1 | awk '{print 1}')
+            scancel ${jobid}
+            sbatch ${callserial}
+            #------------------------------------------------------------------------------#
+
+            #------- Reset stall so it gives the job a chance to resume. ------------------#
+            stall=0
+            #------------------------------------------------------------------------------#
+         fi
          #---------------------------------------------------------------------------------#
 
 
@@ -1130,6 +1155,13 @@ do
          echo -e "${ffout}: ${polyname} is pending."
       fi
       #------------------------------------------------------------------------------------#
+
+
+      #----- Write polygon check into a single table. -------------------------------------#
+      output="${polyname} ${polylon} ${polylat} ${yearh} ${monthh} ${dateh} ${timeh}"
+      output="${output} ${stall} ${runt} ${agb} ${bsa} ${lai} ${scb} ${npa}"
+      echo ${output} >> ${outcheck}
+      #------------------------------------------------------------------------------------#
    done
    #---------------------------------------------------------------------------------------#
 
@@ -1141,7 +1173,7 @@ do
    if [ ${frqpost} -gt 0 ]
    then
       let xpost=${iter}%${frqpost}
-      if [ -s "${here}/epost.sh" ] && [ ${xpost} -eq 0 -o ${n_ongoing} -eq 0 ]
+      if [[ -s "${here}/epost.sh" ]] && [[ ${xpost} -eq 0 -o ${n_ongoing} -eq 0 ]]
       then
          echo " Run post-processing."
          ${here}/epost.sh
