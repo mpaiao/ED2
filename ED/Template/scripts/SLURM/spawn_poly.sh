@@ -1258,7 +1258,7 @@ do
       ERA5_CHIRPS)
          #----- ERA5 (CHIRPS precipitation, Brazilian Amazon only). -----------------------#
          scentype="ERA5"
-         iscenario="ERA5_AMZBR_CHIRPS"
+         iscenario="ERA5_SOUTHAM_CHIRPS"
          ;;
       ERA5_CHIRPS)
          #----- ERA-Interim (CHIRPS precipitation). ---------------------------------------#
