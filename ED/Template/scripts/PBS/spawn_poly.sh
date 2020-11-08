@@ -2111,7 +2111,7 @@ do
       echo "Polygon population has gone extinct.  No need to re-submit it."
       submit_now=false
       ;;
-   "CRASHED"|"METMISS"|"SIGSEGV"|"BAD_MET"|"STOPPED")
+   "CRASHED"|"HYDFAIL"|"METMISS"|"SIGSEGV"|"BAD_MET"|"STOPPED")
       echo "Polygon has serious errors.  Script will not submit the job this time."
       submit_now=false
       ;;

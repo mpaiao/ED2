@@ -302,6 +302,7 @@ do
    n_unknown=0
    n_sigsegv=0
    n_crashed=0
+   n_hydfail=0
    n_metmiss=0
    n_stopped=0
    #---------------------------------------------------------------------------------------#
@@ -1104,9 +1105,10 @@ do
 
 
          #----- Check for other possible outcomes. ----------------------------------------#
-         stopped=$(grep "FATAL ERROR"           ${stdout} | wc -l)
-         crashed=$(grep "IFLAG1 problem."       ${stdout} | wc -l)
-         the_end=$(grep "ED-2.2 execution ends" ${stdout} | wc -l)
+         stopped=$(grep "FATAL ERROR"                       ${stdout} | wc -l)
+         crashed=$(grep "IFLAG1 problem."                   ${stdout} | wc -l)
+         hydfail=$(grep "Plant Hydrodynamics is off-track." ${stdout} | wc -l)
+         the_end=$(grep "ED-2.2 execution ends"             ${stdout} | wc -l)
          #---------------------------------------------------------------------------------#
 
 
@@ -1133,6 +1135,10 @@ do
          then 
             let n_crashed=${n_crashed}+1
             echo -e "${ffout}: ${polyname} HAS CRASHED (RK4 PROBLEM)."
+         elif [ ${hydfail} -gt 0 ]
+         then 
+            let n_hydfail=${n_hydfail}+1
+            echo -e "${ffout}: ${polyname} HAS CRASHED (HYDRODYNAMICS)."
          elif [ ${metmiss} -gt 0 ]
          then 
             let n_metmiss=${n_metmiss}+1
@@ -1204,6 +1210,7 @@ do
    n_metmiss=$(grep METMISS ${outcheck} | wc -l)
    n_bad_met=$(grep BAD_MET ${outcheck} | wc -l)
    n_crashed=$(grep CRASHED ${outcheck} | wc -l)
+   n_hydfail=$(grep HYDFAIL ${outcheck} | wc -l)
    n_stopped=$(grep STOPPED ${outcheck} | wc -l)
    n_extinct=$(grep EXTINCT ${outcheck} | wc -l)
    n_ststate=$(grep STSTATE ${outcheck} | wc -l)
@@ -1216,7 +1223,8 @@ do
    echo " Number of polygons that have partially run        : ${n_running}" >> ${statfile}
    echo " Number of polygons that haven't found met drivers : ${n_metmiss}" >> ${statfile}
    echo " Number of polygons that have bad met drivers      : ${n_bad_met}" >> ${statfile}
-   echo " Number of polygons that have crashed              : ${n_crashed}" >> ${statfile}
+   echo " Number of polygons that have crashed (RK4)        : ${n_crashed}" >> ${statfile}
+   echo " Number of polygons that have crashed (Hydrodyn.)  : ${n_hydfail}" >> ${statfile}
    echo " Number of polygons that have mysteriously stopped : ${n_stopped}" >> ${statfile}
    echo " Number of polygons that became desert             : ${n_extinct}" >> ${statfile}
    echo " Number of polygons that have reached steady state : ${n_ststate}" >> ${statfile}

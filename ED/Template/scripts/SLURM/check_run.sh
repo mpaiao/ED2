@@ -303,9 +303,10 @@ do
 
 
       #----- Check for other possible outcomes. -------------------------------------------#
-      stopped=$(grep "FATAL ERROR"           ${stdout} | wc -l)
-      crashed=$(grep "IFLAG1 problem."       ${stdout} | wc -l)
-      the_end=$(grep "ED-2.2 execution ends" ${stdout} | wc -l)
+      stopped=$(grep "FATAL ERROR"                       ${stdout} | wc -l)
+      crashed=$(grep "IFLAG1 problem."                   ${stdout} | wc -l)
+      hydfail=$(grep "Plant Hydrodynamics is off-track." ${stdout} | wc -l)
+      the_end=$(grep "ED-2.2 execution ends"             ${stdout} | wc -l)
       #------------------------------------------------------------------------------------#
 
 
@@ -327,6 +328,9 @@ do
       elif [ ${crashed} -gt 0 ]
       then 
          echo -e "${ffout}: ${polyname} HAS CRASHED (RK4 PROBLEM)... <==========="
+      elif [ ${hydfail} -gt 0 ]
+      then 
+         echo -e "${ffout}: ${polyname} HAS CRASHED (HYDRODYNAMICS)... <==========="
       elif [ ${metmiss} -gt 0 ]
       then 
          echo -e "${ffout}: ${polyname} DID NOT FIND MET DRIVERS... <==========="
