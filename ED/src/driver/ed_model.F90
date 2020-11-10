@@ -108,6 +108,7 @@ subroutine ed_model()
    integer            :: ndays
    integer            :: dbndays
    integer            :: obstime_idx
+   logical            :: last_step
    logical            :: analysis_time
    logical            :: observation_time
    logical            :: new_day
@@ -374,6 +375,7 @@ subroutine ed_model()
       dcyc_analy_time = new_month .and. writing_dcyc
       reset_time      = mod(time,dble(frqsum)) < dble(dtlsm)
       annual_time     = new_year .and. writing_year
+      last_step       = time >= timmax
       !------------------------------------------------------------------------------------!
 
 
@@ -431,6 +433,14 @@ subroutine ed_model()
                           current_time%month == imontha .and.                              &
                           mod(real(current_time%year-iyeara),frqstate) == 0.
       end select
+      !------------------------------------------------------------------------------------!
+
+
+      !------------------------------------------------------------------------------------!
+      !      If this is the last step, write the history even if it is not the a typical   !
+      ! time step to write history.                                                        !
+      !------------------------------------------------------------------------------------!
+      history_time      = history_time .or. last_step
       !------------------------------------------------------------------------------------!
 
 
