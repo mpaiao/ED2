@@ -92,6 +92,7 @@ module phenology_driv
       use pft_coms       , only : phenology                & ! intent(in)
                                 , c2n_leaf                 & ! intent(in)
                                 , q                        & ! intent(in)
+                                , leaf_psi_min             & ! intent(in)
                                 , leaf_psi_tlp             & ! intent(in)
                                 , high_psi_threshold       & ! intent(in)
                                 , low_psi_threshold        & ! intent(in)
@@ -105,7 +106,8 @@ module phenology_driv
                                 , root_phen_factor         & ! intent(in)
                                 , iphen_scheme             & ! intent(in)
                                 , elongf_min               & ! intent(in)
-                                , elongf_flush             ! ! intent(in)
+                                , elongf_flush             & ! intent(in)
+                                , f_psi_xdry               ! ! intent(in)
       use consts_coms    , only : t3ple                    & ! intent(in)
                                 , cice                     & ! intent(in)
                                 , cliq                     & ! intent(in)
@@ -663,7 +665,15 @@ module phenology_driv
 
 
                !----- Modify elongf and phenology_status whenever necessary. --------------!
-               if (cpatch%low_leaf_psi_days(ico) >= low_psi_threshold(ipft)) then
+               if (      cpatch%leaf_psi(ico) < f_psi_xdry * leaf_psi_min(ipft)            &
+                   .and. cpatch%wood_psi(ico) < leaf_psi_tlp(ipft)              ) then
+                  !------------------------------------------------------------------------!
+                  !    Extremely dry conditions: leaf_psi is too low and even wood_psi is  !
+                  ! below leaf_tlp. Shed all leaves.                                       !
+                  !------------------------------------------------------------------------!
+                  elongf_try = 0.0
+                  !------------------------------------------------------------------------!
+               else if (cpatch%low_leaf_psi_days(ico) >= low_psi_threshold(ipft)) then
                   !----- Too many dry days, decrease elongation factor. -------------------!
                   elongf_try = max(0., cpatch%elongf(ico) - leaf_shed_rate(ipft))
                   !------------------------------------------------------------------------!

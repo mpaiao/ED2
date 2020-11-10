@@ -2489,6 +2489,7 @@ subroutine init_phen_coms
    use phenology_coms, only : thetacrit                & ! intent(in)
                             , retained_carbon_fraction & ! intent(out)
                             , root_phen_factor         & ! intent(out)
+                            , f_psi_xdry               & ! intent(out)
                             , elongf_min               & ! intent(out)
                             , elongf_flush             & ! intent(out)
                             , spot_phen                & ! intent(out)
@@ -2538,6 +2539,14 @@ subroutine init_phen_coms
    ! root_phen_factor < 0.  Non-sensical, currently assume the same as 0.                  !
    !---------------------------------------------------------------------------------------!
    root_phen_factor = 2.0
+   !---------------------------------------------------------------------------------------!
+
+
+
+   !---------------------------------------------------------------------------------------!
+   !      Threshold for shedding all leaves when leaf water potential is very low. .       !
+   !---------------------------------------------------------------------------------------!
+   f_psi_xdry               = 0.95
    !---------------------------------------------------------------------------------------!
 
 
