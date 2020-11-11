@@ -59,6 +59,7 @@ module plant_hydro
       use pft_coms             , only : C2B                    & ! intent(in)
                                       , leaf_water_cap         & ! intent(in)
                                       , leaf_psi_min           & ! intent(in)
+                                      , wood_psi_min           & ! intent(in)
                                       , small_psi_min          ! ! intent(in)
 
       implicit none
@@ -85,7 +86,7 @@ module plant_hydro
       logical                             :: track_hydraulics !< whether track hydraulics
       !----- Variables for debugging purposes ---------------------------------------------!
       integer, parameter                  :: dco        = 0 ! the cohort to debug
-      logical, dimension(3)               :: error_flag
+      logical, dimension(6)               :: error_flag
       logical, parameter                  :: debug_flag = .false.
       character(len=13)     , parameter   :: efmt       = '(a,1x,es12.5)'
       character(len=9)      , parameter   :: ifmt       = '(a,1x,i5)'
@@ -226,33 +227,65 @@ module plant_hydro
                                        + transp * dtlsm        & ! kgH2O
                                        / c_leaf                ! ! kgH2O/m
                   !------------------------------------------------------------------------!
+
+
+                  !------------------------------------------------------------------------!
+                  !      Run sanity check.  The code will crash if any of these happens.   !
+                  !                                                                        !
+                  ! 1.  If leaf_psi is invalid (run the debugger, the problem may be else- !
+                  !     where)                                                             !
+                  ! 2.  If leaf_psi is positive (non-sensical)                             !
+                  ! 3.  If leaf_psi is too negative (also non-sensical)                    !
+                  !------------------------------------------------------------------------!
+                  error_flag(1) = isnan_real(cpatch%leaf_psi(ico)) ! NaN values
+                  error_flag(2) = cpatch%leaf_psi(ico) > 0.        ! Positive potential
+                  error_flag(3) = merge( cpatch%leaf_psi(ico) < small_psi_min(ipft)        &
+                                       , cpatch%leaf_psi(ico) < leaf_psi_min (ipft)        &
+                                       , cpatch%is_small(ico)                        )
+                  !------------------------------------------------------------------------!
+
                else
                   !----- No leaves, set leaf_psi the same as wood_psi - hite. -------------!
                   cpatch%leaf_psi(ico) = cpatch%wood_psi(ico) - cpatch%hite(ico)
+                  !------------------------------------------------------------------------!
+
+
+                  !----- Skip checking leaf psi. ------------------------------------------!
+                  error_flag(1) = .false.
+                  error_flag(2) = .false.
+                  error_flag(3) = .false.
                   !------------------------------------------------------------------------!
                end if
                !---------------------------------------------------------------------------!
 
 
                !---------------------------------------------------------------------------!
-               !      Run sanity check.  The code will crash if any of these happen.       !
+               !      Run sanity check for wood.  The code will crash if any of these      !
+               ! happens.                                                                  !
                !                                                                           !
-               ! 1.  If leaf_psi is invalid (run the debugger, the problem may be else-    !
+               ! 1.  If wood_psi is invalid (run the debugger, the problem may be else-    !
                !     where)                                                                !
-               ! 2.  If leaf_psi is positive (non-sensical)                                !
-               ! 3.  If leaf_psi is too negative (also non-sensical)                       !
+               ! 2.  If wood_psi is positive (non-sensical)                                !
+               ! 3.  If wood_psi is too negative (also non-sensical)                       !
                !---------------------------------------------------------------------------!
-               error_flag(1) = isnan_real(cpatch%leaf_psi(ico)) ! NaN values
-               error_flag(2) = cpatch%leaf_psi(ico) > 0.        ! Positive potential
-               error_flag(3) = merge( cpatch%leaf_psi(ico) < small_psi_min(ipft)           &
-                                    , cpatch%leaf_psi(ico) < leaf_psi_min (ipft)           &
+               error_flag(4) = isnan_real(cpatch%wood_psi(ico)) ! NaN values
+               error_flag(5) = cpatch%wood_psi(ico) > 0.        ! Positive potential
+               error_flag(6) = merge( cpatch%wood_psi(ico) < small_psi_min(ipft)           &
+                                    , cpatch%wood_psi(ico) < wood_psi_min (ipft)           &
                                     , cpatch%is_small(ico)                        )
+               !---------------------------------------------------------------------------!
+ 
+
+
+               !---------------------------------------------------------------------------!
+               !   In case there is an error, give the bad news.                           !
+               !---------------------------------------------------------------------------!
                if ((debug_flag .and. (dco == 0 .or. ico == dco)) .or. any(error_flag)) then
                   write (unit=*,fmt='(a)') ' '
                   write (unit=*,fmt='(92a)') ('=',k=1,92)
                   write (unit=*,fmt='(92a)') ('=',k=1,92)
                   write (unit=*,fmt='(a)'  )                                               &
-                     ' Invalid leaf_psi detected.'
+                     ' Invalid leaf_psi or wood_psi detected.'
                   write (unit=*,fmt='(92a)') ('-',k=1,92)
                   write (unit=*,fmt='(a,i4.4,2(1x,i2.2),1x,f6.0)') ' TIME           : '    &
                                                   ,current_time%year,current_time%month    &
@@ -266,12 +299,16 @@ module plant_hydro
                   write (unit=*,fmt=lfmt   ) ' + SMALL            =',cpatch%is_small(ico)
 
                   write (unit=*,fmt='(a)'  ) ' '
-                  write (unit=*,fmt=lfmt   ) ' + FINITE           =',.not. error_flag(1)
-                  write (unit=*,fmt=lfmt   ) ' + NEGATIVE         =',.not. error_flag(2)
-                  write (unit=*,fmt=lfmt   ) ' + BOUNDED          =',.not. error_flag(3)
+                  write (unit=*,fmt=lfmt   ) ' + FINITE   (Leaf)  =',.not. error_flag(1)
+                  write (unit=*,fmt=lfmt   ) ' + NEGATIVE (Leaf)  =',.not. error_flag(2)
+                  write (unit=*,fmt=lfmt   ) ' + BOUNDED  (Leaf)  =',.not. error_flag(3)
+                  write (unit=*,fmt=lfmt   ) ' + FINITE   (Wood)  =',.not. error_flag(4)
+                  write (unit=*,fmt=lfmt   ) ' + NEGATIVE (Wood)  =',.not. error_flag(5)
+                  write (unit=*,fmt=lfmt   ) ' + BOUNDED  (Wood)  =',.not. error_flag(6)
 
                   write (unit=*,fmt='(a)'  ) ' '
                   write (unit=*,fmt=efmt   ) ' + LEAF_PSI_MIN     =',leaf_psi_min (ipft)
+                  write (unit=*,fmt=efmt   ) ' + WOOD_PSI_MIN     =',wood_psi_min (ipft)
                   write (unit=*,fmt=efmt   ) ' + SMALL_PSI_MIN    =',small_psi_min(ipft)
 
                   write (unit=*,fmt='(a)'  ) ' '
