@@ -65,7 +65,9 @@ initrc="${HOME}/.bashrc"          # Initialisation script for most nodes
 optsrc="-n"                   # Option for .bashrc (for special submission settings)
                               #   In case none is needed, leave it blank ("").
 #----- Submit job automatically? (It may become false if something prevents submission). --#
-submit=false
+submit=false      # This checks whether to submit runs or not.
+on_the_fly=false  # In case submit=true and this is the CANNON cluster, on_the_fly allows
+                  #   directories are jobs to be submitted as the directories are ready.
 #----- Settings for this group of polygons. -----------------------------------------------#
 global_queue="shared,huce_intel" # Queue
 sim_memory=0                     # Memory per simulation. Zero uses queue's default
@@ -123,18 +125,59 @@ squeue="squeue --noheader -u ${moi}"
 
 #----- Find out which platform we are using. ----------------------------------------------#
 host=$(hostname -s)
-case ${host} in
+case "${host}" in
 rclogin*|holy*|moorcroft*|rcnx*)
+   #----- Cluster is CANNON (formerly known as ODYSSEY). ----------------------------------#
    cluster="CANNON"
+   #---------------------------------------------------------------------------------------#
    ;;
 sdumont*)
+   #----- Cluster is SDUMONT. Ironically perhaps, we cannot submit jobs on the fly. -------#
    cluster="SDUMONT"
+   on_the_fly=false
+   #---------------------------------------------------------------------------------------#
    ;;
 *)
    echo -n "Failed guessing cluster from node name.  Please type the name:   "
    read cluster
+   cluster=$(echo ${cluster} | tr '[:lower:]' '[:upper:]')
+   case "${cluster}" in
+   CANNON|CANNO|CANN|CAN|CA|C)
+      #----- Set cluster to CANNON. -------------------------------------------------------#
+      cluster="CANNON"
+      #------------------------------------------------------------------------------------#
+      ;;
+   ODYSSEY|ODYSSE|ODYSS|ODYS|ODY|OD|O)
+      #----- Set cluster to CANNON. -------------------------------------------------------#
+      cluster="CANNON"
+      echo " - Odyssey is now known as Cannon.  Using Cannon settings."
+      #------------------------------------------------------------------------------------#
+      ;;
+   SDUMONT|SDUMON|SDUMO|SDUM|SDU|SD|S)
+      #----- Cluster is SDUMONT. Ironically perhaps, we cannot submit jobs on the fly. ----#
+      cluster="SDUMONT"
+      on_the_fly=false
+      #------------------------------------------------------------------------------------#
+      ;;
+   *)
+      #----- Unknown cluster. -------------------------------------------------------------#
+      echo " Cluster ${cluster} is not recognised.  Pick either CANNON or SDUMONT."
+      echo "    (or edit the script to add the new cluster)."
+      exit 92
+      #------------------------------------------------------------------------------------#
+      ;;
+   esac
    ;;
 esac
+#------------------------------------------------------------------------------------------#
+
+#------------------------------------------------------------------------------------------#
+#     Do not let on_the_fly if submit is false.                                            #
+#------------------------------------------------------------------------------------------#
+if ! ${submit}
+then
+   on_the_fly=false
+fi
 #------------------------------------------------------------------------------------------#
 
 
@@ -151,13 +194,13 @@ fi
 
 #----- Determine the number of polygons to run. -------------------------------------------#
 let npolys=$(wc -l ${joborder} | awk '{print $1 }')-3
-if [ ${npolys} -lt 100 ]
+if [[ ${npolys} -lt 100 ]]
 then
    ndig=2
-elif [ ${npolys} -lt 1000 ]
+elif [[ ${npolys} -lt 1000 ]]
 then
    ndig=3
-elif [ ${npolys} -lt 10000 ]
+elif [[ ${npolys} -lt 10000 ]]
 then
    ndig=4
 else
@@ -201,7 +244,7 @@ done
 # script.                                                                                  #
 #------------------------------------------------------------------------------------------#
 exec_full="${here}/executable/${execname}"
-if [ ! -s ${exec_full} ]
+if [[ ! -s ${exec_full} ]]
 then
    echo "Executable file : ${exec_full} is not in the executable directory"
    echo "Copy the executable to the file before running this script!"
@@ -331,7 +374,7 @@ esac
 
 
 #----- Check that the resources requested are reasonable. ---------------------------------#
-if [ ${n_cpt} -gt ${n_cpt_max} ]
+if [[ ${n_cpt} -gt ${n_cpt_max} ]]
 then
    echo " Too many CPUs per task requested:"
    echo " Queue                   = ${global_queue}"
@@ -468,11 +511,11 @@ esac
 #------------------------------------------------------------------------------------------#
 #   Make sure memory does not exceed maximum amount that can be requested.                 #
 #------------------------------------------------------------------------------------------#
-if [ ${sim_memory} -eq 0 ]
+if [[ ${sim_memory} -eq 0 ]]
 then
    let sim_memory=${node_memory}/${n_cpn}
    let node_memory=${n_cpn}*${sim_memory}
-elif [ ${sim_memory} -gt ${node_memory} ]
+elif [[ ${sim_memory} -gt ${node_memory} ]]
 then 
    echo "Simulation memory ${sim_memory} cannot exceed node memory ${node_memory}!"
    exit 99
@@ -492,7 +535,7 @@ if ${partial}
 then
    let ff=${polya}-1
    let polyz=${ff}+${npartial}
-   if [ ${polyz} -gt ${npolys} ]
+   if [[ ${polyz} -gt ${npolys} ]]
    then
       polyz=${npolys}
    fi
@@ -553,7 +596,7 @@ SDUMONT)
    #   Check whether there is already a job submitted that looks like this one.            #
    #---------------------------------------------------------------------------------------#
    queued=$(${squeue} -o "${outform}" | grep ${jobname} | wc -l)
-   if [ ${queued} -gt 0 ]
+   if [[ ${queued} -gt 0 ]]
    then
       echo "There is already a job called \"${jobname}\" running."
       echo "New submissions must have different names: be creative!"
@@ -677,7 +720,7 @@ esac
 #     Loop over all polygons.                                                              #
 #------------------------------------------------------------------------------------------#
 n_submit=0
-while [ ${ff} -lt ${polyz} ]
+while [[ ${ff} -lt ${polyz} ]]
 do
    let ff=${ff}+1
    let line=${ff}+3
@@ -686,13 +729,13 @@ do
    #---------------------------------------------------------------------------------------#
    #    Format count.                                                                      #
    #---------------------------------------------------------------------------------------#
-   if   [ ${npolys} -lt 100   ]
+   if   [[ ${npolys} -lt 100   ]]
    then
       ffout=$(printf '%2.2i' ${ff})
-   elif [ ${npolys} -lt 1000  ]
+   elif [[ ${npolys} -lt 1000  ]]
    then
       ffout=$(printf '%3.3i' ${ff})
-   elif [ ${npolys} -lt 10000 ]
+   elif [[ ${npolys} -lt 10000 ]]
    then
       ffout=$(printf '%4.4i' ${ff})
    else
@@ -852,7 +895,7 @@ do
       #   Check whether there is already a job submitted that looks like this one.         #
       #------------------------------------------------------------------------------------#
       queued=$(${squeue} -o "${outform}" | grep ${taskname} | wc -l)
-      if [ ${queued} -gt 0 ]
+      if [[ ${queued} -gt 0 ]]
       then
          echo "There is already a job called \"${taskname}\" running."
          echo "New submissions must have different names: be creative!"
@@ -873,10 +916,10 @@ do
    let elapseda=12*${yeara}+${montha}
    let elapsedz=12*${yearz}+${monthz}
    let nmonths=${elapsedz}-${elapseda}
-   if [ ${nmonths} -ge 240 ]
+   if [[ ${nmonths} -ge 240 ]]
    then
       iunitstate=3
-   elif [ ${nmonths} -ge 3 ]
+   elif [[ ${nmonths} -ge 3 ]]
    then
       iunitstate=2
    else
@@ -886,7 +929,7 @@ do
 
 
    #----- Check whether the directories exist or not, and stop the script if they do. -----#
-   if [ -s ${here}/${polyname} ]
+   if [[ -s ${here}/${polyname} ]]
    then
       echo -n "${ffout} ${polyname}: updating files..."
       
@@ -910,7 +953,7 @@ do
    #---------------------------------------------------------------------------------------#
    #   Make sure that we have a reasonable tolerance.                                      #
    #---------------------------------------------------------------------------------------#
-   if [ "x${oldtol}" == "xmytoler" -o "x${oldtol}" == "x" ]
+   if [[ "x${oldtol}" == "xmytoler" ]] || [[ "x${oldtol}" == "x" ]]
    then
       toler=${toldef}
    else
@@ -928,7 +971,7 @@ do
    # we simply copy the template, and assume initial run.  Otherwise, we must find out     #
    # where the simulation was when it stopped.                                             #
    #---------------------------------------------------------------------------------------#
-   if [ -s  ${here}/${polyname} ]
+   if [[ -s  ${here}/${polyname} ]]
    then
 
       #------------------------------------------------------------------------------------#
@@ -936,20 +979,20 @@ do
       # writing, and as a result, the file may be corrupt.                                 #
       #------------------------------------------------------------------------------------#
       nhdf5=$(ls -1 ${here}/${polyname}/histo/*.h5 2> /dev/null | wc -l)
-      if [ ${nhdf5} -gt 0 ]
+      if [[ ${nhdf5} -gt 0 ]]
       then
          h5fine=0
 
-         while [ ${h5fine} -eq 0 ]
+         while [[ ${h5fine} -eq 0 ]]
          do
             lasthdf5=$(ls -1 ${here}/${polyname}/histo/*.h5 | tail -1)
             h5dump -H ${lasthdf5} 1> /dev/null 2> ${here}/badfile.txt
 
-            if [ -s ${here}/badfile.txt ]
+            if [[ -s ${here}/badfile.txt ]]
             then
                /bin/rm -fv ${lasthdf5}
                nhdf5=$(ls -1 ${here}/${polyname}/histo/*.h5 2> /dev/null | wc -l)
-               if [ ${nhdf5} -eq 0 ]
+               if [[ ${nhdf5} -eq 0 ]]
                then
                   h5fine=1
                fi
@@ -989,7 +1032,7 @@ do
    sed -i~ s@thisnyearmin@10000@g             ${whichrun}
    sed -i~ s@thisststcrit@0.0@g               ${whichrun}
    R CMD BATCH --no-save --no-restore ${whichrun} ${outwhich}
-   while [ ! -s ${here}/${polyname}/statusrun.txt ]
+   while [[ ! -s ${here}/${polyname}/statusrun.txt ]]
    do
       sleep 0.2
    done
@@ -1007,7 +1050,7 @@ do
    # HISTORY (except when we should force history).  Instead, we select RESTORE and let    #
    # the model decide between initial or history.                                          #
    #---------------------------------------------------------------------------------------#
-   if [ "${runt}" == "INITIAL" ] || [ "${runt}" == "HISTORY" ]
+   if [[ "${runt}" == "INITIAL" ]] || [[ "${runt}" == "HISTORY" ]]
    then
       runt="RESTORE"
    fi
@@ -1660,7 +1703,7 @@ do
       #     Stop the script if anthropogenic dataset is invalid and this is a simulation   #
       # with anthropogenic disturbance.                                                    #
       #------------------------------------------------------------------------------------#
-      if [ ${ianthdisturb} -eq 1 ]
+      if [[ ${ianthdisturb} -eq 1 ]]
       then
          echo " Polygon:       ${polyname}"
          echo " IATA:          ${polyiata}"
@@ -1680,13 +1723,13 @@ do
    #     Define whether we use the met cycle to define the first and last year, or the     #
    # default year.                                                                         #
    #---------------------------------------------------------------------------------------#
-   if [ ${yeara} -eq 0 ]
+   if [[ ${yeara} -eq 0 ]]
    then
       thisyeara=${metcyc1}
    else
       thisyeara=${yeara}
    fi
-   if [ ${yearz} -eq 0 ]
+   if [[ ${yearz} -eq 0 ]]
    then
       thisyearz=${metcycf}
    else
@@ -2212,7 +2255,7 @@ do
 
 
    #----- Check whether to use SFILIN as restart or history. ------------------------------#
-   if [ ${runt} == "RESTORE" ] && [ ${forcehisto} -eq 1 ]
+   if [[ ${runt} == "RESTORE" ]] && [[ ${forcehisto} -eq 1 ]]
    then
       runt="HISTORY"
       year=${yearh}
@@ -2220,9 +2263,9 @@ do
       date=${dateh}
       time=${timeh}
       thissfilin=${fullygrown}
-   elif [ ${runt} == "RESTORE" ] && [ ${initmode} -eq 5 ]
+   elif [[ ${runt} == "RESTORE" ]] && [[ ${initmode} -eq 5 ]]
    then
-      if [ ! -s ${restart} ]
+      if [[ ! -s ${restart} ]]
       then
          echo " Directory restart does not exist!"
          echo " Change the variable restart at the beginning of the script"
@@ -2231,7 +2274,7 @@ do
          runt="RESTORE"
          thissfilin=${restart}
       fi
-   elif [ ${runt} == "RESTORE" ] && [ ${initmode} -eq 6 ]
+   elif [[ ${runt} == "RESTORE" ]] && [ ${initmode} -eq 6 ]
    then
       thissfilin=${fullygrown}
 
@@ -2668,7 +2711,7 @@ do
       echo "ulimit -u unlimited"                                           >> ${callserial}
       echo ""                                                              >> ${callserial}
       echo "#--- Set OpenMP parameters"                                    >> ${callserial}
-      echo "if [ \"\${SLURM_CPUS_PER_TASK}\" == \"\" ]"                    >> ${callserial}
+      echo "if [[ \"\${SLURM_CPUS_PER_TASK}\" == \"\" ]]"                  >> ${callserial}
       echo "then"                                                          >> ${callserial}
       echo "   export OMP_NUM_THREADS=1"                                   >> ${callserial}
       echo "else"                                                          >> ${callserial}
@@ -2732,8 +2775,15 @@ do
       echo "Polygon population has gone extinct.  No need to re-submit it."
       ;;
    "CRASHED"|"HYDFAIL"|"METMISS"|"SIGSEGV"|"BAD_MET"|"STOPPED")
-      echo "Polygon has serious errors.  Script will not submit any job this time."
-      submit=false
+      #----- Decide whether to skip this job submission or every job submission. ----------#
+      if ${on_the_fly}
+      then
+         echo "Polygon has serious errors.  Script will not submit this job."
+      else
+         echo "Polygon has serious errors.  Script will not submit any job this time."
+         submit=false
+      fi
+      #------------------------------------------------------------------------------------#
       ;;
 
    "RESTORE"|"HISTORY")
@@ -2768,19 +2818,54 @@ do
          ;;
       CANNON)
          #---------------------------------------------------------------------------------#
-         #     Append submission to the script to submit the multiple single-task jobs.    #
+         #      Make sure we don't exceed the maximum number of jobs.                      #
          #---------------------------------------------------------------------------------#
-         echo "echo \" + ${ffout}/${ntasks}. Submit job: ${polyname}.\""    >> ${sbatch}
-         echo "sbatch ${callserial}"                                        >> ${sbatch}
-         echo "sleep  ${dttask}"                                            >> ${sbatch}
+         if [[ ${n_submit} -gt ${n_tasks_max} ]] && ${on_the_fly}
+         then
+            echo " Number of jobs to submit: ${n_submit}"
+            echo " Maximum number of tasks in queue ${global_queue}: ${n_tasks_max}"
+            echo " Reduce the number of simulations or try another queue..."
+            echo " Appending remaining jobs to $(basename ${sbatch}) for later submission."
+            on_the_fly=false
+         fi
          #---------------------------------------------------------------------------------#
+
+
+         #---------------------------------------------------------------------------------#
+         #       If on the fly, submit the job now.  Otherwise, append job to sbatch.      #
+         #---------------------------------------------------------------------------------#
+         if ${on_the_fly}
+         then
+            #----- Submit job on the fly. -------------------------------------------------#
+            sbatch ${callserial}
+            #------------------------------------------------------------------------------#
+         else
+            #------------------------------------------------------------------------------#
+            #     Append submission to the script to submit the multiple single-task jobs. #
+            #------------------------------------------------------------------------------#
+            echo "echo \" + ${ffout}/${ntasks}. Submit job: ${polyname}.\""    >> ${sbatch}
+            echo "sbatch ${callserial}"                                        >> ${sbatch}
+            echo "sleep  ${dttask}"                                            >> ${sbatch}
+            #------------------------------------------------------------------------------#
+         fi
+         #---------------------------------------------------------------------------------#
+
          ;;
       esac
       #------------------------------------------------------------------------------------#
       ;;
    *)
-      echo "Unknown polygon state (${runt})! Script will not submit any job this time."
-      submit=false
+      #------------------------------------------------------------------------------------#
+      #    Unknown state, either skip this job submission, or every job submission.        #
+      #------------------------------------------------------------------------------------#
+      if ${on_the_fly}
+      then
+         echo "Unknown polygon state (${runt})! Script will not submit this job."
+      else
+         echo "Unknown polygon state (${runt})! Script will not submit any job this time."
+         submit=false
+      fi
+      #------------------------------------------------------------------------------------#
       ;;
    esac
    #---------------------------------------------------------------------------------------#
@@ -2807,62 +2892,68 @@ esac
 #------------------------------------------------------------------------------------------#
 #      Make sure job list doesn't request too many nodes.                                  #
 #------------------------------------------------------------------------------------------#
-if [ ${n_submit} -gt ${n_tasks_max} ]
+if ! ${on_the_fly}
 then
-   echo " Number of jobs to submit: ${n_submit}"
-   echo " Maximum number of tasks in queue ${global_queue}: ${n_tasks_max}"
-   echo " Reduce the number of simulations or try another queue..."
-   exit 99
-elif ${submit}
-then
-   echo " Submitting jobs."
-   #------- How we submit depends on the cluster. -----------------------------------------#
-   case "${cluster}" in
-   SDUMONT)
+   if [[ ${n_submit} -gt ${n_tasks_max} ]]
+   then
+      echo " Number of jobs to submit: ${n_submit}"
+      echo " Maximum number of tasks in queue ${global_queue}: ${n_tasks_max}"
+      echo " Reduce the number of simulations or try another queue..."
+      exit 99
+   elif ${submit}
+   then
+      echo " Submitting jobs."
+      #------- How we submit depends on the cluster. --------------------------------------#
+      case "${cluster}" in
+      SDUMONT)
+         #---------------------------------------------------------------------------------#
+         #     Single multi-task job.  Submit the main script using sbatch.                #
+         #---------------------------------------------------------------------------------#
+         sbatch ${sbatch}
+         #---------------------------------------------------------------------------------#
+         ;;
+      CANNON)
+         #---------------------------------------------------------------------------------#
+         #     Multiple single-task jobs.  Run the script, the sbatch commands are in      #
+         # there.                                                                          #
+         #---------------------------------------------------------------------------------#
+         ${sbatch}
+         #---------------------------------------------------------------------------------#
+         ;;
+      esac
       #------------------------------------------------------------------------------------#
-      #     Single multi-task job.  Submit the main script using sbatch.                   #
+   elif
+   then
+      #------- Provide instructions to the user for a later submission. -------------------#
+      case "${cluster}" in
+      SDUMONT)
+         #----- Instruct the user to use sbatch. ------------------------------------------#
+         echo "-------------------------------------------------------------------------"
+         echo " To submit the simulations, you must use sbatch. "
+         echo " Copy and paste the following command in the terminal. "
+         echo " "
+         echo "       sbatch ${sbatch}"
+         echo " "
+         #---------------------------------------------------------------------------------#
+         ;;
+      CANNON)
+         #----- Instruct the user NOT to use sbatch. --------------------------------------#
+         echo "-------------------------------------------------------------------------"
+         echo " WARNING! WARNING! WARNING! WARNING! WARNING! WARNING! WARNING! WARNING! "
+         echo " WARNING! WARNING! WARNING! WARNING! WARNING! WARNING! WARNING! WARNING! "
+         echo " WARNING! WARNING! WARNING! WARNING! WARNING! WARNING! WARNING! WARNING! "
+         echo " WARNING! WARNING! WARNING! WARNING! WARNING! WARNING! WARNING! WARNING! "
+         echo "-------------------------------------------------------------------------"
+         echo " Do NOT use sbatch ${sbatch}."
+         echo " Instead, call the following script directly in your terminal."
+         echo " "
+         echo "       ${sbatch}"
+         echo " "
+         #---------------------------------------------------------------------------------#
+         ;;
+      esac
       #------------------------------------------------------------------------------------#
-      sbatch ${sbatch}
-      #------------------------------------------------------------------------------------#
-      ;;
-   CANNON)
-      #------------------------------------------------------------------------------------#
-      #     Multiple single-task jobs.  Run the script, the sbatch commands are in there.  #
-      #------------------------------------------------------------------------------------#
-      ${sbatch}
-      #------------------------------------------------------------------------------------#
-      ;;
-   esac
-   #---------------------------------------------------------------------------------------#
-else
-   #------- Provide instructions to the user for a later submission. ----------------------#
-   case "${cluster}" in
-   SDUMONT)
-      #----- Instruct the user to use sbatch. ---------------------------------------------#
-      echo "-------------------------------------------------------------------------"
-      echo " To submit the simulations, you must use sbatch. "
-      echo " Copy and paste the following command in the terminal. "
-      echo " "
-      echo "       sbatch ${sbatch}"
-      echo " "
-      #------------------------------------------------------------------------------------#
-      ;;
-   CANNON)
-      #----- Instruct the user NOT to use sbatch. -----------------------------------------#
-      echo "-------------------------------------------------------------------------"
-      echo " WARNING! WARNING! WARNING! WARNING! WARNING! WARNING! WARNING! WARNING! "
-      echo " WARNING! WARNING! WARNING! WARNING! WARNING! WARNING! WARNING! WARNING! "
-      echo " WARNING! WARNING! WARNING! WARNING! WARNING! WARNING! WARNING! WARNING! "
-      echo " WARNING! WARNING! WARNING! WARNING! WARNING! WARNING! WARNING! WARNING! "
-      echo "-------------------------------------------------------------------------"
-      echo " Do NOT use sbatch ${sbatch}."
-      echo " Instead, call the following script directly in your terminal."
-      echo " "
-      echo "       ${sbatch}"
-      echo " "
-      #------------------------------------------------------------------------------------#
-      ;;
-   esac
+   fi
    #---------------------------------------------------------------------------------------#
 fi
 #------------------------------------------------------------------------------------------#

@@ -196,7 +196,7 @@ fi
 
 
 #----- Check whether run_sitter.sh is still running or not.  If it is, exit. --------------#
-if [ -s ${here}/run_sitter.lock ]
+if [[ -s ${here}/run_sitter.lock ]]
 then
    exit
 else
@@ -241,13 +241,13 @@ sed -i~ s@"${hereline}"@"here=\"${here}\""@g ${transfer}
 
 #----- Determine the number of polygons to run. -------------------------------------------#
 let n_polygon=$(wc -l ${joborder} | awk '{print $1 }')-3
-if [ ${n_polygon} -lt 100 ]
+if [[ ${n_polygon} -lt 100 ]]
 then
    ndig=2
-elif [ ${n_polygon} -lt 1000 ]
+elif [[ ${n_polygon} -lt 1000 ]]
 then
    ndig=3
-elif [ ${n_polygon} -lt 10000 ]
+elif [[ ${n_polygon} -lt 10000 ]]
 then
    ndig=4
 else
@@ -270,7 +270,7 @@ desc=$(basename ${here})
 if [[ ${delay1st_min} -gt 0 ]]
 then
    let nsl=${delay1st_min}+1
-   while [ ${nsl} -gt 1 ]
+   while [[ ${nsl} -gt 1 ]]
    do
       let nsl=${nsl}-1
       case ${nsl} in
@@ -294,7 +294,7 @@ fi
 #------------------------------------------------------------------------------------------#
 n_ongoing=9999
 iter=0
-while [ ${n_ongoing} -gt 0 ]
+while [[ ${n_ongoing} -gt 0 ]]
 do
    #------ Update iteration counter. ------------------------------------------------------#
    let iter=${iter}+1
@@ -302,6 +302,7 @@ do
 
    #---- Reset count of polygons. ---------------------------------------------------------#
    n_running=0
+   n_stalled=0
    n_suspend=0
    n_the_end=0
    n_unknown=0
@@ -317,10 +318,10 @@ do
    #---------------------------------------------------------------------------------------#
    #     Check whether it's time to update simulation setting files.                       #
    #---------------------------------------------------------------------------------------#
-   if [ ${frqtouch} -gt 0 ]
+   if [[ ${frqtouch} -gt 0 ]]
    then
       let xtouch=${iter}%${frqtouch}
-      if [ ${xtouch} -eq 0 ]
+      if [[ ${xtouch} -eq 0 ]]
       then
          echo " Touch main files."
          touch ${here}/*.sh
@@ -337,7 +338,7 @@ do
 
 
    #----- Transfer files. -----------------------------------------------------------------#
-   if [ ! -s ${translock} ]
+   if [[ ! -s ${translock} ]]
    then
       echo " Backup files."
       nice nohup ${transfer} 1> ${here}/out_transfer.out 2>&1 &
@@ -357,7 +358,7 @@ do
    #     Go through all polygons.                                                          #
    #---------------------------------------------------------------------------------------#
    ff=0
-   while [ ${ff} -lt ${n_polygon} ]
+   while [[ ${ff} -lt ${n_polygon} ]]
    do
 
       #------------------------------------------------------------------------------------#
@@ -911,7 +912,7 @@ do
       # again.                                                                             #
       #------------------------------------------------------------------------------------#
       statrun=${here}/${polyname}/statusrun.txt
-      if [ -s ${statrun} ]
+      if [[ -s ${statrun} ]]
       then
          #----- Obtain previous status. ---------------------------------------------------#
          yearh_old=$(cat ${statrun}  | awk '{print  $2}')
@@ -929,7 +930,7 @@ do
 
 
          #----- In case the simulation never started, force it to be INITIAL. -------------#
-         if [ ${yearh_old} -eq ${yeara} ] && [ ${monthh_old} -eq ${montha} ]
+         if [[ ${yearh_old} -eq ${yeara} ]] && [[ ${monthh_old} -eq ${montha} ]]
          then
             yearh_old=${yeara}
             monthh_old=${montha}
@@ -970,7 +971,7 @@ do
       whichrun=${here}/${polyname}/whichrun.r
       outwhich=${here}/${polyname}/outwhich.txt
       R CMD BATCH --no-save --no-restore ${whichrun} ${outwhich}
-      if [ -s ${statrun} ]
+      if [[ -s ${statrun} ]]
       then
          yearh=$(cat ${statrun}  | awk '{print  $2}')
          monthh=$(cat ${statrun} | awk '{print  $3}')
@@ -1004,8 +1005,8 @@ do
       case ${runt} in
       "HISTORY"|"RESTORE")
          #----- Check whether the runs are stalled. ---------------------------------------#
-         if [ ${yearh} == ${yearh_old} ] && [ ${monthh} == ${monthh_old} ] &&
-            [ ${dateh} == ${dateh_old} ] && [ ${timeh}  == ${timeh_old}  ]
+         if [[ ${yearh} == ${yearh_old} ]] && [[ ${monthh} == ${monthh_old} ]] &&
+            [[ ${dateh} == ${dateh_old} ]] && [[ ${timeh}  == ${timeh_old}  ]]
          then
             stall_old=$(cat ${lastcheck} | grep ${polyname} | awk '{print $8}')
             let stall=${stall_old}+1
@@ -1025,7 +1026,7 @@ do
 
 
       #----- Update files that may be used to check status or to re-submit. ---------------#
-      if [ ${xtouch} -eq 0 ]
+      if [[ ${xtouch} -eq 0 ]]
       then
          touch ${here}/${polyname}/*.r
          touch ${here}/${polyname}/ED2IN
@@ -1039,7 +1040,7 @@ do
       #------------------------------------------------------------------------------------#
       #     Check whether the simulation is still running, and if not, why it isn't.       #
       #------------------------------------------------------------------------------------#
-      if [ -s ${stdout} ]
+      if [[ -s ${stdout} ]]
       then
          #----- Set task inquire command. -------------------------------------------------#
          case "${cluster}" in
@@ -1071,25 +1072,27 @@ do
          #---------------------------------------------------------------------------------#
          if ${stall_reset} && [[ ${running} -gt 0 ]] && [[ ${stall} -ge ${nstall} ]]
          then
-            #------------------------------------------------------------------------------#
-            #      Kill the job, it's stalled.                                             #
-            #------------------------------------------------------------------------------#
-            callserial="${here}/${polyname}/callserial.sh"
-            jobid=$(${stask}  -o "${outform}" | head -1 | awk '{print 1}')
-            scancel ${jobid}
-            sbatch ${callserial}
-            #------------------------------------------------------------------------------#
-
             #------- Reset stall so it gives the job a chance to resume. ------------------#
             stall=0
+            #------------------------------------------------------------------------------#
+
+
+            #------- Set stalled flag to one so it is clear the run is not running. -------#
+            stalled=1
+            #------------------------------------------------------------------------------#
+         else
+
+
+            #------- Set stalled flag to zero. It is either running or something else. ----#
+            stalled=0
             #------------------------------------------------------------------------------#
          fi
          #---------------------------------------------------------------------------------#
 
-         exit 0
+
 
          #----- Check for segmentation violations. ----------------------------------------#
-         if [ -s ${stderr} ]
+         if [[ -s ${stderr} ]]
          then
             segv1=$(grep -i "sigsegv"            ${stderr} | wc -l)
             segv2=$(grep -i "segmentation fault" ${stderr} | wc -l)
@@ -1120,39 +1123,53 @@ do
          #---------------------------------------------------------------------------------#
          #     Plot a message so the user knows what is going on.                          #
          #---------------------------------------------------------------------------------#
-         if [ ${pending} -gt 0 ]
+         if [[ ${pending} -gt 0 ]]
          then
             let n_pending=${n_pending}+1
             echo -e "${ffout}: ${polyname} is pending..."
-         elif [ ${suspended} -gt 0 ]
+         elif [[ ${suspended} -gt 0 ]]
          then
             let n_suspend=${n_suspend}+1
             echo -e "${ffout}: ${polyname} is SUSPENDED."
-         elif [ ${running} -gt 0 ] && [ ${sigsegv} -eq 0 ]
+         elif [[ ${stalled} -gt 0 ]]
+         then
+            let n_stalled=${n_stalled}+1
+            echo -e "${ffout}: ${polyname} is stalled (last time ${runtime})."
+
+            #------------------------------------------------------------------------------#
+            #      Kill the job, it's stalled.                                             #
+            #------------------------------------------------------------------------------#
+            callserial="${here}/${polyname}/callserial.sh"
+            jobid=$(${stask} -o "${outform}" | head -1 | awk '{print 1}')
+            scancel ${jobid}
+            sbatch ${callserial}
+            #------------------------------------------------------------------------------#
+
+         elif [[ ${running} -gt 0 ]] && [[ ${sigsegv} -eq 0 ]]
          then
             let n_running=${n_running}+1
             echo -e "${ffout}: ${polyname} is running (${runtime})."
-         elif [ ${sigsegv} -gt 0 ]
+         elif [[ ${sigsegv} -gt 0 ]]
          then
             let n_sigsegv=${n_sigsegv}+1
             echo -e "${ffout}: ${polyname} HAD SEGMENTATION VIOLATION."
-         elif [ ${crashed} -gt 0 ]
+         elif [[ ${crashed} -gt 0 ]]
          then 
             let n_crashed=${n_crashed}+1
             echo -e "${ffout}: ${polyname} HAS CRASHED (RK4 PROBLEM)."
-         elif [ ${hydfail} -gt 0 ]
+         elif [[ ${hydfail} -gt 0 ]]
          then 
             let n_hydfail=${n_hydfail}+1
             echo -e "${ffout}: ${polyname} HAS CRASHED (HYDRODYNAMICS)."
-         elif [ ${metmiss} -gt 0 ]
+         elif [[ ${metmiss} -gt 0 ]]
          then 
             let n_metmiss=${n_metmiss}+1
             echo -e "${ffout}: ${polyname} DID NOT FIND MET DRIVERS."
-         elif [ ${stopped} -gt 0 ]
+         elif [[ ${stopped} -gt 0 ]]
          then
             let n_stopped=${n_stopped}+1
             echo -e "${ffout}: ${polyname} STOPPED (UNKNOWN REASON)."
-         elif [ ${the_end} -gt 0 ]
+         elif [[ ${the_end} -gt 0 ]]
          then
             let n_the_end=${n_the_end}+1
             echo -e "${ffout}: ${polyname} has finished."
@@ -1182,6 +1199,7 @@ do
       #------------------------------------------------------------------------------------#
 
 
+
       #----- Write polygon check into a single table. -------------------------------------#
       output="${polyname} ${polylon} ${polylat} ${yearh} ${monthh} ${dateh} ${timeh}"
       output="${output} ${stall} ${runt} ${agb} ${bsa} ${lai} ${scb} ${npa}"
@@ -1195,10 +1213,11 @@ do
    #---------------------------------------------------------------------------------------#
    #      Run the post processing.                                                         #
    #---------------------------------------------------------------------------------------#
-   if [ ${frqpost} -gt 0 ]
+   if [[ ${frqpost} -gt 0 ]]
    then
       let xpost=${iter}%${frqpost}
-      if [[ -s "${here}/epost.sh" ]] && [[ ${xpost} -eq 0 -o ${n_ongoing} -eq 0 ]]
+      
+      if [[ ${xpost} -eq 0 ]] || [[ ${n_ongoing} -eq 0 ]]
       then
          echo " Run post-processing."
          ${here}/epost.sh
@@ -1240,6 +1259,7 @@ do
    echo "------- Simulation status. --------------------------------------" >> ${statfile}
    echo " Number of polygons that have never started        : ${n_initial}" >> ${statfile}
    echo " Number of polygons that have partially run        : ${n_running}" >> ${statfile}
+   echo " Number of polygons that have stalled              : ${n_stalled}" >> ${statfile}
    echo " Number of polygons that haven't found met drivers : ${n_metmiss}" >> ${statfile}
    echo " Number of polygons that have bad met drivers      : ${n_bad_met}" >> ${statfile}
    echo " Number of polygons that have crashed (RK4)        : ${n_crashed}" >> ${statfile}
@@ -1263,10 +1283,6 @@ do
    echo " "         >> ${emailbody}
    cat ${statfile}  >> ${emailbody}
    echo " "         >> ${emailbody}
-   cat ${recefile}  >> ${emailbody}
-   echo " "         >> ${emailbody}
-   cat ${queuefile} >> ${emailbody}
-   echo " "         >> ${emailbody}
    cat ${tailfile}  >> ${emailbody}
    echo " "         >> ${emailbody}
    #----- Check whether to append some plots. ---------------------------------------------#
@@ -1275,7 +1291,7 @@ do
       attach=""
       for fichier in ${R_figlist}
       do
-         if [ -s ${fichier} ]
+         if [[ -s ${fichier} ]]
          then
             attach="${attach} -a ${fichier}"
          fi
@@ -1299,17 +1315,17 @@ do
    #---------------------------------------------------------------------------------------#
    #     Check whether to send the e-mail or not.                                          #
    #---------------------------------------------------------------------------------------#
-   if [ ${email1day} -eq 0 ]
+   if [[ ${email1day} -eq 0 ]]
    then
      #----- Always send e-mail. -----------------------------------------------------------#
      sendemail=true
      #-------------------------------------------------------------------------------------#
-   elif [ -s ${emailday} ]
+   elif [[ -s ${emailday} ]]
    then
       #----- E-mail has been sent.  Check whether it is time to send again. ---------------#
       elast=$(cat ${emailday})
-      let elast=${elapsed}-${elast}
-      if [ ${elast} -gt ${frqemail} ]
+      let ediff=${elapsed}-${elast}
+      if [[ ${ediff} -ge ${frqemail} ]]
       then
          #----- Time to send another e-mail. ----------------------------------------------#
          sendemail=true
@@ -1347,11 +1363,11 @@ do
    #       In case any simulation is still on the works, take a break before checking      #
    #   again.                                                                              #
    #---------------------------------------------------------------------------------------#
-   if [ ${n_ongoing} -gt 0 ]
+   if [[ ${n_ongoing} -gt 0 ]]
    then
       echo "     + Take a break before checking again."
       let nsl=${wait_minutes}+1
-      while [ ${nsl} -gt 1 ]
+      while [[ ${nsl} -gt 1 ]]
       do
          let nsl=${nsl}-1
          case ${nsl} in
@@ -1371,12 +1387,6 @@ do
    echo "==================================================================="
    echo ""
    #---------------------------------------------------------------------------------------#
-
-
-   #----- Clean-up stuff. -----------------------------------------------------------------#
-   echo "     + Delete some temporary files..."
-   /bin/rm -f ${queuefile} ${recefile}
-   #---------------------------------------------------------------------------------------#
 done
 #------------------------------------------------------------------------------------------#
 
@@ -1387,7 +1397,7 @@ done
 # transferring the files.                                                                  #
 #------------------------------------------------------------------------------------------#
 nwait=0
-while [ -s ${translock} ]
+while [[ -s ${translock} ]]
 do
    let nwait=${nwait}+1
    echo " + Attempt ${nwait}, script transfer is running.  Wait 10 minutes and try again."

@@ -750,7 +750,7 @@ module plant_hydro
             wflux_wl_d = 0.d0
 
             !------ Proj_leaf_psi is only dependent upon transpiration. -------------------!
-            if (c_leaf > 0.) then
+            if (c_leaf > 0.d0) then
                 proj_leaf_psi = leaf_psi_d - transp_d * dt_d / c_leaf
             else
                 proj_leaf_psi = leaf_psi_d
@@ -785,7 +785,7 @@ module plant_hydro
             !------------------------------------------------------------------------------!
             !     Find sapflow.
             !------------------------------------------------------------------------------!
-            if (stem_cond == 0.) then
+            if (stem_cond == 0.d0) then
                !---- 1.2.2. Zero flux because stem conductivity is also zero. -------------!
                wflux_wl_d = 0.d0
                !---------------------------------------------------------------------------!
@@ -885,7 +885,7 @@ module plant_hydro
          !     No need to calculate water flow: wood psi is only dependent upon sapflow.
          !---------------------------------------------------------------------------------!
          wflux_gw_d    = 0.d0
-         if (c_stem > 0.) then
+         if (c_stem > 0.d0) then
             !----- Make sure that projected wood psi will be bounded. ---------------------!
             wflux_wl_d    = min(wflux_wl_d, (wood_psi_d - wood_psi_lwr_d) * c_stem / dt_d )
             proj_wood_psi = wood_psi_d - wflux_wl_d * dt_d / c_stem
@@ -959,12 +959,33 @@ module plant_hydro
       !     d.  Projected leaf/wood potential is less than minimum acceptable
       !     e.  Current leaf/wood potential is less than minimum acceptable
       !------------------------------------------------------------------------------------!
-      error_flag(1) = isnan(wflux_wl_d)              .or. isnan(wflux_gw_d)
-      error_flag(2) = proj_leaf_psi > 0.             .or. proj_wood_psi > 0.
-      error_flag(3) = leaf_psi_d    > 0.             .or. wood_psi_d    > 0.
-      error_flag(4) = proj_leaf_psi < leaf_psi_min_d .or. proj_wood_psi < wood_psi_min_d
-      error_flag(5) = leaf_psi_d    < leaf_psi_min_d .or. wood_psi_d    < wood_psi_min_d
+      if (c_leaf > 0.d0) then
+         !------ Check for errors in both wood and leaf. ----------------------------------!
+         error_flag(1) = isnan(wflux_wl_d)              .or. isnan(wflux_gw_d)
+         error_flag(2) = proj_leaf_psi > 0.d0           .or. proj_wood_psi > 0.d0
+         error_flag(3) = leaf_psi_d    > 0.d0           .or. wood_psi_d    > 0.d0
+         error_flag(4) = proj_leaf_psi < leaf_psi_min_d .or. proj_wood_psi < wood_psi_min_d
+         error_flag(5) = leaf_psi_d    < leaf_psi_min_d .or. wood_psi_d    < wood_psi_min_d
+         !---------------------------------------------------------------------------------!
+      else
+         !---------------------------------------------------------------------------------!
+         !     Check for errors in wood only, as plant has no leaves.  The only exception  !
+         ! is the flux from wood to leaf, which should never be NaN, so we still check it. !
+         !---------------------------------------------------------------------------------!
+         error_flag(1) = isnan(wflux_wl_d)              .or. isnan(wflux_gw_d)
+         error_flag(2) = proj_wood_psi > 0.d0
+         error_flag(3) = wood_psi_d    > 0.d0
+         error_flag(4) = proj_wood_psi < wood_psi_min_d
+         error_flag(5) = wood_psi_d    < wood_psi_min_d
+         !---------------------------------------------------------------------------------!
+      end if
+      !------------------------------------------------------------------------------------!
 
+
+
+      !------------------------------------------------------------------------------------!
+      !     In case anything went wrong, share the bad news and stop the run.              !
+      !------------------------------------------------------------------------------------!
       if ( (debug_flag .and. (dco == 0 .or. ico == dco)) .or. any(error_flag)) then
          write (unit=*,fmt='(a)') ' '
          write (unit=*,fmt='(92a)') ('=',k=1,92)
@@ -975,43 +996,44 @@ module plant_hydro
                                                      ,current_time%year,current_time%month &
                                                      ,current_time%date,current_time%time
          write (unit=*,fmt='(a)'  ) ' '
-         write (unit=*,fmt=ifmt   ) ' + IPA              =',ipa
-         write (unit=*,fmt=ifmt   ) ' + ICO              =',ico
-         write (unit=*,fmt=ifmt   ) ' + PFT              =',ipft
-         write (unit=*,fmt=ifmt   ) ' + KRDEPTH          =',krdepth
-         write (unit=*,fmt=efmt   ) ' + HEIGHT           =',hite
+         write (unit=*,fmt=ifmt   ) ' + IPA                 =',ipa
+         write (unit=*,fmt=ifmt   ) ' + ICO                 =',ico
+         write (unit=*,fmt=ifmt   ) ' + PFT                 =',ipft
+         write (unit=*,fmt=ifmt   ) ' + KRDEPTH             =',krdepth
+         write (unit=*,fmt=efmt   ) ' + HEIGHT              =',hite
 
          write (unit=*,fmt='(a)'  ) ' '
-         write (unit=*,fmt=lfmt   ) ' + IS_SMALL         =',is_small
-         write (unit=*,fmt=lfmt   ) ' + ZERO_FLOW_WL     =',zero_flow_wl
-         write (unit=*,fmt=lfmt   ) ' + ZERO_FLOW_GW     =',zero_flow_gw
+         write (unit=*,fmt=lfmt   ) ' + IS_SMALL            =',is_small
+         write (unit=*,fmt=lfmt   ) ' + ZERO_FLOW_WL        =',zero_flow_wl
+         write (unit=*,fmt=lfmt   ) ' + ZERO_FLOW_GW        =',zero_flow_gw
 
          write (unit=*,fmt='(a)'  ) ' '
-         write (unit=*,fmt=efmt   ) ' + BLEAF            =',bleaf
-         write (unit=*,fmt=efmt   ) ' + BSAPWOOD         =',bsap
-         write (unit=*,fmt=efmt   ) ' + BROOT            =',broot
-         write (unit=*,fmt=efmt   ) ' + SAPWOOD_AREA     =',sap_area
+         write (unit=*,fmt=efmt   ) ' + BLEAF               =',bleaf
+         write (unit=*,fmt=efmt   ) ' + BSAPWOOD            =',bsap
+         write (unit=*,fmt=efmt   ) ' + BROOT               =',broot
+         write (unit=*,fmt=efmt   ) ' + SAPWOOD_AREA        =',sap_area
 
          write (unit=*,fmt='(a)'  ) ' '
-         write (unit=*,fmt=lfmt   ) ' + Finite fluxes     =',.not. error_flag(1)
-         write (unit=*,fmt=lfmt   ) ' + Negative Proj Psi =',.not. error_flag(2)
-         write (unit=*,fmt=lfmt   ) ' + Negative Curr Psi =',.not. error_flag(3)
-         write (unit=*,fmt=lfmt   ) ' + Bounded Proj Psi  =',.not. error_flag(4)
-         write (unit=*,fmt=lfmt   ) ' + Bounded Curr Psi  =',.not. error_flag(5)
+         write (unit=*,fmt=lfmt   ) ' + Leaves were checked =',c_leaf > 0.d0
+         write (unit=*,fmt=lfmt   ) ' + Finite fluxes       =',.not. error_flag(1)
+         write (unit=*,fmt=lfmt   ) ' + Negative Proj Psi   =',.not. error_flag(2)
+         write (unit=*,fmt=lfmt   ) ' + Negative Curr Psi   =',.not. error_flag(3)
+         write (unit=*,fmt=lfmt   ) ' + Bounded Proj Psi    =',.not. error_flag(4)
+         write (unit=*,fmt=lfmt   ) ' + Bounded Curr Psi    =',.not. error_flag(5)
 
          write (unit=*,fmt='(a)'  ) ' '
-         write (unit=*,fmt=efmt   ) ' + LEAF_PSI_MIN      =',leaf_psi_min (ipft)
-         write (unit=*,fmt=efmt   ) ' + WOOD_PSI_MIN      =',wood_psi_min (ipft)
-         write (unit=*,fmt=efmt   ) ' + SMALL_PSI_MIN     =',small_psi_min(ipft)
+         write (unit=*,fmt=efmt   ) ' + LEAF_PSI_MIN        =',leaf_psi_min (ipft)
+         write (unit=*,fmt=efmt   ) ' + WOOD_PSI_MIN        =',wood_psi_min (ipft)
+         write (unit=*,fmt=efmt   ) ' + SMALL_PSI_MIN       =',small_psi_min(ipft)
 
          write (unit=*,fmt='(a)'  ) ' '
-         write (unit=*,fmt=efmt   ) ' + TRANSP           =',transp
-         write (unit=*,fmt=efmt   ) ' + LEAF_PSI (INPUT) =',leaf_psi
-         write (unit=*,fmt=efmt   ) ' + WOOD_PSI (INPUT) =',wood_psi
-         write (unit=*,fmt=efmt   ) ' + LEAF_PSI (PROJ.) =',proj_leaf_psi
-         write (unit=*,fmt=efmt   ) ' + WOOD_PSI (PROJ.) =',proj_wood_psi
-         write (unit=*,fmt=efmt   ) ' + WFLUX_GW         =',wflux_gw_d
-         write (unit=*,fmt=efmt   ) ' + WFLUX_WL         =',wflux_wl_d
+         write (unit=*,fmt=efmt   ) ' + TRANSP              =',transp
+         write (unit=*,fmt=efmt   ) ' + LEAF_PSI (INPUT)    =',leaf_psi
+         write (unit=*,fmt=efmt   ) ' + WOOD_PSI (INPUT)    =',wood_psi
+         write (unit=*,fmt=efmt   ) ' + LEAF_PSI (PROJ.)    =',proj_leaf_psi
+         write (unit=*,fmt=efmt   ) ' + WOOD_PSI (PROJ.)    =',proj_wood_psi
+         write (unit=*,fmt=efmt   ) ' + WFLUX_GW            =',wflux_gw_d
+         write (unit=*,fmt=efmt   ) ' + WFLUX_WL            =',wflux_wl_d
 
 
          write (unit=*,fmt='(a)'        ) ' '
