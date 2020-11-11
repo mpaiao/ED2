@@ -286,8 +286,8 @@ CANNON)
       ;;
    "serial_requeue")
       n_nodes_max=900
-      n_cpt_max=12
-      n_cpn=24
+      n_cpt_max=24
+      n_cpn=48
       runtime_max="7-00:00:00"
       node_memory=30362
       ;;
@@ -476,17 +476,6 @@ elif [ ${sim_memory} -gt ${node_memory} ]
 then 
    echo "Simulation memory ${sim_memory} cannot exceed node memory ${node_memory}!"
    exit 99
-else
-   #------ Set memory and number of CPUs per task. ----------------------------------------#
-   let n_cpn_try=${node_memory}/${sim_memory}
-   if [ ${n_cpn_try} -le ${n_cpn} ]
-   then
-      n_cpn=${n_cpn_try}
-      let sim_memory=${node_memory}/${n_cpn}
-   else
-      let node_memory=${n_cpn}*${sim_memory}
-   fi
-   #---------------------------------------------------------------------------------------#
 fi
 #------------------------------------------------------------------------------------------#
 
@@ -581,6 +570,7 @@ SDUMONT)
    echo "#!/bin/bash" >> ${sbatch}
    echo "#SBATCH --ntasks=myntasks               # Number of tasks"            >> ${sbatch}
    echo "#SBATCH --cpus-per-task=${n_cpt}        # Number of CPUs per task"    >> ${sbatch}
+   echo "#SBATCH --cores-per-socket=${n_cpt}     # Min. # of cores per socket" >> ${sbatch}
    echo "#SBATCH --partition=${global_queue}     # Queue that will run job"    >> ${sbatch}
    echo "#SBATCH --job-name=${jobname}           # Job name"                   >> ${sbatch}
    echo "#SBATCH --mem-per-cpu=${cpu_memory}     # Memory per CPU"             >> ${sbatch}
@@ -2780,9 +2770,9 @@ do
          #---------------------------------------------------------------------------------#
          #     Append submission to the script to submit the multiple single-task jobs.    #
          #---------------------------------------------------------------------------------#
-         echo "echo \" + Submit job: ${polyname}.\""    >> ${sbatch}
-         echo "sbatch ${callserial}"                    >> ${sbatch}
-         echo "sleep  ${dttask}"                        >> ${sbatch}
+         echo "echo \" + ${ffout}/${ntasks}. Submit job: ${polyname}.\""    >> ${sbatch}
+         echo "sbatch ${callserial}"                                        >> ${sbatch}
+         echo "sleep  ${dttask}"                                            >> ${sbatch}
          #---------------------------------------------------------------------------------#
          ;;
       esac
