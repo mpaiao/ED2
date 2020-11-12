@@ -138,6 +138,8 @@ case ${goahead} in
 y|yes)
    /bin/rm -f ${here}/run_sitter.lock
    /bin/rm -f ${here}/transfer.lock
+   /bin/rm -f ${here}/sit_utils/mycheck.txt
+   /bin/rm -f ${here}/sit_utils/lastcheck.txt
    echo ${comm}
    ${comm}
    ;;

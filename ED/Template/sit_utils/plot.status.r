@@ -177,25 +177,113 @@ jobs$realisation = as.numeric(substring(jobs$run,23,24))
 
 #------------------------------------------------------------------------------------------#
 #     Read the last and the current check.  For the current check, we normally skip the    #
-# last line to avoid trouble, unless the file is complete.                                 #
+# last line to avoid trouble, unless the file is complete.  Sometimes one of the files     #
+# (typically last) may be missing.  Account for that too.                                  #
 #------------------------------------------------------------------------------------------#
-names.check   = c("run","lon","lat","year","month","day","hhmm","runt"
+names.check   = c("run","lon","lat","year","month","day","hhmm","stall","runt"
                  ,"agb","bsa","lai","scb","npa")
-cat0(" + Read ",basename(lastcheck),".")
-last          = read.table(file=lastcheck,skip=0,header=FALSE,comment.char=""
-                          ,col.names=names.check,stringsAsFactors=FALSE)
-cat0(" + Reading ",basename(mycheck),".")
-ncurr         = length(readLines(mycheck))
-if (ncurr == njobs){
-   curr = read.table(file=mycheck,skip=0,header=FALSE,comment.char=""
-                    ,col.names=names.check,stringsAsFactors=FALSE)
-}else if (ncurr > 0){
-   curr = read.table(file=mycheck,skip=0,nrows=ncurr-1,header=FALSE,comment.char=""
-                    ,col.names=names.check,stringsAsFactors=FALSE)
+if (file.exists(lastcheck) && file.exists(mycheck)){
+   #------ Both files exist, read both. ---------------------------------------------------#
+   cat0(" + Read ",basename(lastcheck),".")
+   last = read.table( file             = lastcheck
+                    , skip             = 0
+                    , header           = FALSE
+                    , comment.char     = ""
+                    , col.names        = names.check
+                    , stringsAsFactors = FALSE
+                    )#end read.table
+   cat0(" + Read ",basename(mycheck),".")
+   ncurr = length(readLines(mycheck))
+   if (ncurr == njobs){
+      curr = read.table( file             = mycheck
+                       , skip             = 0
+                       , header           = FALSE
+                       , comment.char     = ""
+                       , col.names        = names.check
+                       , stringsAsFactors = FALSE
+                       )#end read.table
+   }else if (ncurr > 0){
+      curr = read.table( file             = mycheck
+                       , skip             = 0
+                       , nrows            = ncurr-1
+                       , header           = FALSE
+                       , comment.char     = ""
+                       , col.names        = names.check
+                       , stringsAsFactors = FALSE
+                       )#end read.table
+   }else{
+      curr = last[ 1,,drop=FALSE]
+      curr = curr[-1,,drop=FALSE]
+   }#end if (ncurr == njobs)
+   #---------------------------------------------------------------------------------------#
+}else if(file.exists(lastcheck)){
+   #------ Only lastcheck exists, duplicate it. -------------------------------------------#
+   cat0(" + Read ",basename(lastcheck),".")
+   last = read.table( file             = lastcheck
+                    , skip             = 0
+                    , header           = FALSE
+                    , comment.char     = ""
+                    , col.names        = names.check
+                    , stringsAsFactors = FALSE
+                    )#end read.table
+   #---------------------------------------------------------------------------------------#
+
+   #---- Duplicate last. ------------------------------------------------------------------#
+   curr = last
+   #---------------------------------------------------------------------------------------#
+}else if(file.exists(mycheck  )){
+   #------ Only mycheck exists. -----------------------------------------------------------#
+   cat0(" + Read ",basename(mycheck),".")
+   ncurr = length(readLines(mycheck))
+   if (ncurr == njobs){
+      curr = read.table( file             = mycheck
+                       , skip             = 0
+                       , header           = FALSE
+                       , comment.char     = ""
+                       , col.names        = names.check
+                       , stringsAsFactors = FALSE
+                       )#end read.table
+   }else if (ncurr > 0){
+      curr = read.table( file             = mycheck
+                       , skip             = 0
+                       , nrows            = ncurr-1
+                       , header           = FALSE
+                       , comment.char     = ""
+                       , col.names        = names.check
+                       , stringsAsFactors = FALSE
+                       )#end read.table
+   }else{
+      #------ Nothing to read, stop the run. ----------------------------------------------#
+      cat0("-----------------------------------------------------------------------------")
+      cat0("    Last check file not found and current check file is empty/almost empty!")
+      cat0(" Lastcheck: "              ,lastcheck,".")
+      cat0(" Mycheck:   "              ,mycheck  ,".")
+      cat0(" Line count in mycheck:   ",ncurr    ,".")
+      cat0("-----------------------------------------------------------------------------")
+      stop(" At least one of these files must exist (ideally both of them).")
+      #------------------------------------------------------------------------------------#
+   }#end if (ncurr == njobs)
+   #---------------------------------------------------------------------------------------#
+
+   #---- Duplicate curr. ------------------------------------------------------------------#
+   last = curr
+   #---------------------------------------------------------------------------------------#
 }else{
-   curr = data.frame(rep(NA,times=length(names.check)),names=names.check)
-   curr = curr[-1,]
-}#end f
+   #------ Nothing to read, stop the run. -------------------------------------------------#
+   cat0("-----------------------------------------------------------------------------")
+   cat0("    None of the check files was found!")
+   cat0(" Lastcheck: ",lastcheck,".")
+   cat0(" Mycheck:   ",mycheck  ,".")
+   cat0("-----------------------------------------------------------------------------")
+   stop(" At least one of these files must exist (ideally both of them).")
+   #---------------------------------------------------------------------------------------#
+}#end if (file.exists(lastcheck) && file.exists(mycheck))
+#------------------------------------------------------------------------------------------#
+
+
+#----- Turn data frames into data tables. -------------------------------------------------#
+last = data.table(last)
+curr = data.table(curr)
 #------------------------------------------------------------------------------------------#
 
 
