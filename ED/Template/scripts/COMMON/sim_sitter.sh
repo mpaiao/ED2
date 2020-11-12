@@ -100,6 +100,12 @@ sed -i~ s@"checkstatus=\"\""@"checkstatus=\"${checkstatus}\""@g  ${here}/last_hi
 #------------------------------------------------------------------------------------------#
 
 
+#----- Substitute paths in sit_utils R scripts. -------------------------------------------#
+sed -i~ s@"mypath"@"${here}"@g      ${here}/sit_utils/plot.region.r
+sed -i~ s@"mypath"@"${here}"@g      ${here}/sit_utils/plot.status.r
+#------------------------------------------------------------------------------------------#
+
+
 #----- Job preferences. -------------------------------------------------------------------#
 joblog="${here}/out_sitter.out"
 jobpref=$(basename ${here})
