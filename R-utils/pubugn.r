@@ -159,3 +159,69 @@ iorrd <<- function(n,sat=1.00){
    return(mycolsch)
 }#end function iorrd
 #------------------------------------------------------------------------------------------#
+
+
+
+
+#------------------------------------------------------------------------------------------#
+#   Function that re-creates QGIS "PuOr" colour scheme.                                    #
+#------------------------------------------------------------------------------------------#
+puor <<- function(n,sat=1.00){
+   rrr   = c(  94, 178, 247, 253, 230)*sat #- Red -----------------------------------------#
+   ggg   = c(  60, 171, 247, 184,  97)*sat #- Green ---------------------------------------#
+   bbb   = c( 153, 210, 247,  99,   1)*sat #- Blue ----------------------------------------#
+   pivot = round(seq(from=1,to=n,by=(n-1)/(length(rrr)-1)),digits=0)
+
+   red   = pmax(0,pmin(255,as.integer(spline(x=pivot,y=rrr,n=n)$y)))
+   green = pmax(0,pmin(255,as.integer(spline(x=pivot,y=ggg,n=n)$y)))
+   blue  = pmax(0,pmin(255,as.integer(spline(x=pivot,y=bbb,n=n)$y)))
+
+   mycolsch = rgb(r=red,g=green,b=blue,maxColorValue=255)
+   return(mycolsch)
+}#end function orrd
+#------------------------------------------------------------------------------------------#
+
+
+
+
+#------------------------------------------------------------------------------------------#
+#   Function that re-creates QGIS "PuOr" colour scheme, but in inverse order.              #
+#------------------------------------------------------------------------------------------#
+ipuor <<- function(n,sat=1.00){
+   mycolsch = rev(bugn(n,sat=sat))
+   return(mycolsch)
+}#end function iorrd
+#------------------------------------------------------------------------------------------#
+
+
+
+
+#------------------------------------------------------------------------------------------#
+#   Function that re-creates QGIS "PiYG" colour scheme.                                    #
+#------------------------------------------------------------------------------------------#
+piyg <<- function(n,sat=1.00){
+   rrr   = c( 208, 241, 247, 184,  77)*sat #- Red -----------------------------------------#
+   ggg   = c(  28, 182, 247, 225, 172)*sat #- Green ---------------------------------------#
+   bbb   = c( 139, 218, 247, 134,  38)*sat #- Blue ----------------------------------------#
+   pivot = round(seq(from=1,to=n,by=(n-1)/(length(rrr)-1)),digits=0)
+
+   red   = pmax(0,pmin(255,as.integer(spline(x=pivot,y=rrr,n=n)$y)))
+   green = pmax(0,pmin(255,as.integer(spline(x=pivot,y=ggg,n=n)$y)))
+   blue  = pmax(0,pmin(255,as.integer(spline(x=pivot,y=bbb,n=n)$y)))
+
+   mycolsch = rgb(r=red,g=green,b=blue,maxColorValue=255)
+   return(mycolsch)
+}#end function orrd
+#------------------------------------------------------------------------------------------#
+
+
+
+
+#------------------------------------------------------------------------------------------#
+#   Function that re-creates QGIS "PiYG" colour scheme, but in inverse order.              #
+#------------------------------------------------------------------------------------------#
+ipiyg <<- function(n,sat=1.00){
+   mycolsch = rev(bugn(n,sat=sat))
+   return(mycolsch)
+}#end function iorrd
+#------------------------------------------------------------------------------------------#

@@ -72,7 +72,7 @@ ststcrit=0.01         #   Maximum change allowed between two cycles
 
 #------------------------------------------------------------------------------------------#
 #    E-mail options (normally only the first three options may require changes.            #
-#    email1day    -- Should I e-mail once a day (1) or every time I run (0)?               #
+#    emailevery   -- Should I e-mail everytime (true) or every frqemail (false)?           #
 #    recipient    -- To which e-mail should I send the update?                             #
 #    mailprog     -- Which e-mail program to use? mutt works best, I installed in my util  #
 #                    directory.  Give a try, if it doesn't work you may need to install    #
@@ -91,7 +91,7 @@ ststcrit=0.01         #   Maximum change allowed between two cycles
 #    pendfile     -- File with pending status                                              #
 #    email1day    -- Reminder so the script knows whether an e-mail has been sent or not.  #
 #------------------------------------------------------------------------------------------#
-email1day=1
+emailevery=false
 recipient=""
 mailprog=$(which mutt)
 frqemail=""
@@ -956,9 +956,24 @@ do
          scb_old="NA"
          npa_old="NA"
       fi
-      #---------------------------------------------------------------------------------------#
+      #------------------------------------------------------------------------------------#
 
 
+
+      #------------------------------------------------------------------------------------#
+      #     Initially assume stall=0.  This will be checked and updated only if the        #
+      # simulation is running.  Also retrieve the previous stall count if there is one,    #
+      # in case we must update the stall check.                                            #
+      #------------------------------------------------------------------------------------#
+      stall=0
+      #----- Load previous stall. ---------------------------------------------------------#
+      if [[ -s ${lastcheck} ]]
+      then
+         stall_old=$(cat ${lastcheck} | grep ${polyname} | awk '{print $8}')
+      else
+         stall_old=0
+      fi
+      #------------------------------------------------------------------------------------#
 
 
       #------------------------------------------------------------------------------------#
@@ -997,31 +1012,6 @@ do
       fi
       #------------------------------------------------------------------------------------#
 
-
-
-      #------------------------------------------------------------------------------------#
-      #      Check whether the simulations are stalled.                                    #
-      #------------------------------------------------------------------------------------#
-      case ${runt} in
-      "HISTORY"|"RESTORE")
-         #----- Check whether the runs are stalled. ---------------------------------------#
-         if [[ ${yearh} == ${yearh_old} ]] && [[ ${monthh} == ${monthh_old} ]] &&
-            [[ ${dateh} == ${dateh_old} ]] && [[ ${timeh}  == ${timeh_old}  ]]
-         then
-            stall_old=$(cat ${lastcheck} | grep ${polyname} | awk '{print $8}')
-            let stall=${stall_old}+1
-         else
-            stall=0
-         fi
-         #---------------------------------------------------------------------------------#
-         ;;
-      *)
-         #----- Not in history, simulations are unlikely to be stalled. -------------------#
-         stall=0
-         #---------------------------------------------------------------------------------#
-         ;;
-      esac
-      #------------------------------------------------------------------------------------#
 
 
 
@@ -1067,27 +1057,55 @@ do
          #---------------------------------------------------------------------------------#
 
 
+
          #---------------------------------------------------------------------------------#
-         #     Check whether to kill and resubmit the job.                                 #
+         #      Check whether the simulations are stalled.                                 #
          #---------------------------------------------------------------------------------#
-         if ${stall_reset} && [[ ${running} -gt 0 ]] && [[ ${stall} -ge ${nstall} ]]
+         if [[ ${running} -gt 0 ]]
          then
-            #------- Reset stall so it gives the job a chance to resume. ------------------#
-            stall=0
+            #----- Check whether the runs are stalled. ------------------------------------#
+            if [[ ${yearh} == ${yearh_old} ]] && [[ ${monthh} == ${monthh_old} ]] &&
+               [[ ${dateh} == ${dateh_old} ]] && [[ ${timeh}  == ${timeh_old}  ]]
+            then
+               let stall=${stall_old}+1
+            else
+               stall=0
+            fi
             #------------------------------------------------------------------------------#
 
 
-            #------- Set stalled flag to one so it is clear the run is not running. -------#
-            stalled=1
+
+
             #------------------------------------------------------------------------------#
+            #     Check whether to kill and resubmit the job.                              #
+            #------------------------------------------------------------------------------#
+            if ${stall_reset} && [[ ${stall} -ge ${nstall} ]]
+            then
+               #------- Reset stall so it gives the job a chance to resume. ---------------#
+               stall=0
+               #---------------------------------------------------------------------------#
+
+
+               #------- Set stalled flag to one so it is clear the run is not running. ----#
+               stalled=true
+               #---------------------------------------------------------------------------#
+            else
+               #------- Set stalled flag to zero. It is either running or something else. -#
+               stalled=false
+               #---------------------------------------------------------------------------#
+            fi
+            #------------------------------------------------------------------------------#
+
+
+
          else
-
-
-            #------- Set stalled flag to zero. It is either running or something else. ----#
-            stalled=0
+            #----- Not in history, simulations are unlikely to be stalled. ----------------#
+            stall=0
+            stalled=false
             #------------------------------------------------------------------------------#
          fi
          #---------------------------------------------------------------------------------#
+
 
 
 
@@ -1131,18 +1149,31 @@ do
          then
             let n_suspend=${n_suspend}+1
             echo -e "${ffout}: ${polyname} is SUSPENDED."
-         elif [[ ${stalled} -gt 0 ]]
+         elif ${stalled}
          then
             let n_stalled=${n_stalled}+1
             echo -e "${ffout}: ${polyname} is stalled (last time ${runtime})."
 
             #------------------------------------------------------------------------------#
-            #      Kill the job, it's stalled.                                             #
+            #      Kill jobs, it must be stalled.                                          #
             #------------------------------------------------------------------------------#
+            jobid="enter_loop"
+            while [[ "${jobid}" != "" ]]
+            do
+               jobid=$(${stask} -o "${outform}" | head -1 | awk '{print 1}')
+               if [[ "${jobid}" != "" ]]
+               then
+                  echo "   - Cancel Job ${jobid} (${taskname})."
+                  scancel ${jobid}
+               fi
+            done
+            #------------------------------------------------------------------------------#
+
+
+            #----- Re-submit job. ---------------------------------------------------------#
+            echo "   - Submit New job (${taskname})."
             callserial="${here}/${polyname}/callserial.sh"
-            jobid=$(${stask} -o "${outform}" | head -1 | awk '{print 1}')
-            scancel ${jobid}
-            sbatch ${callserial}
+            sbatch  ${callserial}
             #------------------------------------------------------------------------------#
 
          elif [[ ${running} -gt 0 ]] && [[ ${sigsegv} -eq 0 ]]
@@ -1177,18 +1208,26 @@ do
             let n_unknown=${n_unknown}+1
             echo -e "${ffout}: ${polyname} status is UNKNOWN."
 
-            #----- Kill job if it is still running. ---------------------------------------#
-            jobid=$(${stask} -o "${outform}" | head -1 | awk '{print 1}')
-            if [[ "${jobid}" != "" ]]
-            then
-               scancel ${jobid}
-            fi
+            #------------------------------------------------------------------------------#
+            #      Kill jobs, it must be stalled.                                          #
+            #------------------------------------------------------------------------------#
+            jobid="enter_loop"
+            while [[ "${jobid}" != "" ]]
+            do
+               jobid=$(${stask} -o "${outform}" | head -1 | awk '{print 1}')
+               if [[ "${jobid}" != "" ]]
+               then
+                  echo "   - Cancel Job ${jobid} (${taskname})."
+                  scancel ${jobid}
+               fi
+            done
             #------------------------------------------------------------------------------#
 
 
-            #----- Resubmit the job. ------------------------------------------------------#
+            #----- Re-submit job. ---------------------------------------------------------#
+            echo "   - Submit New job (${taskname})."
             callserial="${here}/${polyname}/callserial.sh"
-            sbatch ${callserial}
+            sbatch  ${callserial}
             #------------------------------------------------------------------------------#
          fi
          #---------------------------------------------------------------------------------#
@@ -1315,7 +1354,7 @@ do
    #---------------------------------------------------------------------------------------#
    #     Check whether to send the e-mail or not.                                          #
    #---------------------------------------------------------------------------------------#
-   if [[ ${email1day} -eq 0 ]]
+   if ${emailevery}
    then
      #----- Always send e-mail. -----------------------------------------------------------#
      sendemail=true

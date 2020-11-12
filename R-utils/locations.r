@@ -61,6 +61,33 @@ locations <<- function(where,here=getwd(),yearbeg=1500,yearend=2008,monthbeg=1,d
       pathrst  = file.path(here,ici,"histo",ici)
       pathout  = file.path(pathroot,"epost")
 
+   }else if( ( substring(ici,1,2) %in% c("ta") )
+           & ( ( substring(ici,7,7) %in% "_"     ) | ( nchar(ici) == 6 ) ) 
+           ){
+      #---- Regional based name. ----------------------------------------------------------#
+      metflag = substring(ici,1)
+      if (tolower(metflag) %in% "ta"){
+         thismet = "(ERA5)"
+      }else{
+         thismet = ""
+      }#end if
+
+      #----- Grab the IATA code. ----------------------------------------------------------#
+      iata    = substring(ici,2,6)
+      pp      = which(poilist$iata %in% iata)
+
+      #----- Put the name of the place and the meteorological forcing. --------------------#
+      testpoi = paste0(poilist$longname[pp]," ",thismet)
+      lon     = poilist$lon[pp]
+      lat     = poilist$lat[pp]
+      wmo     = poilist$wmo[pp]
+
+      lieu     = simul.description(ici,testpoi,iata=FALSE)
+      pathroot = file.path(here,ici)
+      pathin   = file.path(pathroot,"analy",ici)
+      pathrst  = file.path(here,ici,"histo",ici)
+      pathout  = file.path(pathroot,"epost")
+
    }else if( substring(ici,4,4) == "_" & substring(ici,9,9) == "_"){
       #---- Convert back to upper case. ---------------------------------------------------#
       ici      = paste0(toupper(substring(ici,1,3)),substring(ici,4))
@@ -659,7 +686,7 @@ simul.description <<- function(ici,testpoi,iata=TRUE,max.char=66){
                                        , names   = c( "Off"
                                                     , "ED-1.0 type"
                                                     , "Default ED-2.1"
-                                                    , "Water-deficit based"
+                                                    , "Understory fire"
                                                     )#end c
                                        )#end list
    #----- Energy budget type. -------------------------------------------------------------#
@@ -898,12 +925,10 @@ simul.description <<- function(ici,testpoi,iata=TRUE,max.char=66){
                                        )#end list
    flagvar[["hydrodyn.set" ]]    = list( descr  = "Model settings"
                                        , numeric = TRUE
-                                       , values = c(0,1,2,3,4)
+                                       , values = c(0,1,2)
                                        , names  = c( "ED-2.2"
                                                    , "Hybrid"
                                                    , "Xu"
-                                                   , "Xu-Allom"
-                                                   , "LightPhen"
                                                    )#end c
                                        )#end list
    flagvar[["ianth.dataset"]]    = list( descr  = "LULCC dataset"
@@ -962,14 +987,6 @@ simul.description <<- function(ici,testpoi,iata=TRUE,max.char=66){
                                        , numeric = TRUE
                                        , values = c(0,1)
                                        , names  = c("OFF","ON")
-                                       )#end list
-   flagvar[["soil.hydro"]]       = list( descr   = "Soil hydraulics"
-                                       , numeric = TRUE
-                                       , values  = c(0,1,2)
-                                       , names   = c( "Brooks-Corey-Cosby"
-                                                    , "Brooks-Cory-Tomasella"
-                                                    , "van Genuchten-Hodnett"
-                                                    )#end c
                                        )#end list
    flagvar[["dhist" ]]           = list( descr  = "LCLU history"
                                        , numeric = FALSE
@@ -1538,11 +1555,6 @@ simul.description <<- function(ici,testpoi,iata=TRUE,max.char=66){
          param  = c("iphen.scheme","d0","include.fire")
          na     = c(            10,  16,            24)
          nz     = c(            12,  18,            25)
-      }else if (lenici == 26 & grep(pattern="islhydro",x=ici)){
-         nparms = 2
-         param  = c("ivegt.dynamics","soil.hydro")
-         na     = c(              14,          25)
-         nz     = c(              15,          26)
       }else if (lenici == 26){
          nparms = 3
          param  = c("ianth.disturb","logging.type", "bharvest")
@@ -1633,11 +1645,6 @@ simul.description <<- function(ici,testpoi,iata=TRUE,max.char=66){
          param  = c("yeara","iphen.scheme","isoil.text","treefall")
          na     = c(      9,            18,          27,        35)
          nz     = c(     11,            20,          28,        37)
-      }else if (lenici == 38 & grep(pattern="islhydro",x=ici)){
-         nparms = 3
-         param  = c("ivegt.dynamics","soil.hydro","hydrodyn.set")
-         na     = c(              14,          25,            37)
-         nz     = c(              15,          26,            38)
       }else if (lenici == 39){
          nparms = 3
          param  = c("struct","iphen.scheme","include.fire")
@@ -1679,6 +1686,11 @@ simul.description <<- function(ici,testpoi,iata=TRUE,max.char=66){
          param  = c("lon","lat")
          na     = c(   13,   23)
          nz     = c(   18,   28)
+      }else if(lenici == && 34 && grepl(pattern="ifire",x=ici)){
+         nparms = 3
+         param  = c("lon","lat","include.fire")
+         na     = c(   11,   21,            33)
+         nz     = c(   16,   26,            34)
       }#end if
    }#end if
    #---------------------------------------------------------------------------------------#
@@ -1759,6 +1771,13 @@ poilist <<- read.csv( file             = file.path(srcdir,"poilist.csv")
                     , header           = TRUE
                     , stringsAsFactors = FALSE
                     )#end read.csv
+if (file.exists(file.path(srcdir,"amzbr_poi.csv"))){
+   amzlist <<- read.csv( file             = file.path(srcdir,"amzbr_poi.csv")
+                       , header           = TRUE
+                       , stringsAsFactors = FALSE
+                       )#end read.csv
+   poilist <<- merge(poilist,amzlist,all=TRUE)
+}#end if (file.exists(file.path(srcdir,"amzbr_poi.csv")))
 npoi    <<- nrow(poilist)
 #==========================================================================================#
 #==========================================================================================#
