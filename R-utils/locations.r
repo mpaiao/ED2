@@ -1686,7 +1686,7 @@ simul.description <<- function(ici,testpoi,iata=TRUE,max.char=66){
          param  = c("lon","lat")
          na     = c(   13,   23)
          nz     = c(   18,   28)
-      }else if(lenici == && 34 && grepl(pattern="ifire",x=ici)){
+      }else if(lenici == 34 && grepl(pattern="ifire",x=ici)){
          nparms = 3
          param  = c("lon","lat","include.fire")
          na     = c(   11,   21,            33)
