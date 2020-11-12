@@ -115,9 +115,9 @@ outvars[[n]] = list( vnam = "npa"
 #==========================================================================================#
 
 #----- Check that directory main has been set. --------------------------------------------#
-if ( main == "mypath"){
+if (! dir.exists(main)){
    cat (" Main: ",main,"\n")
-   stop(" Directory main has not been set!!!")
+   stop(" Directory main is incorrect or has not been set!!!")
 }#end if
 #------------------------------------------------------------------------------------------#
 
@@ -401,11 +401,13 @@ datum$yearn [index] = jobs$yearn
 #------------------------------------------------------------------------------------------#
 #     Run the matrices.                                                                    #
 #------------------------------------------------------------------------------------------#
-yr.range = pretty.xylim(u=c(jobs$yeara,jobs$yearz))
+yeara    = min(jobs$yeara)
+yearz    = max(jobs$yearz)
+yr.range = pretty.xylim(u=c(yeara,yearz))
 yr.brks  = pretty(yr.range,n=10)
 yr.keep  = (yr.brks %wr% yr.range) & (! yr.brks %in% c(yeara,yearz))
 yr.brks  = unique(c(-Inf,yr.brks[yr.keep],Inf))
-n.cut    = length(yr.cut)-1
+n.cut    = length(yr.brks)-1
 yr.cut   = cut(datum$yearn,yr.brks)
 yr.level = levels(yr.cut)
 n.level  = length(yr.level)
@@ -435,12 +437,12 @@ datum$yr.idx[hydfail] = n.level + 7
 datum$yr.idx[crashed] = n.level + 8
 yr.cscheme            = c("grey89",iatlas(n=n.level),"royalblue4","steelblue3","purple3"
                          ,"mediumpurple1","deepskyblue","hotpink","red3","firebrick4")
-ybottom               = rep(0,times=n.level+8)
-ytop                  = rep(1,times=n.level+8)
-xleft                 = sequence(n.level+8) - 1
-xright                = sequence(n.level+8)
+ybottom               = rep(0,times=n.level+9)
+ytop                  = rep(1,times=n.level+9)
+xleft                 = sequence(n.level+9) - 1
+xright                = sequence(n.level+9)
 xat                   = c(sequence(n.level+2)-1,n.level+sequence(8)+0.5)
-xbrks                 = sequence(n.level+9)-1
+xbrks                 = sequence(n.level+10)-1-0.5
 xlabel                = c("Initial",yeara,yr.brks[-c(1,n.level+1)],yearz,"Finish","StState"
                          ,"Extinct","Stopped","MetMiss","Bad Met","HydFail","Crashed")
 #------------------------------------------------------------------------------------------#
@@ -514,7 +516,7 @@ cat0(" Plot the current status.")
           )#end rect
       box()
       axis(side=1,at=xat,srt=45,labels=FALSE)
-      text(x=xat,y=par("usr")[3]-0.2,labels=xlabel,srt=30,adj=1,xpd=TRUE,cex=1.00)
+      text(x=xat,y=par("usr")[3]-0.2,labels=xlabel,srt=45,adj=1,xpd=TRUE,cex=0.95)
       title(main="Status",cex.main=1.0)
       #------------------------------------------------------------------------------------#
 
@@ -523,7 +525,7 @@ cat0(" Plot the current status.")
 
 
       #----- Set the window. --------------------------------------------------------------#
-      par(mar = c(3.1,3.1,1.1,1.1))
+      par(mar = c(2.1,3.1,1.1,1.1))
       plot.new()
       plot.window(xlim=limlon,ylim=limlat,xaxs="i",yaxs="i")
       axis(side=1,las=1,at=lonplot$at,labels=lonplot$labels)
@@ -626,7 +628,7 @@ for (v in sequence(noutvars)){
       #------------------------------------------------------------------------------------#
       #     First, let's plot the legend.                                                  #
       #------------------------------------------------------------------------------------#
-      par(mar=c(2.1,3.1,1.1,1.1))
+      par(mar=c(2.1,3.1,1.6,1.1))
       plot.new()
       plot.window(xlim=range(xleft,xright),ylim=range(ybottom,ytop),xaxs="i",yaxs="i")
       rect( xleft   = xleft
@@ -644,7 +646,7 @@ for (v in sequence(noutvars)){
 
 
       #----- Set the window. --------------------------------------------------------------#
-      par(mar = c(3.1,3.1,1.1,1.1))
+      par(mar = c(2.1,3.1,1.1,1.1))
       plot.new()
       plot.window(xlim=limlon,ylim=limlat,xaxs="i",yaxs="i")
       axis(side=1,las=1,at=lonplot$at,labels=lonplot$labels)
