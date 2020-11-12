@@ -2922,8 +2922,7 @@ then
          ;;
       esac
       #------------------------------------------------------------------------------------#
-   elif
-   then
+   else
       #------- Provide instructions to the user for a later submission. -------------------#
       case "${cluster}" in
       SDUMONT)
