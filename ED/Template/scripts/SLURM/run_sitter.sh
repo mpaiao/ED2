@@ -347,9 +347,19 @@ do
 
 
    #----- Move current check to the last check. -------------------------------------------#
-   rm -f ${lastcheck}
-   mv ${outcheck} ${lastcheck}
-   touch ${outcheck}
+   if [[ -s "${outcheck}" ]]
+   then
+      nlnout=$(cat ${outcheck} | wc -l)
+      if [[ ${nlnout} -eq ${n_polygon} ]]
+      then
+         rm -f ${lastcheck}
+         mv ${outcheck} ${lastcheck}
+         touch ${outcheck}
+      else
+         rm -f ${outcheck}
+         touch ${outcheck}
+      fi
+   fi
    #---------------------------------------------------------------------------------------#
 
 
@@ -1081,11 +1091,6 @@ do
             #------------------------------------------------------------------------------#
             if ${stall_reset} && [[ ${stall} -ge ${nstall} ]]
             then
-               #------- Reset stall so it gives the job a chance to resume. ---------------#
-               stall=0
-               #---------------------------------------------------------------------------#
-
-
                #------- Set stalled flag to one so it is clear the run is not running. ----#
                stalled=true
                #---------------------------------------------------------------------------#
@@ -1152,21 +1157,47 @@ do
          elif ${stalled}
          then
             let n_stalled=${n_stalled}+1
-            echo -e "${ffout}: ${polyname} is stalled (last time ${runtime})."
+            echo -e "${ffout}: ${polyname} is STALLED (${stall} - ${runtime})."
 
             #------------------------------------------------------------------------------#
             #      Kill jobs, it must be stalled.                                          #
             #------------------------------------------------------------------------------#
             jobid="enter_loop"
-            while [[ "${jobid}" != "" ]]
+            kcnt=0
+            while [[ "${jobid}" != "" ]] && [[ ${kcnt} -lt 10 ]]
             do
-               jobid=$(${stask} -o "${outform}" | head -1 | awk '{print 1}')
+               #----- Ensure to eliminate potential duplicates. ---------------------------#
+               let kcnt=${kcnt}+1
+               jobln=$(${stask} -o "${outform}" | grep -v "CANCEL" | grep -v "COMPLET"     \
+                      | head -1)
+               jobid=$(echo ${jobln} | awk '{print $1}')
                if [[ "${jobid}" != "" ]]
                then
                   echo "   - Cancel Job ${jobid} (${taskname})."
                   scancel ${jobid}
                fi
+               #---------------------------------------------------------------------------#
             done
+            if [[ ${kcnt} -ge 10 ]]
+            then
+               #------ The script is bogus. -----------------------------------------------#
+               echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+               echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+               echo "  JOB NUMBER IS LIKELY INCORRECT IN STASK. STOPPING THE SCRIPT.    "
+               echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+               echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+               echo "   Output of stask command:"
+               ${stask} -o "${outform}"
+               echo "   Resulting JobId:"
+               jobln=$(${stask} -o "${outform}" | grep -v "CANCEL" | grep -v "COMPLET"     \
+                      | head -1)
+               jobid=$(echo ${jobln} | awk '{print $1}')
+               echo " Job Line=${jobln}"
+               echo " JobId=${jobid}"
+               echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+               exit 99
+               #---------------------------------------------------------------------------#
+            fi
             #------------------------------------------------------------------------------#
 
 
@@ -1174,6 +1205,7 @@ do
             echo "   - Submit New job (${taskname})."
             callserial="${here}/${polyname}/callserial.sh"
             sbatch  ${callserial}
+            stall=0
             #------------------------------------------------------------------------------#
 
          elif [[ ${running} -gt 0 ]] && [[ ${sigsegv} -eq 0 ]]
@@ -1212,15 +1244,41 @@ do
             #      Kill jobs, it must be stalled.                                          #
             #------------------------------------------------------------------------------#
             jobid="enter_loop"
-            while [[ "${jobid}" != "" ]]
+            kcnt=0
+            while [[ "${jobid}" != "" ]] && [[ ${kcnt} -lt 10 ]]
             do
-               jobid=$(${stask} -o "${outform}" | head -1 | awk '{print 1}')
+               #----- Ensure to eliminate potential duplicates. ---------------------------#
+               let kcnt=${kcnt}+1
+               jobln=$(${stask} -o "${outform}" | grep -v "CANCEL" | grep -v "COMPLET"     \
+                      | head -1)
+               jobid=$(echo ${jobln} | awk '{print $1}')
                if [[ "${jobid}" != "" ]]
                then
                   echo "   - Cancel Job ${jobid} (${taskname})."
                   scancel ${jobid}
                fi
+               #---------------------------------------------------------------------------#
             done
+            if [[ ${kcnt} -ge 10 ]]
+            then
+               #------ The script is bogus. -----------------------------------------------#
+               echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+               echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+               echo "  JOB NUMBER IS LIKELY INCORRECT IN STASK. STOPPING THE SCRIPT.    "
+               echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+               echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+               echo "   Output of stask command:"
+               ${stask} -o "${outform}"
+               echo "   Resulting JobId:"
+               jobln=$(${stask} -o "${outform}" | grep -v "CANCEL" | grep -v "COMPLET"     \
+                      | head -1)
+               jobid=$(echo ${jobln} | awk '{print $1}')
+               echo " JobLine=${jobid}"
+               echo " JobId=${jobid}"
+               echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+               exit 99
+               #---------------------------------------------------------------------------#
+            fi
             #------------------------------------------------------------------------------#
 
 
