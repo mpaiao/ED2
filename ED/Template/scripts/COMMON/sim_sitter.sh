@@ -110,7 +110,7 @@ if [[ "${email}"           == "myself\@myserver.com"       ]] ||
    [[  ${lhisto_memory}    -eq 0                           ]] ||
    [[ "${epost_queue}"     ==  "myqueue"                   ]] ||
    [[ "${epost_runtime}"   ==  "mytime"                    ]] ||
-   [[  ${epost_memory}     -eq 0                           ]] ||
+   [[  ${epost_memory}     -eq 0                           ]]
 then
    echo "---------------------------------------------------------------------------------"
    echo "    The following variables must be set.  In case any of them have dummy values, "
@@ -304,7 +304,7 @@ sed -i~ s@"mypath"@"${here}"@g      ${here}/sit_utils/plot.status.r
 #----- Job preferences. -------------------------------------------------------------------#
 sitter_joblog="${here}/out_sitter.out"
 sitter_jobpref=$(basename ${here})
-sitter_jobname="${jobpref}-sitter"
+sitter_jobname="${desc}-sitter"
 #------------------------------------------------------------------------------------------#
 
 
@@ -327,7 +327,7 @@ goahead="$(echo ${goahead} | tr '[:upper:]' '[:lower:]')"
 
 #----- Submit run_sitter.sh in batch mode. ------------------------------------------------#
 comm="${sbatch} -p ${sitter_queue} --mem-per-cpu=${sitter_memory} -t ${sitter_runtime}"
-comm="${comm} -o ${joblog} -J ${sitter_jobname} -n 1 "
+comm="${comm} -o ${sitter_joblog} -J ${sitter_jobname} -n 1 "
 comm="${comm} --wrap=\"${here}/run_sitter.sh\""
 case ${goahead} in
 y|yes)
