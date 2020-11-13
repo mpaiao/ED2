@@ -1327,7 +1327,7 @@ do
    sed -i s@thisseasonmona@${seasonmona}@g     ${scriptnow}
    sed -i s@myphysiol@${iphysiol}@g            ${scriptnow}
    sed -i s@myallom@${iallom}@g                ${scriptnow}
-   sed -i s@myslhydro@${slhydro}@g             ${scriptnow}
+   sed -i s@myslhydro@${islhydro}@g            ${scriptnow}
    sed -i s@mydroughtmark@${droughtmark}@g     ${scriptnow}
    sed -i s@mydroughtyeara@${droughtyeara}@g   ${scriptnow}
    sed -i s@mydroughtyearz@${droughtyearz}@g   ${scriptnow}
