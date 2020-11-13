@@ -274,7 +274,11 @@ esac
 
 
 
-#----- Make substitutions. ----------------------------------------------------------------#
+#------------------------------------------------------------------------------------------#
+#     Make substitutions.                                                                  #
+#     IMPORTANT: make sure "there" substitutions precede "here", otherwise the script will #
+#                not work as intended.                                                     #
+#------------------------------------------------------------------------------------------#
 sed -i~ s@"here=\"\""@"here=\"${here}\""@g                         ${run_sitter}
 sed -i~ s@"recipient=\"\""@"recipient=\"${email}\""@g              ${run_sitter}
 sed -i~ s@"frqemail=\"\""@"frqemail=${frqemail}"@g                 ${run_sitter}
@@ -289,8 +293,8 @@ sed -i~ s@"submit=false"@"submit=true"@g                           ${epost}
 sed -i~ s@"reservation=\"\""@"reservation=\"${epost_reserve}\""@g  ${epost}
 sed -i~ s@"sim_memory=0"@"sim_memory=${epost_memory}"@g            ${epost}
 sed -i~ s@"runtime=\"00:00:00\""@"runtime=\"${epost_runtime}\""@g  ${epost}
-sed -i~ s@"here=\"\""@"here=\"${here}\""@g                         ${transfer}
 sed -i~ s@"there=\"\""@"there=\"${there}\""@g                      ${transfer}
+sed -i~ s@"here=\"\""@"here=\"${here}\""@g                         ${transfer}
 sed -i~ s@"here=\"\""@"here=\"${here}\""@g                         ${last_histo}
 sed -i~ s@"checkhourly=\"\""@"checkhourly=\"${checkhourly}\""@g    ${last_histo}
 sed -i~ s@"checkstatus=\"\""@"checkstatus=\"${checkstatus}\""@g    ${last_histo}
