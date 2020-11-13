@@ -287,6 +287,8 @@ sed -i~ s@"global_queue=\"\""@"global_queue=\"${epost_queue}\""@g  ${epost}
 sed -i~ s@"rscript=\"\""@"rscript=\"${rscript}\""@g                ${epost}
 sed -i~ s@"submit=false"@"submit=true"@g                           ${epost}
 sed -i~ s@"reservation=\"\""@"reservation=\"${epost_reserve}\""@g  ${epost}
+sed -i~ s@"sim_memory=0"@"sim_memory=${epost_memory}"@g            ${epost}
+sed -i~ s@"runtime=\"00:00:00\""@"runtime=\"${epost_runtime}\""@g  ${epost}
 sed -i~ s@"here=\"\""@"here=\"${here}\""@g                         ${transfer}
 sed -i~ s@"there=\"\""@"there=\"${there}\""@g                      ${transfer}
 sed -i~ s@"here=\"\""@"here=\"${here}\""@g                         ${last_histo}
