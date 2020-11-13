@@ -178,7 +178,7 @@ run_sitter="${here}/run_sitter.sh"
 epost="${here}/epost.sh"
 transfer="${here}/transfer.sh"
 orig_histo="${here}/scripts/COMMON/last_histo.sh"
-last_histo="${here}/last.histo.sh"
+last_histo="${here}/last_histo.sh"
 #------------------------------------------------------------------------------------------#
 
 
