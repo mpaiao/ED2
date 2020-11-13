@@ -67,6 +67,7 @@ optsrc="-n"                   # Option for .bashrc (for special submission setti
                               #   In case none is needed, leave it blank ("").
 #----- Settings for this group of polygons. -----------------------------------------------#
 global_queue=""               # Queue
+reservation=""                # Reservation
 partial=false                 # Partial submission (false will ignore polya and npartial
                               #    and send all polygons.
 polya=501                     # First polygon to submit
@@ -655,6 +656,10 @@ SDUMONT)
    echo "#SBATCH --ntasks=${ntasks}              # Number of tasks"            >> ${sbatch}
    echo "#SBATCH --cpus-per-task=1               # Number of CPUs per task"    >> ${sbatch}
    echo "#SBATCH --partition=${global_queue}     # Queue that will run job"    >> ${sbatch}
+   if [[ "${reservation}" != "" ]]
+   then
+      echo "#SBATCH --reservation=${reservation}    # Reserved nodes"          >> ${sbatch}
+   fi
    echo "#SBATCH --job-name=${epostjob}          # Job name"                   >> ${sbatch}
    echo "#SBATCH --mem-per-cpu=${sim_memory}     # Memory per CPU"             >> ${sbatch}
    echo "#SBATCH --time=${runtime}               # Time for job"               >> ${sbatch}
@@ -1393,6 +1398,10 @@ do
       echo "#SBATCH --ntasks=1                   # Number of tasks"          >> ${epostsh}
       echo "#SBATCH --cpus-per-task=1            # Number of CPUs per task"  >> ${epostsh}
       echo "#SBATCH --partition=${global_queue}  # Queue that will run job"  >> ${epostsh}
+      if [[ "${reservation}" != "" ]]
+      then
+         echo "#SBATCH --reservation=${reservation} # Reserved nodes"        >> ${epostsh}
+      fi
       echo "#SBATCH --job-name=${eposttask}      # Task name"                >> ${epostsh}
       echo "#SBATCH --mem-per-cpu=${sim_memory}  # Memory per CPU"           >> ${epostsh}
       echo "#SBATCH --time=${runtime}            # Time for job"             >> ${epostsh}
