@@ -54,6 +54,8 @@ epost_reserve=""                   # Reservation flag (leave blank unless you ha
 rscript="nothing.r"                # Which script to run with epost.sh.  See options above. 
                                    #    Multiple scripts are allowed, put spaces between
                                    #    them. (e.g. rscript="plot_monthly.r plot_fast.r")
+overcommit=false                   # Ignore maximum number of tasks when submitting
+                                   #    epost tasks?
 frqemail=43200                     # How often to send emails on simulation status?
 delay1st_min=20                    # Time (in minutes) to wait before the first check
                                    #    (needed in case the run_sitter script is submitted
@@ -293,6 +295,7 @@ sed -i~ s@"submit=false"@"submit=true"@g                           ${epost}
 sed -i~ s@"reservation=\"\""@"reservation=\"${epost_reserve}\""@g  ${epost}
 sed -i~ s@"sim_memory=0"@"sim_memory=${epost_memory}"@g            ${epost}
 sed -i~ s@"runtime=\"00:00:00\""@"runtime=\"${epost_runtime}\""@g  ${epost}
+sed -i~ s@"overcommit=\"\""@"overcommit=${overcommit}"@g           ${epost}
 sed -i~ s@"there=\"\""@"there=\"${there}\""@g                      ${transfer}
 sed -i~ s@"here=\"\""@"here=\"${here}\""@g                         ${transfer}
 sed -i~ s@"here=\"\""@"here=\"${here}\""@g                         ${last_histo}

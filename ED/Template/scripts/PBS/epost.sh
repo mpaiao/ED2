@@ -159,7 +159,7 @@ monthsdrought="c(12,1,2,3)" # List of months that get drought, if it starts late
 #------------------------------------------------------------------------------------------#
 #       First check that the main path and e-mail have been set.  If not, don't run.       #
 #------------------------------------------------------------------------------------------#
-if [ "x${here}" == "x" ] || [ "x${global_queue}" == "x" ] || [ "x${rscript}" == "x" ]
+if [[ "x${here}" == "x" ]] || [[ "x${global_queue}" == "x" ]] || [[ "x${rscript}" == "x" ]]
 then
    echo " You must set some variables before running the script:"
    echo " Check variables \"here\", \"global_queue\" and \"rscript\"!"
@@ -169,7 +169,7 @@ fi
 
 
 #----- Load settings. ---------------------------------------------------------------------#
-if [ -s ${initrc} ]
+if [[ -s ${initrc} ]]
 then
    . ${initrc}
 fi
@@ -237,7 +237,7 @@ au*|ha*)
    #---------------------------------------------------------------------------------------#
    ;;
 esac
-if [ ${n_cpt} -gt ${n_cpt_max} ]
+if [[ ${n_cpt} -gt ${n_cpt_max} ]]
 then
    echo " Too many CPUs per task requested:"
    echo " Queue                   = ${global_queue}"
@@ -342,18 +342,18 @@ esac
 #------------------------------------------------------------------------------------------#
 #   Make sure memory does not exceed maximum amount that can be requested.                 #
 #------------------------------------------------------------------------------------------#
-if [ ${sim_memory} -eq 0 ]
+if [[ ${sim_memory} -eq 0 ]]
 then
    let sim_memory=${node_memory}/${n_tpn}
    let node_memory=${n_tpn}*${sim_memory}
-elif [ ${sim_memory} -gt ${node_memory} ]
+elif [[ ${sim_memory} -gt ${node_memory} ]]
 then 
    echo "Simulation memory ${sim_memory} cannot exceed node memory ${node_memory}!"
    exit 99
 else
    #------ Set memory and number of CPUs per task. ----------------------------------------#
    let n_tpn_try=${node_memory}/${sim_memory}
-   if [ ${n_tpn_try} -le ${n_tpn} ]
+   if [[ ${n_tpn_try} -le ${n_tpn} ]]
    then
       n_tpn=${n_tpn_try}
       let sim_memory=${node_memory}/${n_tpn}
@@ -367,13 +367,13 @@ fi
 
 #----- Determine the number of polygons to run. -------------------------------------------#
 let npolys=$(wc -l ${joborder} | awk '{print $1 }')-3
-if [ ${npolys} -lt 100 ]
+if [[ ${npolys} -lt 100 ]]
 then
    ndig=2
-elif [ ${npolys} -lt 1000 ]
+elif [[ ${npolys} -lt 1000 ]]
 then
    ndig=3
-elif [ ${npolys} -lt 10000 ]
+elif [[ ${npolys} -lt 10000 ]]
 then
    ndig=4
 else
@@ -390,7 +390,7 @@ echo "Number of polygons: ${npolys}..."
 #      Loop over all polygons.                                                             #
 #------------------------------------------------------------------------------------------#
 ff=0
-while [ ${ff} -lt ${npolys} ]
+while [[ ${ff} -lt ${npolys} ]]
 do
 
    #---------------------------------------------------------------------------------------#
@@ -667,11 +667,11 @@ do
 
 
    #---- Cheat and force the met cycle to be the tower cycle. -----------------------------#
-   if [ ${useperiod} == "f" ]
+   if [[ ${useperiod} == "f" ]]
    then
       metcyca=${eftyeara}
       metcycz=${eftyearz}
-   elif [ ${useperiod} == "b" ]
+   elif [[ ${useperiod} == "b" ]]
    then
       metcyca=${bioyeara}
       metcycz=${bioyearz}
@@ -683,7 +683,7 @@ do
    #---------------------------------------------------------------------------------------#
    #     Switch years in case this is a specific drought run.                              #
    #---------------------------------------------------------------------------------------#
-   if [ ${droughtmark} == "TRUE" ]
+   if [[ ${droughtmark} == "TRUE" ]]
    then 
       let yeara=${droughtyeara}-1
       let yearz=${droughtyearz}+1
@@ -693,7 +693,7 @@ do
 
 
    #----- Print a banner. -----------------------------------------------------------------#
-   if [ ${rscript} == "plot_census.r" ] && [ ${subcens} -eq 0 ]
+   if [[ ${rscript} == "plot_census.r" ]] && [[ ${subcens} -eq 0 ]]
    then
       echo "${ffout} - Skipping submission of ${rscript} for polygon: ${polyname}..."
    else
@@ -713,7 +713,7 @@ do
       # difference is in the output names.                                                 #
       #------------------------------------------------------------------------------------#
       #------ Check which period to use. --------------------------------------------------#
-      if [ ${useperiod} == "t" ]
+      if [[ ${useperiod} == "t" ]]
       then
          #------ One meteorological cycle.  Check the type of meteorological driver. ------#
          case ${metdriver} in
@@ -730,34 +730,34 @@ do
             thisyearz=${metcycz}
             for i in ${shiftiata}
             do
-               if [ "x${i}" == "x${polyiata}" ]
+               if [[ "x${i}" == "x${polyiata}" ]]
                then
                   echo "     -> Shifting met cycle"
                   let metcycle=${metcycz}-${metcyca}+1
                   let deltayr=${shiftcycle}*${metcycle}
                   let thisyeara=${metcyca}+${deltayr}
                   let thisyearz=${metcycz}+${deltayr}
-               fi # end [ ${i} == ${iata} ]
+               fi # end [[ ${i} == ${iata} ]]
             done #end for i in ${shiftiata}
             ;;
          esac #  ${metdriver} in
          #---------------------------------------------------------------------------------#
 
-      elif [ ${useperiod} == "u" ]
+      elif [[ ${useperiod} == "u" ]]
       then
          #----- The user said which period to use. ----------------------------------------#
          thisyeara=${yusera}
          thisyearz=${yuserz}
          #---------------------------------------------------------------------------------#
 
-      elif [ ${useperiod} == "f" ]
+      elif [[ ${useperiod} == "f" ]]
       then
          #----- The user said to use the eddy flux period. --------------------------------#
          thisyeara=${eftyeara}
          thisyearz=${eftyearz}
          #---------------------------------------------------------------------------------#
 
-      elif [ ${useperiod} == "b" ]
+      elif [[ ${useperiod} == "b" ]]
       then
          #----- The user said to use the eddy flux period. --------------------------------#
          thisyeara=${bioyeara}
@@ -769,7 +769,7 @@ do
          thisyeara=${yeara}
          thisyearz=${yearz}
          #---------------------------------------------------------------------------------#
-      fi # end [ ${useperiod} == "t" ]
+      fi # end [[ ${useperiod} == "t" ]]
       #------------------------------------------------------------------------------------#
 
 
@@ -786,7 +786,7 @@ do
       # Petrolina (output variables exist only for 2004, so we don't need to process       #
       # all years).                                                                        #
       #------------------------------------------------------------------------------------#
-      if [ ${metdriver} == "Petrolina" ]
+      if [[ ${metdriver} == "Petrolina" ]]
       then 
          thismetcyca=2004
          thismetcycz=2004
@@ -806,7 +806,7 @@ do
       thisyearz=${thismetcycz}
       for i in ${shiftiata}
       do
-         if [ "x${i}" == "x${polyiata}" ]
+         if [[ "x${i}" == "x${polyiata}" ]]
          then
             #----- Always use the true met driver to find the cycle shift. ----------------#
             echo "     -> Shifting met cycle"
@@ -815,7 +815,7 @@ do
             let thisyeara=${thismetcyca}+${deltayr}
             let thisyearz=${thismetcycz}+${deltayr}
             #------------------------------------------------------------------------------#
-         fi # end [ ${i} == ${iata} ]
+         fi # end [[ ${i} == ${iata} ]]
       done #end for i in ${shiftiata}
       #------------------------------------------------------------------------------------#
 
@@ -835,7 +835,7 @@ do
       # at the first time step), so we normally skip the first day.                        #
       #------------------------------------------------------------------------------------#
       #----- Check whether to use the user choice of year or the default. -----------------#
-      if [ ${useperiod} == "u" ]
+      if [[ ${useperiod} == "u" ]]
       then
          thisyeara=${yusera}
          thisyearz=${yuserz}
@@ -860,7 +860,7 @@ do
       #     Script with time-independent patch properties.  No need to skip anything.      #
       #------------------------------------------------------------------------------------#
       #----- Check whether to use the user choice of year or the default. -----------------#
-      if [ ${useperiod} == "u" ]
+      if [[ ${useperiod} == "u" ]]
       then
          thisyeara=${yusera}
          thisyearz=${yuserz}
@@ -883,7 +883,7 @@ do
       #     Script with daily means.  No need to skip anything.                            #
       #------------------------------------------------------------------------------------#
       #----- Check whether to use the user choice of year or the default. -----------------#
-      if [ ${useperiod} == "u" ]
+      if [[ ${useperiod} == "u" ]]
       then
          thisyeara=${yusera}
          thisyearz=${yuserz}
@@ -907,7 +907,7 @@ do
       #     Script with short-term averages (usually hourly).  No need to skip any-        #
       # thing.                                                                             #
       #------------------------------------------------------------------------------------#
-      if [ ${useperiod} == "u" ]
+      if [[ ${useperiod} == "u" ]]
       then
          thisyeara=${yusera}
          thisyearz=${yuserz}
@@ -984,7 +984,7 @@ do
 
 
    #----- Make sure this is not the census script for a site we don't have census. --------#
-   if [ ${rscript} != "plot_census.r" ] || [ ${subcens} -ne 0 ]
+   if [[ ${rscript} != "plot_census.r" ]] || [[ ${subcens} -ne 0 ]]
    then
       #----- Set script- and site-specific variables. -------------------------------------#
       epostjob="${epostkey}-${desc}-${polyname}"
@@ -1017,7 +1017,7 @@ do
       case ${rscript} in
       plot_eval_ed.r)
          echo "/bin/rm -fr ${complete}"    >> ${epostnow}
-         echo "while [ ! -s ${complete} ]" >> ${epostnow}
+         echo "while [[ ! -s ${complete} ]" >> ${epostnow}
          echo "do"                         >> ${epostnow}
          echo "   sleep 3"                 >> ${epostnow}
          echo "   ${epostexe}"             >> ${epostnow}
@@ -1065,7 +1065,7 @@ do
             if [[ ${nfail} -gt 0 ]] && [[ ${attempt} -eq ${nsubtry_max} ]]
             then
                echo "  Failed.  Giving up, check for errors in your script."
-            elif [ ${nfail} -eq 0 ]
+            elif [[ ${nfail} -eq 0 ]]
             then
                echo "  Success."
             else

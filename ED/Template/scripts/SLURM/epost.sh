@@ -68,6 +68,7 @@ optsrc="-n"                   # Option for .bashrc (for special submission setti
 #----- Settings for this group of polygons. -----------------------------------------------#
 global_queue=""               # Queue
 reservation=""                # Reservation
+overcommit=""                 # Ignore maximum task limit for partition? (true/false)
 partial=false                 # Partial submission (false will ignore polya and npartial
                               #    and send all polygons.
 polya=501                     # First polygon to submit
@@ -178,7 +179,7 @@ monthsdrought="c(12,1,2,3)" # List of months that get drought, if it starts late
 #------------------------------------------------------------------------------------------#
 #       First check that the main path and e-mail have been set.  If not, don't run.       #
 #------------------------------------------------------------------------------------------#
-if [ "x${here}" == "x" ] || [ "x${global_queue}" == "x" ] || [ "x${rscript}" == "x" ]
+if [[ "x${here}" == "x" ]] || [[ "x${global_queue}" == "x" ]] || [[ "x${rscript}" == "x" ]]
 then
    echo " You must set some variables before running the script:"
    echo " Check variables \"here\", \"global_queue\" and \"rscript\"!"
@@ -188,7 +189,7 @@ fi
 
 
 #----- Load settings. ---------------------------------------------------------------------#
-if [ -s ${initrc} ]
+if [[ -s ${initrc} ]]
 then
    . ${initrc}
 fi
@@ -532,28 +533,21 @@ esac
 
 
 
-#----- Set script information. ------------------------------------------------------------#
-epostexe="R CMD BATCH --no-save --no-restore ${rscript} ${epostout}"
-#------------------------------------------------------------------------------------------#
-
-
-
-
 #------------------------------------------------------------------------------------------#
 #   Make sure memory does not exceed maximum amount that can be requested.                 #
 #------------------------------------------------------------------------------------------#
-if [ ${sim_memory} -eq 0 ]
+if [[ ${sim_memory} -eq 0 ]]
 then
    let sim_memory=${node_memory}/${n_tpn}
    let node_memory=${n_tpn}*${sim_memory}
-elif [ ${sim_memory} -gt ${node_memory} ]
+elif [[ ${sim_memory} -gt ${node_memory} ]]
 then 
    echo "Simulation memory ${sim_memory} cannot exceed node memory ${node_memory}!"
    exit 99
 else
    #------ Set memory and number of CPUs per task. ----------------------------------------#
    let n_tpn_try=${node_memory}/${sim_memory}
-   if [ ${n_tpn_try} -le ${n_tpn} ]
+   if [[ ${n_tpn_try} -le ${n_tpn} ]]
    then
       n_tpn=${n_tpn_try}
       let sim_memory=${node_memory}/${n_tpn}
@@ -569,13 +563,13 @@ fi
 
 #----- Determine the number of polygons to run. -------------------------------------------#
 let npolys=$(wc -l ${joborder} | awk '{print $1 }')-3
-if [ ${npolys} -lt 100 ]
+if [[ ${npolys} -lt 100 ]]
 then
    ndig=2
-elif [ ${npolys} -lt 1000 ]
+elif [[ ${npolys} -lt 1000 ]]
 then
    ndig=3
-elif [ ${npolys} -lt 10000 ]
+elif [[ ${npolys} -lt 10000 ]]
 then
    ndig=4
 else
@@ -591,7 +585,7 @@ if ${partial}
 then
    let ff=${polya}-1
    let polyz=${ff}+${npartial}
-   if [ ${polyz} -gt ${npolys} ]
+   if [[ ${polyz} -gt ${npolys} ]]
    then
       polyz=${npolys}
    fi
@@ -753,7 +747,7 @@ esac
 #      Loop over all polygons.                                                             #
 #------------------------------------------------------------------------------------------#
 n_submit=0
-while [ ${ff} -lt ${polyz} ]
+while [[ ${ff} -lt ${polyz} ]]
 do
    let ff=${ff}+1
    let line=${ff}+3
@@ -762,13 +756,13 @@ do
    #---------------------------------------------------------------------------------------#
    #    Format count.                                                                      #
    #---------------------------------------------------------------------------------------#
-   if   [ ${npolys} -ge 10   ] && [ ${npolys} -lt 100   ]
+   if   [[ ${npolys} -ge 10   ]] && [[ ${npolys} -lt 100   ]]
    then
       ffout=$(printf '%2.2i' ${ff})
-   elif [ ${npolys} -ge 100  ] && [ ${npolys} -lt 1000  ]
+   elif [[ ${npolys} -ge 100  ]] && [[ ${npolys} -lt 1000  ]]
    then
       ffout=$(printf '%3.3i' ${ff})
-   elif [ ${npolys} -ge 100  ] && [ ${npolys} -lt 10000 ]
+   elif [[ ${npolys} -ge 100  ]] && [[ ${npolys} -lt 10000 ]]
    then
       ffout=$(printf '%4.4i' ${ff})
    else
@@ -1042,11 +1036,11 @@ do
 
 
    #---- Cheat and force the met cycle to be the tower cycle. -----------------------------#
-   if [ ${useperiod} == "f" ]
+   if [[ ${useperiod} == "f" ]]
    then
       metcyca=${eftyeara}
       metcycz=${eftyearz}
-   elif [ ${useperiod} == "b" ]
+   elif [[ ${useperiod} == "b" ]]
    then
       metcyca=${bioyeara}
       metcycz=${bioyearz}
@@ -1058,7 +1052,7 @@ do
    #---------------------------------------------------------------------------------------#
    #     Switch years in case this is a specific drought run.                              #
    #---------------------------------------------------------------------------------------#
-   if [ ${droughtmark} == "TRUE" ]
+   if [[ ${droughtmark} == "TRUE" ]]
    then 
       let yeara=${droughtyeara}-1
       let yearz=${droughtyearz}+1
@@ -1068,7 +1062,7 @@ do
 
 
    #----- Print a banner. -----------------------------------------------------------------#
-   if [ ${rscript} == "plot_census.r" ] && [ ${subcens} -eq 0 ]
+   if [[ ${rscript} == "plot_census.r" ]] && [[ ${subcens} -eq 0 ]]
    then
       echo "${ffout} - Skipping submission of ${rscript} for polygon: ${polyname}..."
    else
@@ -1088,7 +1082,7 @@ do
       # difference is in the output names.                                                 #
       #------------------------------------------------------------------------------------#
       #------ Check which period to use. --------------------------------------------------#
-      if [ ${useperiod} == "t" ]
+      if [[ ${useperiod} == "t" ]]
       then
          #------ One meteorological cycle.  Check the type of meteorological driver. ------#
          case ${metdriver} in
@@ -1105,34 +1099,34 @@ do
             thisyearz=${metcycz}
             for i in ${shiftiata}
             do
-               if [ "x${i}" == "x${polyiata}" ]
+               if [[ "x${i}" == "x${polyiata}" ]]
                then
                   echo "     -> Shifting met cycle"
                   let metcycle=${metcycz}-${metcyca}+1
                   let deltayr=${shiftcycle}*${metcycle}
                   let thisyeara=${metcyca}+${deltayr}
                   let thisyearz=${metcycz}+${deltayr}
-               fi # end [ ${i} == ${iata} ]
+               fi # end [[ ${i} == ${iata} ]]
             done #end for i in ${shiftiata}
             ;;
          esac #  ${metdriver} in
          #---------------------------------------------------------------------------------#
 
-      elif [ ${useperiod} == "u" ]
+      elif [[ ${useperiod} == "u" ]]
       then
          #----- The user said which period to use. ----------------------------------------#
          thisyeara=${yusera}
          thisyearz=${yuserz}
          #---------------------------------------------------------------------------------#
 
-      elif [ ${useperiod} == "f" ]
+      elif [[ ${useperiod} == "f" ]]
       then
          #----- The user said to use the eddy flux period. --------------------------------#
          thisyeara=${eftyeara}
          thisyearz=${eftyearz}
          #---------------------------------------------------------------------------------#
 
-      elif [ ${useperiod} == "b" ]
+      elif [[ ${useperiod} == "b" ]]
       then
          #----- The user said to use the eddy flux period. --------------------------------#
          thisyeara=${bioyeara}
@@ -1144,7 +1138,7 @@ do
          thisyeara=${yeara}
          thisyearz=${yearz}
          #---------------------------------------------------------------------------------#
-      fi # end [ ${useperiod} == "t" ]
+      fi # end [[ ${useperiod} == "t" ]]
       #------------------------------------------------------------------------------------#
 
 
@@ -1161,7 +1155,7 @@ do
       # Petrolina (output variables exist only for 2004, so we don't need to process       #
       # all years).                                                                        #
       #------------------------------------------------------------------------------------#
-      if [ ${metdriver} == "Petrolina" ]
+      if [[ ${metdriver} == "Petrolina" ]]
       then 
          thismetcyca=2004
          thismetcycz=2004
@@ -1181,7 +1175,7 @@ do
       thisyearz=${thismetcycz}
       for i in ${shiftiata}
       do
-         if [ "x${i}" == "x${polyiata}" ]
+         if [[ "x${i}" == "x${polyiata}" ]]
          then
             #----- Always use the true met driver to find the cycle shift. ----------------#
             echo "     -> Shifting met cycle"
@@ -1190,7 +1184,7 @@ do
             let thisyeara=${thismetcyca}+${deltayr}
             let thisyearz=${thismetcycz}+${deltayr}
             #------------------------------------------------------------------------------#
-         fi # end [ ${i} == ${iata} ]
+         fi # end [[ ${i} == ${iata} ]]
       done #end for i in ${shiftiata}
       #------------------------------------------------------------------------------------#
 
@@ -1210,7 +1204,7 @@ do
       # at the first time step), so we normally skip the first day.                        #
       #------------------------------------------------------------------------------------#
       #----- Check whether to use the user choice of year or the default. -----------------#
-      if [ ${useperiod} == "u" ]
+      if [[ ${useperiod} == "u" ]]
       then
          thisyeara=${yusera}
          thisyearz=${yuserz}
@@ -1235,7 +1229,7 @@ do
       #     Script with time-independent patch properties.  No need to skip anything.      #
       #------------------------------------------------------------------------------------#
       #----- Check whether to use the user choice of year or the default. -----------------#
-      if [ ${useperiod} == "u" ]
+      if [[ ${useperiod} == "u" ]]
       then
          thisyeara=${yusera}
          thisyearz=${yuserz}
@@ -1258,7 +1252,7 @@ do
       #     Script with daily means.  No need to skip anything.                            #
       #------------------------------------------------------------------------------------#
       #----- Check whether to use the user choice of year or the default. -----------------#
-      if [ ${useperiod} == "u" ]
+      if [[ ${useperiod} == "u" ]]
       then
          thisyeara=${yusera}
          thisyearz=${yuserz}
@@ -1282,7 +1276,7 @@ do
       #     Script with short-term averages (usually hourly).  No need to skip any-        #
       # thing.                                                                             #
       #------------------------------------------------------------------------------------#
-      if [ ${useperiod} == "u" ]
+      if [[ ${useperiod} == "u" ]]
       then
          thisyeara=${yusera}
          thisyearz=${yuserz}
@@ -1359,9 +1353,10 @@ do
    #----- Initialise script. --------------------------------------------------------------#
    epostsh="${here}/${polyname}/exec_$(basename ${rscript} .r).sh"
    complete="${here}/${polyname}/eval_load_complete.txt"
-   epoststo="${here}/${epostkey}_epost.sto"
-   epostste="${here}/${epostkey}_epost.ste"
-   epostout="${here}/${epostkey}_epost.out"
+   epoststo="${here}/${polyname}/${epostkey}_epost.sto"
+   epostste="${here}/${polyname}/${epostkey}_epost.ste"
+   epostout="${here}/${polyname}/${epostkey}_epost.out"
+   epostexe="R CMD BATCH --no-save --no-restore ${rscript} ${epostout}"
    rm -fr ${epostsh}
    touch ${epostsh}
    chmod u+x ${epostsh}
@@ -1515,7 +1510,7 @@ do
 
 
    #----- Make sure this is not the census script for a site we don't have census. --------#
-   if [ ${rscript} != "plot_census.r" ] || [ ${subcens} -ne 0 ]
+   if [[ ${rscript} != "plot_census.r" ]] || [[ ${subcens} -ne 0 ]]
    then
       #----- Update the list of scripts to be included in the batch. ----------------------#
       let n_submit=${n_submit}+1
@@ -1541,7 +1536,7 @@ do
       CANNON)
 
          #----- Add task submission command to the main script. ---------------------------#
-         echo "echo \" + Submit poat-processing for: ${polyname}.\""    >> ${sbatch}
+         echo "echo \" + Submit post-processing for: ${polyname}.\""    >> ${sbatch}
          echo "sbatch ${epostsh}" >> ${sbatch}
          #---------------------------------------------------------------------------------#
          ;;
@@ -1557,7 +1552,7 @@ done
 #------------------------------------------------------------------------------------------#
 #      Make sure job list doesn't request too many nodes.                                  #
 #------------------------------------------------------------------------------------------#
-if [ ${n_submit} -gt ${n_tasks_max} ]
+if ! ${overcommit} && [[ ${n_submit} -gt ${n_tasks_max} ]]
 then
    echo " Number of jobs to submit: ${n_submit}"
    echo " Maximum number of tasks in queue ${global_queue}: ${n_tasks_max}"

@@ -435,7 +435,7 @@ datum$yr.idx[metmiss] = n.level + 5
 datum$yr.idx[bad.met] = n.level + 6
 datum$yr.idx[hydfail] = n.level + 7
 datum$yr.idx[crashed] = n.level + 8
-yr.cscheme            = c("grey89",iatlas(n=n.level),"royalblue4","steelblue3","purple3"
+yr.cscheme            = c("grey89",atlas(n=n.level),"royalblue4","steelblue3","purple3"
                          ,"mediumpurple1","deepskyblue","hotpink","red3","firebrick4")
 ybottom               = rep(0,times=n.level+9)
 ytop                  = rep(1,times=n.level+9)
