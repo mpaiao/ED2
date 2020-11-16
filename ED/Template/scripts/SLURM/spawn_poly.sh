@@ -2657,6 +2657,7 @@ do
       echo "#!/bin/bash" >> ${callserial}
       echo "#SBATCH --ntasks=1                  # Number of tasks"         >> ${callserial}
       echo "#SBATCH --cpus-per-task=${n_cpt}    # Number of CPUs per task" >> ${callserial}
+      echo "#SBATCH --cores-per-socket=${n_cpt} # Min. # of cores/socket"  >> ${callserial}
       echo "#SBATCH --partition=${global_queue} # Queue that will run job" >> ${callserial}
       echo "#SBATCH --job-name=${taskname}      # Job name"                >> ${callserial}
       echo "#SBATCH --mem-per-cpu=${cpu_memory} # Memory per CPU"          >> ${callserial}
@@ -2666,8 +2667,8 @@ do
       echo "#SBATCH --chdir=${here}/${polyname} # Main directory"          >> ${callserial}
       echo ""                                                              >> ${callserial}
       echo "#--- Initial settings."                                        >> ${callserial}
-      echo "here=\"${here}\"                        # Main path"           >> ${callserial}
-      echo "exec=\"${exec_full}\"                   # Executable"          >> ${callserial}
+      echo "here=\"${here}\"                    # Main path"               >> ${callserial}
+      echo "exec=\"${exec_full}\"               # Executable"              >> ${callserial}
       echo ""                                                              >> ${callserial}
       echo "#--- Print information about this job."                        >> ${callserial}
       echo "echo \"\""                                                     >> ${callserial}

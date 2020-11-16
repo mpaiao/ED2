@@ -1648,6 +1648,32 @@ left.cumprod <<- function(x) c(0,cumprod(x)[-length(x)])
 
 #==========================================================================================#
 #==========================================================================================#
+#     These functions are similar to cumsum, except that they ignore values above or below #
+# a certain threshold (source: (https://stackoverflow.com/questions/63636052/              #
+# calculate-cumulative-sum-cumsum-floored-at-zero).                                        #
+#------------------------------------------------------------------------------------------#
+#----- cumulative sum floored at thresh. --------------------------------------------------#
+floor.cumsum <<- function(x,thresh=0){
+   cs  = cumsum(x)
+   cn  = cummin(cs)
+   ans = cs - pmin(cn,thresh)
+   return(ans)
+}#end floor.cumsum
+#----- cumulative sum capped at thresh. ---------------------------------------------------#
+ceiling.cumsum <<- function(x,thresh=0){
+   cs  = cumsum(x)
+   cx  = cummax(cs)
+   ans = cs - pmax(cx,thresh)
+   return(ans)
+}#end ceiling.cumsum
+#==========================================================================================#
+#==========================================================================================#
+
+
+
+
+#==========================================================================================#
+#==========================================================================================#
 #      This function calculates cumulative sum for data with gaps.  It will treat NA as    #
 # zeroes, but the output for an NA entry will be always zero.  The default is to reset     #
 # the sum whenever there is a missing value.                                               #

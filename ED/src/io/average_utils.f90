@@ -7797,6 +7797,23 @@ module average_utils
 
 
                !---------------------------------------------------------------------------!
+               !      Find the derived properties for the canopy air space.                !
+               !---------------------------------------------------------------------------!
+               can_exner                   = press2exner ( csite%qmean_can_prss (t,ipa) )
+               csite%qmean_can_temp(t,ipa) = extheta2temp( can_exner                       &
+                                                         , csite%qmean_can_theta(t,ipa) )
+               csite%qmean_can_rhos(t,ipa) = idealdenssh ( csite%qmean_can_prss (t,ipa)    &
+                                                         , csite%qmean_can_temp (t,ipa)    &
+                                                         , csite%qmean_can_shv  (t,ipa) )
+               csite%qmean_can_dmol(t,ipa) = idealdmolsh ( csite%qmean_can_prss (t,ipa)    &
+                                                         , csite%qmean_can_temp (t,ipa)    &
+                                                         , csite%qmean_can_shv  (t,ipa) )
+               !---------------------------------------------------------------------------!
+
+
+
+
+               !---------------------------------------------------------------------------!
                !     Soil matric potential, temperature, and liquid water.                 !
                !---------------------------------------------------------------------------!
                do k=lsl,nzg

@@ -55,13 +55,25 @@ create.monthly <<- function(ntimes,montha,yeara,inpref,slz.min){
    ed$slz        = mymont$SLZ
    ed$slxsand    = mymont$SLXSAND
    ed$slxclay    = mymont$SLXCLAY
+   ed$slsoc      = mymont$SLSOC
+   ed$slph       = mymont$SLPH
+   ed$slcec      = mymont$SLCEC
+   ed$sldbd      = mymont$SLDBD
    ed$ntext      = mymont$NTEXT.SOIL[ed$nzg]
    #---------------------------------------------------------------------------------------#
 
 
 
    #----- Derive the soil properties. -----------------------------------------------------#
-   ed$soil.prop  = soil.params(ed$ntext,ed$isoilflg,ed$slxsand,ed$slxclay)
+   ed$soil.prop  = soil.params( ntext    = ed$ntext
+                              , isoilflg = ed$isoilflg
+                              , slxsand  = ed$slxsand
+                              , slxclay  = ed$slxclay
+                              , slsoc    = ed$slsoc
+                              , slph     = ed$slph
+                              , slcec    = ed$slcec
+                              , sldbd    = ed$sldbd
+                              )#end soil.params
    ed$dslz       = diff(c(ed$slz,0))
    ed$soil.depth = rev(cumsum(rev(ed$dslz)))
    ed$soil.dry   = rev(cumsum(rev(ed$soil.prop$soilcp * wdns * ed$dslz)))
@@ -937,6 +949,30 @@ create.monthly <<- function(ntimes,montha,yeara,inpref,slz.min){
    patch$soil.water       = list()
    patch$soil.mstpot      = list()
    patch$rk4step          = list()
+   patch$growth           = list()
+   patch$agb.growth       = list()
+   patch$acc.growth       = list()
+   patch$bsa.growth       = list()
+   patch$mort             = list()
+   patch$ncbmort          = list()
+   patch$hydmort          = list()
+   patch$dimort           = list()
+   patch$agb.mort         = list()
+   patch$agb.ncbmort      = list()
+   patch$agb.hydmort      = list()
+   patch$agb.dimort       = list()
+   patch$acc.mort         = list()
+   patch$acc.ncbmort      = list()
+   patch$acc.hydmort      = list()
+   patch$acc.dimort       = list()
+   patch$bsa.mort         = list()
+   patch$bsa.ncbmort      = list()
+   patch$bsa.hydmort      = list()
+   patch$bsa.dimort       = list()
+   patch$recr             = list()
+   patch$agb.recr         = list()
+   patch$acc.recr         = list()
+   patch$bsa.recr         = list()
    #---------------------------------------------------------------------------------------#
 
 
@@ -1936,6 +1972,30 @@ update.monthly <<- function(new.ntimes,old.datum,montha,yeara,inpref,slz.min){
    new.datum$patch$soil.water       = old.datum$patch$soil.water
    new.datum$patch$soil.mstpot      = old.datum$patch$soil.mstpot
    new.datum$patch$rk4step          = old.datum$patch$rk4step
+   new.datum$patch$growth           = old.datum$patch$growth
+   new.datum$patch$agb.growth       = old.datum$patch$agb.growth
+   new.datum$patch$acc.growth       = old.datum$patch$acc.growth
+   new.datum$patch$bsa.growth       = old.datum$patch$bsa.growth
+   new.datum$patch$mort             = old.datum$patch$mort
+   new.datum$patch$ncbmort          = old.datum$patch$ncbmort
+   new.datum$patch$hydmort          = old.datum$patch$hydmort
+   new.datum$patch$dimort           = old.datum$patch$dimort
+   new.datum$patch$agb.mort         = old.datum$patch$agb.mort
+   new.datum$patch$agb.ncbmort      = old.datum$patch$agb.ncbmort
+   new.datum$patch$agb.hydmort      = old.datum$patch$agb.hydmort
+   new.datum$patch$agb.dimort       = old.datum$patch$agb.dimort
+   new.datum$patch$acc.mort         = old.datum$patch$acc.mort
+   new.datum$patch$acc.ncbmort      = old.datum$patch$acc.ncbmort
+   new.datum$patch$acc.hydmort      = old.datum$patch$acc.hydmort
+   new.datum$patch$acc.dimort       = old.datum$patch$acc.dimort
+   new.datum$patch$bsa.mort         = old.datum$patch$bsa.mort
+   new.datum$patch$bsa.ncbmort      = old.datum$patch$bsa.ncbmort
+   new.datum$patch$bsa.hydmort      = old.datum$patch$bsa.hydmort
+   new.datum$patch$bsa.dimort       = old.datum$patch$bsa.dimort
+   new.datum$patch$recr             = old.datum$patch$recr
+   new.datum$patch$agb.recr         = old.datum$patch$agb.recr
+   new.datum$patch$acc.recr         = old.datum$patch$acc.recr
+   new.datum$patch$bsa.recr         = old.datum$patch$bsa.recr
    #---------------------------------------------------------------------------------------#
 
 

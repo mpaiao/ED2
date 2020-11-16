@@ -354,6 +354,21 @@ read.q.files <<- function( datum
          mymont$MMEAN.LLSPAN.CO = 12. / pft$leaf.turnover.rate[mymont$PFT]
          mymont$MMEAN.VM.BAR.CO = pft$vm0[mymont$PFT]
       }#end if (! "SLA" %in% names(mymont))
+      #----- Patch-level mean diel for canopy temperature and density may be missing. -----#
+      if (mean(c(mymont$QMEAN.CAN.TEMP.PA)) %==% 0.){
+         mymont$QMEAN.CAN.EXNER.PA = press2exner ( pres  = mymont$QMEAN.CAN.PRSS.PA )
+         mymont$QMEAN.CAN.TEMP.PA  = extheta2temp( exner = mymont$QMEAN.CAN.EXNER.PA
+                                                 , theta = mymont$QMEAN.CAN.THETA.PA
+                                                 )#end extheta2temp
+         mymont$QMEAN.CAN.RHOS.PA  = idealdenssh ( pres  = mymont$QMEAN.CAN.PRSS.PA
+                                                 , temp  = mymont$QMEAN.CAN.TEMP.PA
+                                                 , qvpr  = mymont$QMEAN.CAN.SHV.PA
+                                                 )#end idealdenssh
+         mymont$QMEAN.CAN.DMOL.PA  = idealdmolsh ( pres  = mymont$QMEAN.CAN.PRSS.PA
+                                                 , temp  = mymont$QMEAN.CAN.TEMP.PA
+                                                 , qvpr  = mymont$QMEAN.CAN.SHV.PA
+                                                 )#end idealdenssh
+      }#end if (mean(c(mymont$QMEAN.CAN.TEMP.PA)) %==% 0.)
       #------------------------------------------------------------------------------------#
 
 
@@ -1881,6 +1896,31 @@ read.q.files <<- function( datum
       patch$soil.temp     [[plab]] = mymont$MMEAN.SOIL.TEMP.PA - t00
       patch$soil.water    [[plab]] = mymont$MMEAN.SOIL.WATER.PA
       patch$soil.mstpot   [[plab]] = - mymont$MMEAN.SOIL.MSTPOT.PA * grav * wdns * 1.e-6
+      #------ Demographic rates. ----------------------------------------------------------#
+      patch$growth        [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$agb.growth    [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$acc.growth    [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$bsa.growth    [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$mort          [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$ncbmort       [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$hydmort       [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$dimort        [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$agb.mort      [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$agb.ncbmort   [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$agb.hydmort   [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$agb.dimort    [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$acc.mort      [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$acc.ncbmort   [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$acc.hydmort   [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$acc.dimort    [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$bsa.mort      [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$bsa.ncbmort   [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$bsa.hydmort   [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$bsa.dimort    [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$recr          [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$agb.recr      [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$acc.recr      [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$bsa.recr      [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
       #------ Mean diurnal cycle. ---------------------------------------------------------#
       zero.qpatch = matrix(data=0., nrow=mymont$NPATCHES.GLOBAL,ncol=mymont$NDCYC)
       na.qpatch   = matrix(data=NA, nrow=mymont$NPATCHES.GLOBAL,ncol=mymont$NDCYC)
@@ -2236,8 +2276,6 @@ read.q.files <<- function( datum
          #---------------------------------------------------------------------------------#
 
 
-
-
          #---------------------------------------------------------------------------------#
          #     Copy the data back to the patch.                                            #
          #---------------------------------------------------------------------------------#
@@ -2293,6 +2331,190 @@ read.q.files <<- function( datum
          #------ Soil respiration mixes cohort (root) and patch (hetetrophic). ------------#
          patch$soil.resp [[plab]][idx] = patch$soil.resp [[plab]][idx] + root.resp.pa
          #---------------------------------------------------------------------------------#
+
+
+
+
+         #---------------------------------------------------------------------------------#
+         #---------------------------------------------------------------------------------#
+         #---------------------------------------------------------------------------------#
+         #     Demographic rates.                                                          #
+         #---------------------------------------------------------------------------------#
+         #---------------------------------------------------------------------------------#
+         #---------------------------------------------------------------------------------#
+         for (ipa in sequence(mymont$NPATCHES.GLOBAL)){
+
+            #------------------------------------------------------------------------------#
+            #    For mortality and growth, we keep deleting the tiny cohorts because they  #
+            # skew the rates quite significantly and they are rarely included in forest    #
+            # inventory surveys.                                                           #
+            #------------------------------------------------------------------------------#
+            psel = (ipaconow == ipa) & (dbhconow >= census.dbh.min)
+            if (any(psel)){
+               #----- Growth rates are weighted by population. ----------------------------#
+               dbh.growth = - 100. * log( weighted.mean( x = exp(-growthconow    [psel])
+                                                       , w = nplantconow         [psel]
+                                                           * dbhconow            [psel]
+                                                       )#end weighted.mean
+                                        )#end log
+               agb.growth = - 100. * log( weighted.mean( x = exp(-agb.growthconow[psel])
+                                                       , w = nplantconow         [psel]
+                                                           * agbconow            [psel]
+                                                       )#end weighted.mean
+                                        )#end log
+               bsa.growth = - 100. * log( weighted.mean( x = exp(-bsa.growthconow[psel])
+                                                       , w = nplantconow         [psel]
+                                                           * baconow             [psel]
+                                                       )#end weighted.mean
+                                        )#end log
+               acc.growth = sum( nplantconow[psel]
+                               * agbconow[psel] * (1.-exp(-agb.growthconow[psel]))
+                               )#end sum
+               patch$growth     [[plab]][ipa] = dbh.growth
+               patch$agb.growth [[plab]][ipa] = agb.growth
+               patch$acc.growth [[plab]][ipa] = acc.growth
+               patch$bsa.growth [[plab]][ipa] = bsa.growth
+               #---------------------------------------------------------------------------#
+
+
+
+               #---------------------------------------------------------------------------#
+               #      Find the total number of plants and previous population if the only  #
+               # mortality was the mortality we test.                                      #
+               #---------------------------------------------------------------------------#
+               survivor                   = sum(nplantconow[psel]                        )
+               previous                   = sum(nplantconow[psel]*exp(mortconow   [psel]))
+               ncb.previous               = sum(nplantconow[psel]*exp(ncbmortconow[psel]))
+               hyd.previous               = sum(nplantconow[psel]*exp(hydmortconow[psel]))
+               di.previous                = sum(nplantconow[psel]*exp(dimortconow [psel]))
+               patch$mort   [[plab]][ipa] = log(previous     / survivor)
+               patch$ncbmort[[plab]][ipa] = log(ncb.previous / survivor)
+               patch$hydmort[[plab]][ipa] = log(hyd.previous / survivor)
+               patch$dimort [[plab]][ipa] = log(di.previous  / survivor)
+               #---------------------------------------------------------------------------#
+
+
+
+               #---------------------------------------------------------------------------#
+               #      Find the total AGB and previous AGB if the only mortality was the    #
+               # mortality we test.                                                        #
+               #---------------------------------------------------------------------------#
+               survivor                       = sum( nplantconow[psel] * agbcolmon[psel])
+               previous                       = sum( nplantconow[psel] * agbcolmon[psel]
+                                                   * exp(mortconow                [psel])
+                                                   )#end sum
+               ncb.previous                   = sum( nplantconow[psel] * agbcolmon[psel]
+                                                   * exp(ncbmortconow             [psel])
+                                                   )#end sum
+               hyd.previous                   = sum( nplantconow[psel] * agbcolmon[psel]
+                                                   * exp(hydmortconow             [psel])
+                                                   )#end sum
+               di.previous                    = sum( nplantconow[psel] * agbcolmon[psel]
+                                                   * exp(dimortconow              [psel])
+                                                   )#end sum
+               patch$agb.mort   [[plab]][ipa] = log( previous     / survivor )
+               patch$agb.ncbmort[[plab]][ipa] = log( ncb.previous / survivor )
+               patch$agb.hydmort[[plab]][ipa] = log( hyd.previous / survivor )
+               patch$agb.dimort [[plab]][ipa] = log( di.previous  / survivor )
+               #---------------------------------------------------------------------------#
+
+
+
+               #---------------------------------------------------------------------------#
+               #      Find the total AGB and previous AGB if the only mortality was the    #
+               # mortality we test.                                                        #
+               #---------------------------------------------------------------------------#
+               survivor                       = sum( nplantconow[psel] * agbcolmon[psel])
+               previous                       = sum( nplantconow[psel] * agbcolmon[psel]
+                                                   * exp( mortconow   [psel] / 12.)
+                                                   )#end sum
+               ncb.previous                   = sum( nplantconow[psel] * agbcolmon[psel]
+                                                   * exp( ncbmortconow[psel] / 12.)
+                                                   )#end sum
+               hyd.previous                   = sum( nplantconow[psel] * agbcolmon[psel]
+                                                   * exp( hydmortconow[psel] / 12.)
+                                                   )#end sum
+               di.previous                    = sum( nplantconow[psel] * agbcolmon[psel]
+                                                   * exp( dimortconow [psel] / 12.)
+                                                   )#end sum
+               patch$acc.mort   [[plab]][ipa] = 12. * (previous     - survivor)
+               patch$acc.ncbmort[[plab]][ipa] = 12. * (ncb.previous - survivor)
+               patch$acc.hydmort[[plab]][ipa] = 12. * (hyd.previous - survivor)
+               patch$acc.dimort [[plab]][ipa] = 12. * (di.previous  - survivor)
+               #---------------------------------------------------------------------------#
+
+
+
+               #---------------------------------------------------------------------------#
+               #      Find the total basal area and previous basal area if the only        #
+               # mortality was the mortality we test.                                      #
+               #---------------------------------------------------------------------------#
+               survivor                       = sum( nplantconow[psel] * bacolmon[psel])
+               previous                       = sum( nplantconow[psel] * bacolmon[psel]
+                                                   * exp(mortconow               [psel])
+                                                   )#end sum
+               ncb.previous                   = sum( nplantconow[psel] * bacolmon[psel]
+                                                   * exp(ncbmortconow            [psel])
+                                                   )#end sum
+               hyd.previous                   = sum( nplantconow[psel] * bacolmon[psel]
+                                                   * exp(hydmortconow            [psel])
+                                                   )#end sum
+               di.previous                    = sum( nplantconow[psel] * bacolmon[psel]
+                                                   * exp(dimortconow             [psel])
+                                                   )#end sum
+               patch$bsa.mort   [[plab]][ipa] = log( previous     / survivor )
+               patch$bsa.ncbmort[[plab]][ipa] = log( ncb.previous / survivor )
+               patch$bsa.hydmort[[plab]][ipa] = log( hyd.previous / survivor )
+               patch$bsa.dimort [[plab]][ipa] = log( di.previous  / survivor )
+               #---------------------------------------------------------------------------#
+            }#end if
+            #------------------------------------------------------------------------------#
+
+
+
+            #------------------------------------------------------------------------------#
+            #    Recruitment: we must determine whether the plant grew into the new        #
+            # category or not.                                                             #
+            #------------------------------------------------------------------------------#
+            psel.pop = (ipaconow == ipa)      & (dbhconow      >= census.dbh.min)
+            psel.est = psel.pop               & (dbhconow.1ago >= census.dbh.min)
+            psel.elm = psel.pop               & (dbhconow.lmon >= census.dbh.min)
+            if (any(psel.pop) & any(psel.est)){
+
+               #----- Recruitment rate in terms of individuals. ---------------------------#
+               population                  = sum(nplantconow[psel.pop])
+               established                 = sum(nplantconow[psel.est])
+               patch$recr[[plab]][ipa]     = log(population / established)
+               #---------------------------------------------------------------------------#
+
+
+               #----- Recruitment rate in terms of above-ground biomass. ------------------#
+               population                  = sum(nplantconow[psel.pop]*agbconow[psel.pop])
+               established                 = sum(nplantconow[psel.est]*agbconow[psel.est])
+               patch$agb.recr[[plab]][ipa] = log(population / established)
+               #---------------------------------------------------------------------------#
+
+
+               #----- Recruitment rate in terms of above-ground biomass. ------------------#
+               population                  = sum(nplantconow[psel.pop]*agbconow[psel.pop])
+               established                 = sum(nplantconow[psel.elm]*agbconow[psel.elm])
+               patch$acc.recr[[plab]][ipa] = 12. * (population - established)
+               #---------------------------------------------------------------------------#
+
+
+               #----- Recruitment rate in terms of basal area. ----------------------------#
+               population                  = sum(nplantconow[psel.pop]*baconow [psel.pop])
+               established                 = sum(nplantconow[psel.est]*baconow [psel.est])
+               patch$bsa.recr[[plab]][ipa] = log(population / established)
+               #---------------------------------------------------------------------------#
+            }#end if
+            #------------------------------------------------------------------------------#
+         }#end for (p in sequence(mymont$NPATCHES.GLOBAL))
+         #---------------------------------------------------------------------------------#
+         #---------------------------------------------------------------------------------#
+         #---------------------------------------------------------------------------------#
+
+
 
 
 
@@ -3166,8 +3388,9 @@ read.q.files <<- function( datum
 
 
             #------------------------------------------------------------------------------#
-            #    For mortality and growth, we keep deleting the tiny guys because they     #
-            # skew the rates quite significantly.                                          #
+            #    For mortality and growth, we keep deleting the tiny cohorts because they  #
+            # skew the rates quite significantly and they are rarely included in forest    #
+            # inventory surveys.                                                           #
             #------------------------------------------------------------------------------#
             sel = sel.pft & sel.dbh & dbhconow >= dbhminconow
             if (any(sel)){
