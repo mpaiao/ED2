@@ -4171,35 +4171,35 @@
                        )#end list
    scen.xyz$yvar = scen.xyz$xvar
    scen.xyz$zvar = list( list( vname      = "agb"
-                             , col.scheme = "clife"
+                             , col.scheme = "prgn"
                              , plog.xyz   = FALSE
                              )#end list
                        , list( vname      = "wood.dens"
-                             , col.scheme = "iclife"
+                             , col.scheme = "iprgn"
                              , plog.xyz   = TRUE
                              )#end list
                        , list( vname      = "last.1yr.growth"
-                             , col.scheme = "clife"
+                             , col.scheme = "prgn"
                              , plog.xyz   = TRUE
                              )#end list
                        , list( vname      = "last.1yr.ncbmort"
-                             , col.scheme = "iclife"
+                             , col.scheme = "iprgn"
                              , plog.xyz   = TRUE
                              )#end list
                        , list( vname      = "last.1yr.change"
-                             , col.scheme = "clife"
+                             , col.scheme = "prgn"
                              , plog.xyz   = FALSE
                              )#end list
                        , list( vname      = "last.1yr.cue"
-                             , col.scheme = "clife"
+                             , col.scheme = "prgn"
                              , plog.xyz   = FALSE
                              )#end list
                        , list( vname      = "last.1yr.ecue"
-                             , col.scheme = "clife"
+                             , col.scheme = "prgn"
                              , plog.xyz   = FALSE
                              )#end list
                        , list( vname      = "last.1yr.wue"
-                             , col.scheme = "ipanoply"
+                             , col.scheme = "rdbu"
                              , plog.xyz   = FALSE
                              )#end list
                        )#end list
@@ -4578,67 +4578,67 @@
                         )#end list
    panel.xyz$yvar = panel.xyz$xvar
    panel.xyz$zvar = list( list( vname      = "agb"
-                              , col.scheme = "clife"
+                              , col.scheme = "prgn"
                               , plog.xyz   = FALSE
                               )#end list
                         , list( vname      = "f.bstorage"
-                              , col.scheme = "clife"
+                              , col.scheme = "prgn"
                               , plog.xyz   = FALSE
                               )#end list
                         , list( vname      = "last.1yr.change"
-                              , col.scheme = "clife"
+                              , col.scheme = "prgn"
                               , plog.xyz   = FALSE
                               )#end list
                         , list( vname      = "last.1yr.cue"
-                              , col.scheme = "clife"
+                              , col.scheme = "prgn"
                               , plog.xyz   = FALSE
                               )#end list
                         , list( vname      = "last.1yr.dcbadt"
-                              , col.scheme = "clife"
+                              , col.scheme = "prgn"
                               , plog.xyz   = FALSE
                               )#end list
                         , list( vname      = "last.1yr.ecue"
-                              , col.scheme = "clife"
+                              , col.scheme = "prgn"
                               , plog.xyz   = FALSE
                               )#end list
                         , list( vname      = "last.1yr.etue"
-                              , col.scheme = "ipanoply"
+                              , col.scheme = "rdbu"
                               , plog.xyz   = FALSE
                               )#end list
                         , list( vname      = "last.1yr.gpp"
-                              , col.scheme = "clife"
+                              , col.scheme = "prgn"
                               , plog.xyz   = FALSE
                               )#end list
                         , list( vname      = "last.1yr.growth"
-                              , col.scheme = "clife"
+                              , col.scheme = "prgn"
                               , plog.xyz   = TRUE
                               )#end list
                         , list( vname      = "last.1yr.ncbmort"
-                              , col.scheme = "iclife"
+                              , col.scheme = "iprgn"
                               , plog.xyz   = TRUE
                               )#end list
                         , list( vname      = "last.1yr.npp"
-                              , col.scheme = "clife"
+                              , col.scheme = "prgn"
                               , plog.xyz   = FALSE
                               )#end list
                         , list( vname      = "last.1yr.plresp"
-                              , col.scheme = "iclife"
+                              , col.scheme = "iprgn"
                               , plog.xyz   = FALSE
                               )#end list
                         , list( vname      = "last.1yr.rue"
-                              , col.scheme = "ipanoply"
+                              , col.scheme = "rdbu"
                               , plog.xyz   = FALSE
                               )#end list
                         , list( vname      = "last.1yr.transp"
-                              , col.scheme = "ipanoply"
+                              , col.scheme = "rdbu"
                               , plog.xyz   = FALSE
                               )#end list
                         , list( vname      = "last.1yr.wue"
-                              , col.scheme = "ipanoply"
+                              , col.scheme = "rdbu"
                               , plog.xyz   = FALSE
                               )#end list
                         , list( vname      = "wood.dens"
-                              , col.scheme = "iclife"
+                              , col.scheme = "iprgn"
                               , plog.xyz   = FALSE
                               )#end list
                         )#end list
@@ -4738,23 +4738,23 @@
                         )#end list
    panel.map$yvar = panel.map$xvar
    panel.map$zvar = list( list( vname      = "last.1yr.ncbmort"
-                              , col.scheme = "iclife"
+                              , col.scheme = "iprgn"
                               , plog.map   = TRUE
                               )#end list
                         , list( vname      = "last.1yr.growth"
-                              , col.scheme = "clife"
+                              , col.scheme = "prgn"
                               , plog.map   = TRUE
                               )#end list
                         , list( vname      = "last.1yr.change"
-                              , col.scheme = "clife"
+                              , col.scheme = "prgn"
                               , plog.map   = FALSE
                               )#end list
                         , list( vname      = "last.1yr.cue"
-                              , col.scheme = "clife"
+                              , col.scheme = "prgn"
                               , plog.map   = FALSE
                               )#end list
                         , list( vname      = "last.1yr.wue"
-                              , col.scheme = "ipanoply"
+                              , col.scheme = "rdbu"
                               , plog.map   = FALSE
                               )#end list
                         )#end list

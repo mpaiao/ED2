@@ -1447,7 +1447,7 @@ n            = n + 1
 squeeze[[n]] = list( vnam       = "gpp"
                    , desc       = "Gross Primary productivity"
                    , unit       = untab$kgcom2oyr
-                   , col.scheme = "atlas"
+                   , col.scheme = "brbg"
                    , fco.mmean  = TRUE
                    , fco.qmean  = FALSE
                    , box.plot   = FALSE
@@ -1456,7 +1456,7 @@ n            = n + 1
 squeeze[[n]] = list( vnam       = "npp"
                    , desc       = "Net Primary productivity"
                    , unit       = untab$kgcom2oyr
-                   , col.scheme = "atlas"
+                   , col.scheme = "brbg"
                    , fco.mmean  = TRUE
                    , fco.qmean  = FALSE
                    , box.plot   = FALSE
@@ -1465,7 +1465,7 @@ n            = n + 1
 squeeze[[n]] = list( vnam       = "plant.resp"
                    , desc       = "Plant respiration"
                    , unit       = untab$kgcom2oyr
-                   , col.scheme = "panoply"
+                   , col.scheme = "irdbu"
                    , fco.mmean  = FALSE
                    , fco.qmean  = FALSE
                    , box.plot   = FALSE
@@ -1474,7 +1474,7 @@ n            = n + 1
 squeeze[[n]] = list( vnam       = "het.resp"
                    , desc       = "Heterotrophic respiration"
                    , unit       = untab$kgcom2oyr
-                   , col.scheme = "panoply"
+                   , col.scheme = "irdbu"
                    , fco.mmean  = FALSE
                    , fco.qmean  = FALSE
                    , box.plot   = FALSE
@@ -1483,7 +1483,7 @@ n            = n + 1
 squeeze[[n]] = list( vnam       = "fgc.resp"
                    , desc       = "Surface litter respiration"
                    , unit       = untab$kgcom2oyr
-                   , col.scheme = "panoply"
+                   , col.scheme = "irdbu"
                    , fco.mmean  = FALSE
                    , fco.qmean  = FALSE
                    , box.plot   = FALSE
@@ -1492,7 +1492,7 @@ n            = n + 1
 squeeze[[n]] = list( vnam       = "fsc.resp"
                    , desc       = "Sub-surface litter respiration"
                    , unit       = untab$kgcom2oyr
-                   , col.scheme = "panoply"
+                   , col.scheme = "irdbu"
                    , fco.mmean  = FALSE
                    , fco.qmean  = FALSE
                    , box.plot   = FALSE
@@ -1501,7 +1501,7 @@ n            = n + 1
 squeeze[[n]] = list( vnam       = "stgc.resp"
                    , desc       = "Surface woody debris respiration"
                    , unit       = untab$kgcom2oyr
-                   , col.scheme = "panoply"
+                   , col.scheme = "irdbu"
                    , fco.mmean  = FALSE
                    , fco.qmean  = FALSE
                    , box.plot   = FALSE
@@ -1510,7 +1510,7 @@ n            = n + 1
 squeeze[[n]] = list( vnam       = "stsc.resp"
                    , desc       = "Sub-surface woody debris respiration"
                    , unit       = untab$kgcom2oyr
-                   , col.scheme = "panoply"
+                   , col.scheme = "irdbu"
                    , fco.mmean  = FALSE
                    , fco.qmean  = FALSE
                    , box.plot   = FALSE
@@ -1519,7 +1519,7 @@ n            = n + 1
 squeeze[[n]] = list( vnam       = "msc.resp"
                    , desc       = "Microbial soil respiration"
                    , unit       = untab$kgcom2oyr
-                   , col.scheme = "panoply"
+                   , col.scheme = "irdbu"
                    , fco.mmean  = FALSE
                    , fco.qmean  = FALSE
                    , box.plot   = FALSE
@@ -1528,7 +1528,7 @@ n            = n + 1
 squeeze[[n]] = list( vnam       = "ssc.resp"
                    , desc       = "Humified soil respiration"
                    , unit       = untab$kgcom2oyr
-                   , col.scheme = "panoply"
+                   , col.scheme = "irdbu"
                    , fco.mmean  = FALSE
                    , fco.qmean  = FALSE
                    , box.plot   = FALSE
@@ -1537,7 +1537,7 @@ n            = n + 1
 squeeze[[n]] = list( vnam       = "psc.resp"
                    , desc       = "Passive soil respiration"
                    , unit       = untab$kgcom2oyr
-                   , col.scheme = "panoply"
+                   , col.scheme = "irdbu"
                    , fco.mmean  = FALSE
                    , fco.qmean  = FALSE
                    , box.plot   = FALSE
@@ -1582,7 +1582,7 @@ n            = n + 1
 squeeze[[n]] = list( vnam       = "nep"
                    , desc       = "Net ecosystem production"
                    , unit       = untab$kgcom2oyr
-                   , col.scheme = "panoply"
+                   , col.scheme = "irdbu"
                    , fco.mmean  = FALSE
                    , fco.qmean  = FALSE
                    , box.plot   = FALSE
@@ -1591,7 +1591,7 @@ n            = n + 1
 squeeze[[n]] = list( vnam       = "reco"
                    , desc       = "Ecosystem respiration"
                    , unit       = untab$kgcom2oyr
-                   , col.scheme = "panoply"
+                   , col.scheme = "irdbu"
                    , fco.mmean  = FALSE
                    , fco.qmean  = FALSE
                    , box.plot   = FALSE
@@ -1600,7 +1600,7 @@ n            = n + 1
 squeeze[[n]] = list( vnam       = "hflxca"
                    , desc       = "Sensible heat flux"
                    , unit       = untab$wom2
-                   , col.scheme = "panoply"
+                   , col.scheme = "irdbu"
                    , fco.mmean  = FALSE
                    , fco.qmean  = FALSE
                    , box.plot   = FALSE
@@ -1609,7 +1609,7 @@ n            = n + 1
 squeeze[[n]] = list( vnam       = "wflxca"
                    , desc       = "Water flux"
                    , unit       = untab$kgwom2oday
-                   , col.scheme = "ipanoply"
+                   , col.scheme = "rdbu"
                    , fco.mmean  = FALSE
                    , fco.qmean  = FALSE
                    , box.plot   = FALSE
@@ -1618,7 +1618,7 @@ n            = n + 1
 squeeze[[n]] = list( vnam       = "wflxgc"
                    , desc       = "Ground evaporation"
                    , unit       = untab$kgwom2oday
-                   , col.scheme = "ipanoply"
+                   , col.scheme = "rdbu"
                    , fco.mmean  = FALSE
                    , fco.qmean  = FALSE
                    , box.plot   = FALSE
@@ -1627,7 +1627,7 @@ n            = n + 1
 squeeze[[n]] = list( vnam       = "wflxlc"
                    , desc       = "Leaf evaporation"
                    , unit       = untab$kgwom2oday
-                   , col.scheme = "ipanoply"
+                   , col.scheme = "rdbu"
                    , fco.mmean  = FALSE
                    , fco.qmean  = FALSE
                    , box.plot   = FALSE
@@ -1636,7 +1636,7 @@ n            = n + 1
 squeeze[[n]] = list( vnam       = "wflxwc"
                    , desc       = "Wood evaporation"
                    , unit       = untab$kgwom2oday
-                   , col.scheme = "ipanoply"
+                   , col.scheme = "rdbu"
                    , fco.mmean  = FALSE
                    , fco.qmean  = FALSE
                    , box.plot   = FALSE
@@ -1645,7 +1645,7 @@ n            = n + 1
 squeeze[[n]] = list( vnam       = "evap"
                    , desc       = "Evaporation"
                    , unit       = untab$kgwom2oday
-                   , col.scheme = "ipanoply"
+                   , col.scheme = "rdbu"
                    , fco.mmean  = FALSE
                    , fco.qmean  = FALSE
                    , box.plot   = FALSE
@@ -1654,7 +1654,7 @@ n            = n + 1
 squeeze[[n]] = list( vnam       = "transp"
                    , desc       = "Transpiration"
                    , unit       = untab$kgwom2oday
-                   , col.scheme = "ipanoply"
+                   , col.scheme = "rdbu"
                    , fco.mmean  = FALSE
                    , fco.qmean  = FALSE
                    , box.plot   = FALSE
@@ -1663,7 +1663,7 @@ n            = n + 1
 squeeze[[n]] = list( vnam       = "nee"
                    , desc       = "Net ecosystem exchange"
                    , unit       = untab$umolcom2os
-                   , col.scheme = "ipanoply"
+                   , col.scheme = "rdbu"
                    , fco.mmean  = FALSE
                    , fco.qmean  = FALSE
                    , box.plot   = FALSE
@@ -1672,7 +1672,7 @@ n            = n + 1
 squeeze[[n]] = list( vnam       = "cflxca"
                    , desc       = "CO2 flux"
                    , unit       = untab$umolcom2os
-                   , col.scheme = "ipanoply"
+                   , col.scheme = "rdbu"
                    , fco.mmean  = FALSE
                    , fco.qmean  = FALSE
                    , box.plot   = FALSE
@@ -1681,7 +1681,7 @@ n            = n + 1
 squeeze[[n]] = list( vnam       = "cflxst"
                    , desc       = "CO2 flux"
                    , unit       = untab$umolcom2os
-                   , col.scheme = "ipanoply"
+                   , col.scheme = "rdbu"
                    , fco.mmean  = FALSE
                    , fco.qmean  = FALSE
                    , box.plot   = FALSE
@@ -1690,7 +1690,7 @@ n            = n + 1
 squeeze[[n]] = list( vnam       = "can.temp"
                    , desc       = "Canopy air temperature"
                    , unit       = untab$degC
-                   , col.scheme = "panoply"
+                   , col.scheme = "puor"
                    , fco.mmean  = FALSE
                    , fco.qmean  = FALSE
                    , box.plot   = FALSE
@@ -1699,7 +1699,7 @@ n            = n + 1
 squeeze[[n]] = list( vnam       = "atm.temp"
                    , desc       = "Atmospheric temperature"
                    , unit       = untab$degC
-                   , col.scheme = "panoply"
+                   , col.scheme = "puor"
                    , fco.mmean  = FALSE
                    , fco.qmean  = FALSE
                    , box.plot   = FALSE
@@ -1708,7 +1708,7 @@ n            = n + 1
 squeeze[[n]] = list( vnam       = "leaf.temp"
                    , desc       = "Leaf temperature"
                    , unit       = untab$degC
-                   , col.scheme = "panoply"
+                   , col.scheme = "puor"
                    , fco.mmean  = FALSE
                    , fco.qmean  = FALSE
                    , box.plot   = FALSE
@@ -1717,7 +1717,7 @@ n            = n + 1
 squeeze[[n]] = list( vnam       = "wood.temp"
                    , desc       = "Wood temperature"
                    , unit       = untab$degC
-                   , col.scheme = "panoply"
+                   , col.scheme = "puor"
                    , fco.mmean  = FALSE
                    , fco.qmean  = FALSE
                    , box.plot   = FALSE
@@ -1726,7 +1726,7 @@ n            = n + 1
 squeeze[[n]] = list( vnam       = "gnd.temp"
                    , desc       = "Ground temperature"
                    , unit       = untab$degC
-                   , col.scheme = "panoply"
+                   , col.scheme = "puor"
                    , fco.mmean  = FALSE
                    , fco.qmean  = FALSE
                    , box.plot   = FALSE
@@ -1735,7 +1735,7 @@ n            = n + 1
 squeeze[[n]] = list( vnam       = "atm.shv"
                    , desc       = "Atmospheric specific humidity" 
                    , unit       = untab$gwokg
-                   , col.scheme = "ipanoply"
+                   , col.scheme = "rdbu"
                    , fco.mmean  = FALSE
                    , fco.qmean  = FALSE
                    , box.plot   = FALSE
@@ -1744,7 +1744,7 @@ n            = n + 1
 squeeze[[n]] = list( vnam       = "can.shv"
                    , desc       = "Canopy air specific humidity"
                    , unit       = untab$gwokg
-                   , col.scheme = "ipanoply"
+                   , col.scheme = "rdbu"
                    , fco.mmean  = FALSE
                    , fco.qmean  = FALSE
                    , box.plot   = FALSE
@@ -1753,7 +1753,7 @@ n            = n + 1
 squeeze[[n]] = list( vnam       = "gnd.shv"
                    , desc       = "Ground specific humidity"
                    , unit       = untab$gwokg
-                   , col.scheme = "ipanoply"
+                   , col.scheme = "rdbu"
                    , fco.mmean  = FALSE
                    , fco.qmean  = FALSE
                    , box.plot   = FALSE
@@ -1762,7 +1762,7 @@ n            = n + 1
 squeeze[[n]] = list( vnam       = "atm.co2"
                    , desc       = "Atmospheric CO2 mixing ratio"
                    , unit       = untab$molcomol
-                   , col.scheme = "panoply"
+                   , col.scheme = "puor"
                    , fco.mmean  = FALSE
                    , fco.qmean  = FALSE
                    , box.plot   = FALSE
@@ -1771,7 +1771,7 @@ n            = n + 1
 squeeze[[n]] = list( vnam       = "can.co2"
                    , desc       = "Canopy air CO2 mixing ratio"
                    , unit       = untab$molcomol
-                   , col.scheme = "panoply"
+                   , col.scheme = "puor"
                    , fco.mmean  = FALSE
                    , fco.qmean  = FALSE
                    , box.plot   = FALSE
@@ -1780,7 +1780,7 @@ n            = n + 1
 squeeze[[n]] = list( vnam       = "rain"
                    , desc       = "Total monthly precipitation"
                    , unit       = untab$mm
-                   , col.scheme = "ipanoply"
+                   , col.scheme = "rdbu"
                    , fco.mmean  = FALSE
                    , fco.qmean  = FALSE
                    , box.plot   = FALSE
@@ -1789,7 +1789,7 @@ n            = n + 1
 squeeze[[n]] = list( vnam       = "runoff"
                    , desc       = "Total monthly runoff"
                    , unit       = untab$mm
-                   , col.scheme = "ipanoply"
+                   , col.scheme = "rdbu"
                    , fco.mmean  = FALSE
                    , fco.qmean  = FALSE
                    , box.plot   = FALSE
@@ -1798,7 +1798,7 @@ n            = n + 1
 squeeze[[n]] = list( vnam       = "intercepted"
                    , desc       = "Total monthly interception"
                    , unit       = untab$mm
-                   , col.scheme = "ipanoply"
+                   , col.scheme = "rdbu"
                    , fco.mmean  = FALSE
                    , fco.qmean  = FALSE
                    , box.plot   = FALSE
@@ -1807,7 +1807,7 @@ n            = n + 1
 squeeze[[n]] = list( vnam       = "wshed"
                    , desc       = "Total monthly dripping"
                    , unit       = untab$mm
-                   , col.scheme = "ipanoply"
+                   , col.scheme = "rdbu"
                    , fco.mmean  = FALSE
                    , fco.qmean  = FALSE
                    , box.plot   = FALSE
@@ -1816,7 +1816,7 @@ n            = n + 1
 squeeze[[n]] = list( vnam       = "sm.stress"
                    , desc       = "Fraction of open stomata"
                    , unit       = untab$empty
-                   , col.scheme = "ipanoply"
+                   , col.scheme = "rdbu"
                    , fco.mmean  = FALSE
                    , fco.qmean  = FALSE
                    , box.plot   = FALSE
@@ -1825,7 +1825,7 @@ n            = n + 1
 squeeze[[n]] = list( vnam       = "leaf.gbw"
                    , desc       = "Leaf boundary layer conductance"
                    , unit       = untab$kgwom2loday
-                   , col.scheme = "ipanoply"
+                   , col.scheme = "rdbu"
                    , fco.mmean  = FALSE
                    , fco.qmean  = FALSE
                    , box.plot   = FALSE
@@ -1834,7 +1834,7 @@ n            = n + 1
 squeeze[[n]] = list( vnam       = "leaf.gsw"
                    , desc       = "Stomatal conductance"
                    , unit       = untab$kgwom2loday
-                   , col.scheme = "ipanoply"
+                   , col.scheme = "rdbu"
                    , fco.mmean  = FALSE
                    , fco.qmean  = FALSE
                    , box.plot   = FALSE
@@ -1843,7 +1843,7 @@ n            = n + 1
 squeeze[[n]] = list( vnam       = "rshort"
                    , desc       = "Downward shortwave radiation"
                    , unit       = untab$wom2
-                   , col.scheme = "icloudy"
+                   , col.scheme = "ibugy"
                    , fco.mmean  = FALSE
                    , fco.qmean  = FALSE
                    , box.plot   = FALSE
@@ -1852,7 +1852,7 @@ n            = n + 1
 squeeze[[n]] = list( vnam       = "rshort.gnd"
                    , desc       = "Abs. gnd. shortwave radiation"
                    , unit       = untab$wom2
-                   , col.scheme = "icloudy"
+                   , col.scheme = "ibugy"
                    , fco.mmean  = FALSE
                    , fco.qmean  = FALSE
                    , box.plot   = FALSE
@@ -1861,7 +1861,7 @@ n            = n + 1
 squeeze[[n]] = list( vnam       = "rshortup"
                    , desc       = "Outgoing shortwave radiation"
                    , unit       = untab$wom2
-                   , col.scheme = "icloudy"
+                   , col.scheme = "ibugy"
                    , fco.mmean  = FALSE
                    , fco.qmean  = FALSE
                    , box.plot   = FALSE
@@ -1870,7 +1870,7 @@ n            = n + 1
 squeeze[[n]] = list( vnam       = "rlong"
                    , desc       = "Downward longwave radiation"
                    , unit       = untab$wom2
-                   , col.scheme = "cloudy"
+                   , col.scheme = "bugy"
                    , fco.mmean  = FALSE
                    , fco.qmean  = FALSE
                    , box.plot   = FALSE
@@ -1879,7 +1879,7 @@ n            = n + 1
 squeeze[[n]] = list( vnam       = "rlong.gnd"
                    , desc       = "Abs. gnd. longwave radiation"
                    , unit       = untab$wom2
-                   , col.scheme = "cloudy"
+                   , col.scheme = "bugy"
                    , fco.mmean  = FALSE
                    , fco.qmean  = FALSE
                    , box.plot   = FALSE
@@ -1888,7 +1888,7 @@ n            = n + 1
 squeeze[[n]] = list( vnam       = "rlongup"
                    , desc       = "Outgoing longwave radiation"
                    , unit       = untab$wom2
-                   , col.scheme = "cloudy"
+                   , col.scheme = "bugy"
                    , fco.mmean  = FALSE
                    , fco.qmean  = FALSE
                    , box.plot   = FALSE
@@ -1897,7 +1897,7 @@ n            = n + 1
 squeeze[[n]] = list( vnam       = "albedo"
                    , desc       = "Shortwave albedo"
                    , unit       = untab$empty
-                   , col.scheme = "panoply"
+                   , col.scheme = "irdbu"
                    , fco.mmean  = FALSE
                    , fco.qmean  = FALSE
                    , box.plot   = FALSE
@@ -1906,7 +1906,7 @@ n            = n + 1
 squeeze[[n]] = list( vnam       = "ustar"
                    , desc       = "Friction velocity"
                    , unit       = untab$mos
-                   , col.scheme = "panoply"
+                   , col.scheme = "irdbu"
                    , fco.mmean  = FALSE
                    , fco.qmean  = FALSE
                    , box.plot   = FALSE
@@ -1915,7 +1915,7 @@ n            = n + 1
 squeeze[[n]] = list( vnam       = "paw"
                    , desc       = "Potential available water"
                    , unit       = untab$pcsat
-                   , col.scheme = "ipanoply"
+                   , col.scheme = "rdbu"
                    , fco.mmean  = FALSE
                    , fco.qmean  = FALSE
                    , box.plot   = FALSE
@@ -1924,7 +1924,7 @@ n            = n + 1
 squeeze[[n]] = list( vnam       = "smpot"
                    , desc       = "Integrated matric potential"
                    , unit       = untab$mpa
-                   , col.scheme = "panoply"
+                   , col.scheme = "irdbu"
                    , fco.mmean  = FALSE
                    , fco.qmean  = FALSE
                    , box.plot   = FALSE
@@ -3241,7 +3241,7 @@ n             = n + 1
 soilplot[[n]] = list( vnam   = "soil.water"
                     , desc   = "Soil moisture"
                     , unit   = untab$m3wom3
-                    , csch   = "ipanoply"
+                    , csch   = "rdbu"
                     , pnlog  = FALSE
                     , mmean  = TRUE
                     , emean  = TRUE
@@ -3252,7 +3252,7 @@ n             = n + 1
 soilplot[[n]] = list( vnam   = "soil.temp"
                     , desc   = "Soil temperature"
                     , unit   = untab$degC
-                    , csch   = "panoply"
+                    , csch   = "irdbu"
                     , pnlog  = FALSE
                     , mmean  = TRUE
                     , emean  = TRUE
@@ -3263,7 +3263,7 @@ n             = n + 1
 soilplot[[n]] = list( vnam   = "soil.mstpot"
                     , desc   = "(Negative) Soil moisture potential"
                     , unit   = untab$mpa
-                    , csch   = "panoply"
+                    , csch   = "irdbu"
                     , pnlog  = TRUE
                     , mmean  = TRUE
                     , emean  = TRUE
@@ -3274,7 +3274,7 @@ n             = n + 1
 soilplot[[n]] = list( vnam   = "soil.extracted"
                     , desc   = "Water extraction by plants"
                     , unit   = untab$kgwom3oday
-                    , csch   = "ipanoply"
+                    , csch   = "rdbu"
                     , pnlog  = FALSE
                     , mmean  = TRUE
                     , emean  = TRUE
