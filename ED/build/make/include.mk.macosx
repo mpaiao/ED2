@@ -88,20 +88,19 @@ endif
 ifeq ($(KIND_COMP),A)
    F_OPTS= -O0 -ffree-line-length-none -g -fimplicit-none -Wall -finit-real=snan           \
            -finit-integer=-2147483648 -ffpe-trap=invalid,zero,overflow,underflow           \
-           -fcheck=all -frecursive -fsignaling-nans -Werror -mmacosx-version-min=10.12     \
-           -fopenmp -static
+           -fcheck=all,no-array-temps -frecursive -Werror -fopenmp -fbacktrace -static
    C_OPTS= -O0 -DLITTLE  -g -static
    LOADER_OPTS= -O0 -ffree-line-length-none -g -fimplicit-none -Wall -finit-real=snan      \
                 -finit-integer=-2147483648 -ffpe-trap=invalid,zero,overflow,underflow      \
-                -fcheck=all -frecursive -fsignaling-nans -Werror                           \
-                -mmacosx-version-min=10.12 -fopenmp
+                -fcheck=all -frecursive -Werror -fbacktrace -fopenmp
    #---------------------------------------------------------------------------------------#
 endif
 ifeq ($(KIND_COMP),E)
    F_OPTS= -O3 -ffree-line-length-none -frecursive -mmacosx-version-min=10.12 -fopenmp     \
-           -static
-   C_OPTS= -O0 -DLITTLE  -g  -static
-   LOADER_OPTS= -O3 -ffree-line-length-none -frecursive -mmacosx-version-min=10.12 -fopenmp
+           -fbacktrace -static
+   C_OPTS= -O3 -DLITTLE  -g  -static
+   LOADER_OPTS= -O3 -ffree-line-length-none -frecursive -mmacosx-version-min=10.12         \
+                -fbacktrace -fopenmp
    #---------------------------------------------------------------------------------------#
 endif
 #------------------------------------------------------------------------------------------#

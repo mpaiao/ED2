@@ -18,7 +18,8 @@ module euler_driver
       use met_driver_coms        , only : met_driv_state             ! ! structure
       use grid_coms              , only : nzg                        ! ! intent(in)
       use ed_misc_coms           , only : current_time               & ! intent(in)
-                                        , dtlsm                      ! ! intent(in)
+                                        , dtlsm                      & ! intent(in)
+                                        , dtlsm_o_day_sec            ! ! intent(in)
       use ed_max_dims            , only : n_dbh                      ! ! intent(in)
       use budget_utils           , only : update_cbudget_committed   & ! function
                                         , compute_budget             ! ! function
@@ -97,8 +98,15 @@ module euler_driver
             !     Update the monthly rainfall.                                             !
             !------------------------------------------------------------------------------!
             imon                             = current_time%month
-            cpoly%avg_monthly_pcpg(imon,isi) = cpoly%avg_monthly_pcpg(imon,isi)            &
+            cpoly%avg_monthly_accp(imon,isi) = cpoly%avg_monthly_accp(imon,isi)            &
                                              + cmet%pcpg * dtlsm
+            !------------------------------------------------------------------------------!
+
+
+            !------------------------------------------------------------------------------!
+            !     Update today's average rainfall rate.                                    !
+            !------------------------------------------------------------------------------!
+            cpoly%today_pcpg(isi) = cpoly%today_pcpg(isi) + cmet%pcpg * dtlsm_o_day_sec
             !------------------------------------------------------------------------------!
 
             !------------------------------------------------------------------------------!
@@ -432,8 +440,8 @@ module euler_driver
       !------------------------------------------------------------------------------------!
       !      Move the state variables from the integrated patch to the model patch.        !
       !------------------------------------------------------------------------------------!
-      call initp2modelp(tend-tbeg,initp,csite,ipa,nighttime,wcurr_loss2atm,ecurr_netrad    &
-                       ,ecurr_loss2atm,co2curr_loss2atm,wcurr_loss2drainage                &
+      call initp2modelp(tend-tbeg,initp,csite,ipa,ibuff,nighttime,wcurr_loss2atm           &
+                       ,ecurr_netrad,ecurr_loss2atm,co2curr_loss2atm,wcurr_loss2drainage   &
                        ,ecurr_loss2drainage,wcurr_loss2runoff,ecurr_loss2runoff            &
                        ,co2curr_denseffect,ecurr_denseffect,wcurr_denseffect)
       !------------------------------------------------------------------------------------!

@@ -323,10 +323,13 @@ module ed_misc_coms
    ! 3. RADFRQ_O_FRQSUM -- inverse of the number of radiation time steps since the         !
    !                       previous analysis.  Only radiation-related variables should use !
    !                       this factor.                                                    !
+   ! 4. DTLSM_O_DAY_SEC -- inverse of the number of main time steps within a day.  These   !
+   !                       are used for the new fire model.                                !
    !---------------------------------------------------------------------------------------!
    real :: frqsumi
    real :: dtlsm_o_frqsum
    real :: radfrq_o_frqsum
+   real :: dtlsm_o_day_sec
    !---------------------------------------------------------------------------------------!
 
 

@@ -931,14 +931,16 @@ module rk4_copy_patch
    !     This subroutine will copy the variables from the integration buffer to the state  !
    ! patch and cohorts.                                                                    !
    !---------------------------------------------------------------------------------------!
-   subroutine initp2modelp(hdid,initp,csite,ipa,nighttime,wbudget_loss2atm,ebudget_netrad  &
-                          ,ebudget_loss2atm,co2budget_loss2atm,wbudget_loss2drainage       &
-                          ,ebudget_loss2drainage,wbudget_loss2runoff,ebudget_loss2runoff   &
-                          ,co2budget_denseffect,ebudget_denseffect,wbudget_denseffect)
+   subroutine initp2modelp(hdid,initp,csite,ipa,ibuff,nighttime,wbudget_loss2atm           &
+                          ,ebudget_netrad,ebudget_loss2atm,co2budget_loss2atm              &
+                          ,wbudget_loss2drainage,ebudget_loss2drainage,wbudget_loss2runoff &
+                          ,ebudget_loss2runoff,co2budget_denseffect,ebudget_denseffect     &
+                          ,wbudget_denseffect)
       use rk4_coms             , only : rk4patchtype         & ! structure
                                       , rk4site              & ! intent(in)
                                       , rk4min_veg_temp      & ! intent(in)
                                       , rk4max_veg_temp      & ! intent(in)
+                                      , rk4aux               & ! intent(in)
                                       , tiny_offset          & ! intent(in)
                                       , checkbudget          & ! intent(in)
                                       , ibranch_thermo       ! ! intent(in)
@@ -953,7 +955,8 @@ module rk4_copy_patch
       use ed_misc_coms         , only : fast_diagnostics     & ! intent(in)
                                       , writing_long         & ! intent(in)
                                       , dtlsm                & ! intent(in)
-                                      , dtlsm_o_frqsum       ! ! intent(in)
+                                      , dtlsm_o_frqsum       & ! intent(in)
+                                      , dtlsm_o_day_sec      ! ! intent(in)
       use soil_coms            , only : soil8                & ! intent(in)
                                       , dslz8                & ! intent(in)
                                       , slz8                 & ! intent(in)
@@ -965,13 +968,16 @@ module rk4_copy_patch
                                       , vpdefil              & ! subroutine
                                       , uextcm2tl            & ! subroutine
                                       , cmtl2uext            & ! subroutine
-                                      , qslif                ! ! function
+                                      , qslif                & ! function
+                                      , eslif                & ! function
+                                      , tslif                ! ! function
       use phenology_coms       , only : spot_phen            ! ! intent(in)
       use physiology_coms      , only : plant_hydro_scheme   & ! intent(in)
                                       , gbh_2_gbw            ! ! intent(in)
       use allometry            , only : h2crownbh            ! ! function
       use disturb_coms         , only : include_fire         & ! intent(in)
-                                      , k_fire_first         ! ! intent(in)
+                                      , k_fire_first         & ! intent(in)
+                                      , fire_smoist_depth    ! ! intent(in)
       use plant_hydro          , only : twe2twi              & ! subroutine
                                       , tw2rwc               ! ! subroutine
       use rk4_misc             , only : print_rk4patch       ! ! subroutine
@@ -981,6 +987,7 @@ module rk4_copy_patch
       type(sitetype)    , target      :: csite
       real(kind=8)      , intent(in)  :: hdid
       integer           , intent(in)  :: ipa
+      integer           , intent(in)  :: ibuff
       logical           , intent(in)  :: nighttime
       real              , intent(out) :: wbudget_loss2atm
       real              , intent(out) :: ebudget_netrad
@@ -1004,12 +1011,21 @@ module rk4_copy_patch
       integer                         :: kclosest
       integer                         :: nsoil
       real(kind=8)                    :: tmp_energy
+      real(kind=8)                    :: fm_depth8
+      real(kind=8)                    :: fm_depthi8
+      real(kind=8)                    :: fm_dslz8
       real(kind=8)                    :: available_water
       real(kind=8)                    :: gnd_water
+      real(kind=8)                    :: gnd_wetness
+      real(kind=8)                    :: gnd_mstpot
+      real(kind=8)                    :: lyr_wetness
       real(kind=8)                    :: psiplusz
       real(kind=8)                    :: mcheight
       real(kind=4)                    :: step_waterdef
       real(kind=4)                    :: can_rvap
+      real(kind=4)                    :: can_rhv
+      real(kind=4)                    :: can_pvap
+      real(kind=4)                    :: can_tdew
       !----- Local contants ---------------------------------------------------------------!
       real        , parameter         :: tendays_sec    = 10. * day_sec
       real        , parameter         :: thirtydays_sec = 30. * day_sec
@@ -1212,7 +1228,7 @@ module rk4_copy_patch
 
       !------------------------------------------------------------------------------------!
       !     This variable is the monthly mean ground water that will be used to control    !
-      ! fire disturbance.                                                                  !
+      ! fire disturbance (except for the new fire module, see below).                      !
       !------------------------------------------------------------------------------------!
       gnd_water = 0.d0
       !----- Add temporary surface water. -------------------------------------------------!
@@ -1222,17 +1238,95 @@ module rk4_copy_patch
       !----- Find the bottommost layer to consider. ---------------------------------------!
       select case(include_fire)
       case (1)
-         ka = rk4site%lsl
+         ka         = rk4site%lsl
+         fm_depth8  = slz8(ka)
       case default
-         ka = k_fire_first
+         ka         = k_fire_first
+         fm_depth8  = dble(fire_smoist_depth)
       end select
+      !----- Find inverse of the bottom layer (absolute value, used for weighting). -------!
+      fm_depthi8    = 1.d0 / abs(fm_depth8)
       !----- Add soil moisture. -----------------------------------------------------------!
       do k=ka,nzg
-         gnd_water = gnd_water + initp%soil_water(k) * dslz8(k) * wdns8
+         fm_dslz8   = slz8(k+1) - max(fm_depth8,slz8(k))
+         gnd_water  = gnd_water + initp%soil_water(k) * fm_dslz8 * wdns8
       end do
       !----- Add to the monthly mean. -----------------------------------------------------!
       csite%avg_monthly_gndwater(ipa) = csite%avg_monthly_gndwater(ipa)                    &
                                       + sngloff(gnd_water,tiny_offset)
+      !------------------------------------------------------------------------------------!
+
+
+
+      !------------------------------------------------------------------------------------!
+      !       Update variables used for the new fire model.                                !
+      !------------------------------------------------------------------------------------!
+      !----- Check temperature. -----------------------------------------------------------!
+      csite%tdmin_can_temp(ipa) = min(csite%tdmin_can_temp(ipa),csite%can_temp(ipa))
+      csite%tdmax_can_temp(ipa) = max(csite%tdmax_can_temp(ipa),csite%can_temp(ipa))
+      !----- Check relative humidity. -----------------------------------------------------!
+      can_rhv                   = sngloff(initp%can_rhv,tiny_offset)
+      csite%tdmin_can_rhv (ipa) = min(csite%tdmin_can_rhv (ipa),can_rhv)
+      csite%tdmax_can_rhv (ipa) = max(csite%tdmax_can_rhv (ipa),can_rhv)
+      !----- Daily average canopy air space dewpoint temperature. -------------------------!
+      can_pvap                  = can_rhv * eslif(csite%can_temp(ipa))
+      can_tdew                  = tslif(can_pvap)
+      csite%today_can_tdew(ipa) = csite%today_can_tdew(ipa) + can_tdew * dtlsm_o_day_sec
+      !----- Average wind speed.  Integrate kinetic energy to get average wind. -----------!
+      if (rk4aux(ibuff)%any_resolvable) then
+         !----- At least one resolvable cohort. Set canopy wind based on the tallest one. -!
+         windloop: do ico = 1, cpatch%ncohorts
+            !----- Stop loop at the first resolvable cohort. ------------------------------!
+            if (initp%veg_resolvable(ico)) then
+               csite%today_can_vels(ipa) = csite%today_can_vels(ipa)                       &
+                                         + cpatch%veg_wind(ico) * cpatch%veg_wind(ico)     &
+                                         * dtlsm_o_day_sec
+
+               exit windloop
+            end if
+            !------------------------------------------------------------------------------!
+         end do windloop
+         !---------------------------------------------------------------------------------!
+      else
+         !----- None of the cohorts are resolved.  Use met driver wind instead. -----------!
+         csite%today_can_vels(ipa) = csite%today_can_vels(ipa)                             &
+                                   + sngloff(initp%vels*initp%vels, tiny_offset)           &
+                                   * dtlsm_o_day_sec
+         !---------------------------------------------------------------------------------!
+      end if
+      !------------------------------------------------------------------------------------!
+      !      Daily average relative soil moisture and soil matric potential.  If temporary !
+      ! surface water exists, assume maximum moisture and zero water potential, which      !
+      ! should effectively suppress or terminate fires if sustained.                       !
+      !------------------------------------------------------------------------------------!
+      if (csite%nlev_sfcwater(ipa) > 0) then
+         !------ Assume relative moisture to be 1, as there is surface water/snow. --------!
+         csite%today_sfc_wetness(ipa) = csite%today_sfc_wetness(ipa) + 1. * dtlsm_o_day_sec
+         !csite%today_sfc_mstpot(ipa) = csite%today_sfc_mstpot (ipa) + 0. * dtlsm_o_day_sec
+         !---------------------------------------------------------------------------------!
+      else
+         !------ Weighted average. --------------------------------------------------------!
+         gnd_wetness  = 0.d0
+         gnd_mstpot = 0.d0
+         do k=ka,nzg
+            nsoil       = rk4site%ntext_soil(k)
+            fm_dslz8    = slz8(k+1) - max(fm_depth8,slz8(k))
+            lyr_wetness = ( initp%soil_water (k) - soil8(nsoil)%soilcp )                   &
+                        / ( soil8(nsoil)%slmsts  - soil8(nsoil)%soilcp )
+            lyr_wetness = max(0.d0,min(1.d0,lyr_wetness))
+            gnd_wetness = gnd_wetness  + lyr_wetness          * fm_dslz8 * fm_depthi8
+            gnd_mstpot  = gnd_mstpot   + initp%soil_mstpot(k) * fm_dslz8 * fm_depthi8
+         end do
+         !---------------------------------------------------------------------------------!
+
+
+         !------ Integrate average surface moisture. --------------------------------------!
+         csite%today_sfc_wetness(ipa) = csite%today_sfc_wetness(ipa)                       &
+                                      + sngloff(gnd_wetness,tiny_offset) * dtlsm_o_day_sec
+         csite%today_sfc_mstpot (ipa) = csite%today_sfc_mstpot (ipa)                       &
+                                      + sngloff(gnd_mstpot ,tiny_offset) * dtlsm_o_day_sec
+         !---------------------------------------------------------------------------------!
+      end if
       !------------------------------------------------------------------------------------!
 
 
@@ -2212,8 +2306,7 @@ module rk4_copy_patch
       end do
       !------------------------------------------------------------------------------------!
 
-
-     return
+      return
    end subroutine initp2modelp
    !=======================================================================================!
    !=======================================================================================!

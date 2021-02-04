@@ -335,6 +335,8 @@ subroutine ed_masterput_nl(par_run)
                                    , lu_database               & ! intent(in)
                                    , plantation_file           & ! intent(in)
                                    , lu_rescale_file           & ! intent(in)
+                                   , sei_database              & ! intent(in)
+                                   , flash_database            & ! intent(in)
                                    , sm_fire                   & ! intent(in)
                                    , time2canopy               & ! intent(in)
                                    , min_patch_area            ! ! intent(in)
@@ -467,6 +469,8 @@ subroutine ed_masterput_nl(par_run)
       call MPI_Bcast(lu_database    (n),str_len,MPI_CHARACTER,mainnum,MPI_COMM_WORLD,ierr)
       call MPI_Bcast(plantation_file(n),str_len,MPI_CHARACTER,mainnum,MPI_COMM_WORLD,ierr)
       call MPI_Bcast(lu_rescale_file(n),str_len,MPI_CHARACTER,mainnum,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(sei_database   (n),str_len,MPI_CHARACTER,mainnum,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(flash_database (n),str_len,MPI_CHARACTER,mainnum,MPI_COMM_WORLD,ierr)
    end do
 
    call MPI_Bcast(thsums_database ,str_len,MPI_CHARACTER,mainnum,MPI_COMM_WORLD,ierr)
@@ -1595,6 +1599,8 @@ subroutine ed_nodeget_nl
                                    , lu_database               & ! intent(out)
                                    , plantation_file           & ! intent(out)
                                    , lu_rescale_file           & ! intent(out)
+                                   , sei_database              & ! intent(out)
+                                   , flash_database            & ! intent(out)
                                    , sm_fire                   & ! intent(out)
                                    , time2canopy               & ! intent(out)
                                    , min_patch_area            ! ! intent(out)
@@ -1729,6 +1735,10 @@ subroutine ed_nodeget_nl
       call MPI_Bcast(plantation_file(n),str_len,MPI_CHARACTER,master_num                   &
                     ,MPI_COMM_WORLD,ierr)
       call MPI_Bcast(lu_rescale_file(n),str_len,MPI_CHARACTER,master_num                   &
+                    ,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(sei_database   (n),str_len,MPI_CHARACTER,master_num                   &
+                    ,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(flash_database (n),str_len,MPI_CHARACTER,master_num                   &
                     ,MPI_COMM_WORLD,ierr)
    end do
 

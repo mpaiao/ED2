@@ -220,8 +220,13 @@ $ED_NL
    !            N_ED_REGION is not.                                                        !
    ! POI_LAT -- list of latitudes of each POI.                                             !
    ! POI_LON -- list of longitudes of each POI.                                            !
-   ! POI_RES -- grid resolution of each POI (degrees).  This is used only to define the    !
-   !            soil types                                                                 !
+   ! POI_RES -- grid resolution of each POI (degrees).  This is used for the following     !
+   !            processes:                                                                 !
+   !            1. Define the soil characteristics when these data are obtained from       !
+   !               gridded files (i.e., when ISOILFLG = 1, ISLCOLFLG = 1, and/or           !
+   !               ISOILDEPTHFLG = 2).                                                     !
+   !            2. Define the landscape fragmentation and burnt area when                  !
+   !               INCLUDE_FIRE = 4.                                                       !
    !---------------------------------------------------------------------------------------!
    NL%N_POI    =    1
    NL%POI_LAT  = platflag
@@ -232,16 +237,20 @@ $ED_NL
 
 
    !---------------------------------------------------------------------------------------!
-   !  LOADMETH -- Load balancing method.  This is used only in regional runs run in        !
-   !              parallel.                                                                !
-   !              0.  Let ED decide the best way of splitting the polygons.  Commonest     !
-   !                  option and default.                                                  !
-   !              1.  One of the methods to split polygons based on their previous         !
-   !                  work load.  Developpers only.                                        !
-   !              2.  Try to load an equal number of SITES per node.  Useful for when      !
-   !                  total number of polygon is the same as the total number of cores.    !
-   !              3.  Another method to split polygons based on their previous work load.  !
-   !                  Developpers only.                                                    !
+   !  LOADMETH -- Load balancing method.  This is only used by regional runs, when RUNTYPE !
+   !              is set to HISTORY, or when IED_INIT_NODE is set to 4 or 5. This is used  !
+   !              to determine the method in which the polygons are going to be split.     !
+   !  0 - (ED-2.2 default) Let the loadmaster determine what is best. This option is       !
+   !      recommended when the number of polygons exceed the number of available cores.    !
+   !  1 - (Beta) The "workload" will be evenly distributed across nodes. The workload is   !
+   !      defined as the total number of integration time steps per month that each        !
+   !      polygon takes. This works well but option 3 may be more efficient, so it is      !
+   !      preferable to use option 0 instead.                                              !
+   !  2 - (ED-2.2 alternative) Try to load an equal number of polygons per node. This      !
+   !      option is recommended when the number of polygons is similar to the number of    !
+   !      available cores.                                                                 !
+   !  3 - (Beta) Similar to 1, but the rounding is done differently. This works well but   !
+   !      option 1 may be more efficient, so it is preferable to use option 0 instead.     !
    !---------------------------------------------------------------------------------------!
    NL%LOADMETH  = 0
    !---------------------------------------------------------------------------------------!
@@ -509,7 +518,7 @@ $ED_NL
    !              N_ED_REGION+N_POI elements.  The first N_ED_REGION elements correspond   !
    !              to each gridded domain (from first to last).  Elements between           !
    !              N_ED_REGION+1 and N_ED_REGION+N_POI correspond to the polygons of        !
-   !              interest (from 1 to N_POI.  Options are:                                 !
+   !              interest (from 1 to N_POI).  Options are:                                !
    !             1 -- Read in soil colour class from the files set in SLCOL_DATABASE.      !
    !             2 -- Assign either the value set by ISOILCOL (see below).                 !
    !---------------------------------------------------------------------------------------!
@@ -678,7 +687,7 @@ $ED_NL
    !                      the file that contains soil moisture and temperature             !
    !                      information.                                                     !
    !  SOILDEPTH_DB     -- If ISOILDEPTHFLG=1, this variable specifies the full path of the !
-   !                      file that contains soil moisture and temperature information.    !
+   !                      file that contains soil depth information.                       !
    !---------------------------------------------------------------------------------------!
    NL%VEG_DATABASE      = 'myinpmain/veget_data/OGE2/OGE2_'
    NL%SOIL_DATABASE     = 'myinpmain/soil_data/texture/Hengl/Hengl_'
@@ -1478,7 +1487,6 @@ $ED_NL
 
    !---------------------------------------------------------------------------------------!
    !      The following parameters adjust the fire disturbance in the model.               !
-   ! INCLUDE_FIRE   -- Which threshold to use for fires.                                   !
    !                   0.  No fires;                                                       !
    !                   1.  (deprecated) Fire will be triggered with enough fuel (assumed   !
    !                       to be total above-ground biomass) and integrated ground water   !
@@ -1487,12 +1495,14 @@ $ED_NL
    !                       much drier to allow fires to happen.                            !
    !                   2.  (ED-2.2 default) Fire will be triggered with enough biomass and !
    !                       the total soil water at the top 50 cm falls below a threshold.  !
-   !                   3.  (Under development) This will eventually become SPITFIRE and/or !
-   !                       HESFIRE.  Currently this is similar to 2, except that fuel is   !
-   !                       defined as above-ground litter and coarse woody debris,         !
-   !                       grasses, and trees shorter than 2 m.  Ignitions are currently   !
-   !                       restricted to areas with human presence (i.e. any non-natural   !
-   !                       patch).                                                         !
+   !                   3.  (Beta) Similar to 2, except that fuel is defined as above-      !
+   !                       ground litter and coarse woody debris, grasses, and trees       !
+   !                       shorter than 2 m.  Ignitions are currently restricted to areas  !
+   !                       with human presence (i.e. any non-natural patch).               !
+   !                   4.  (Under development) Fire model based on HESFIRE (Le Page et     !
+   !                       al. 2015, Biogeosciences), with maximum spread rate based on    !
+   !                       the Rothermel (1972) model, and fire intensity and survivor-    !
+   !                       ship based on SPITFIRE (Thonicke et al. 2010, Biogeosciences).  !
    ! FIRE_PARAMETER -- If fire happens, this will control the intensity of the disturbance !
    !                   given the amount of fuel.                                           !
    ! SM_FIRE        -- This is used only when INCLUDE_FIRE = 2 or 3, and it has different  !
@@ -1747,7 +1757,7 @@ $ED_NL
    ! 14 - (Beta) Tropical broadleaf, late successional (thick bark)                        !
    ! 15 - Araucaria                                                                        !
    ! 16 - Tropical/subtropical C3 grass                                                    !
-   ! 17 - (Beta) Lianas                                                                    !
+   ! 17 - Lianas                                                                           !
    !---------------------------------------------------------------------------------------!
    NL%INCLUDE_THESE_PFT = mytrees
    NL%PASTURE_STOCK     = mypasture

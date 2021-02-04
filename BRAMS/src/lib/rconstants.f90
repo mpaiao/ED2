@@ -33,14 +33,15 @@ Module rconstants
    !---------------------------------------------------------------------------------------!
    ! Algebraic shortcuts                                                                   !
    !---------------------------------------------------------------------------------------!
-   real, parameter :: srtwo     = 1.414213562373095 ! Square root of 2.         [      ---]
-   real, parameter :: srthree   = 1.732050807568877 ! Square root of 3.         [      ---]
-   real, parameter :: sqrt2o2   = 0.5 * srtwo       ! ½ Square root of 2.       [      ---]
-   real, parameter :: srtwoi    = 1./srtwo          ! 1./ Square root of 2.     [      ---]
-   real, parameter :: srthreei  = 1./srthree        ! 1./ Square root of 3.     [      ---]
-   real, parameter :: onethird  = 1./3.             ! 1/3                       [      ---]
-   real, parameter :: twothirds = 2./3.             ! 2/3                       [      ---]
-   real, parameter :: onesixth  = 1./6.             ! 1/6                       [      ---]
+   real, parameter :: srtwo      = 1.414213562373095 ! Square root of 2.        [      ---]
+   real, parameter :: srthree    = 1.732050807568877 ! Square root of 3.        [      ---]
+   real, parameter :: sqrt2o2    = 0.5 * srtwo       ! ½ Square root of 2.      [      ---]
+   real, parameter :: srtwoi     = 1./srtwo          ! 1./ Square root of 2.    [      ---]
+   real, parameter :: srthreei   = 1./srthree        ! 1./ Square root of 3.    [      ---]
+   real, parameter :: onethird   = 1./3.             ! 1/3                      [      ---]
+   real, parameter :: twothirds  = 2./3.             ! 2/3                      [      ---]
+   real, parameter :: onesixth   = 1./6.             ! 1/6                      [      ---]
+   real, parameter :: onetwelfth = 1./12.            ! 1/12                     [      ---]
    !---------------------------------------------------------------------------------------!
 
 

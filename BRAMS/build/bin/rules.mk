@@ -1554,6 +1554,11 @@ ed_read_ed21_history.o : $(ED_IO)/ed_read_ed21_history.f90
 	/bin/cp -f $< $(<F:.f90=.f90)
 	$(F90_COMMAND) $(<F:.f90=.f90)
 
+ed_read_ed22_initial.o : $(ED_IO)/ed_read_ed22_initial.f90
+	cp -f $< $(<F:.f90=.f90)
+	$(F90_COMMAND) $(<F:.f90=.f90)
+	rm -f $(<F:.f90=.f90)
+
 ed_state_vars.o : $(ED_MEMORY)/ed_state_vars.F90
 	cp -f $< $(<F:.F90=.F90)
 	$(FPP_LOWO_COMMAND) $(<F:.F90=.F90)
@@ -1624,12 +1629,12 @@ fatal_error.o : $(ED_UTILS)/fatal_error.F90
 	$(FPP_COMMAND) $(<F:.F90=.F90)
 	rm -f $(<F:.F90=.F90)
 
-fire_ed10.o : $(ED_DYNAMICS)/fire_ed10.f90
+fire.o : $(ED_DYNAMICS)/fire.f90
 	cp -f $< $(<F:.f90=.f90)
 	$(F90_COMMAND) $(<F:.f90=.f90)
 	rm -f $(<F:.f90=.f90)
 
-fire_ed22.o : $(ED_DYNAMICS)/fire_ed22.f90
+fire_init.o : $(ED_INIT)/fire_init.f90
 	cp -f $< $(<F:.f90=.f90)
 	$(F90_COMMAND) $(<F:.f90=.f90)
 	rm -f $(<F:.f90=.f90)
@@ -1839,10 +1844,10 @@ rk4_stepper.o : $(ED_DYNAMICS)/rk4_stepper.F90
 	$(FPP_COMMAND) $(<F:.F90=.F90)
 	rm -f $(<F:.F90=.F90)
 
-soil_coms.o : $(ED_MEMORY)/soil_coms.F90
-	cp -f $< $(<F:.F90=.F90)
-	$(FPP_COMMAND) $(<F:.F90=.F90)
-	rm -f $(<F:.F90=.F90)
+soil_coms.o : $(ED_MEMORY)/soil_coms.f90
+	cp -f $< $(<F:.f90=.f90)
+	$(F90_COMMAND) $(<F:.f90=.f90)
+	rm -f $(<F:.f90=.f90)
 
 soil_respiration.o : $(ED_DYNAMICS)/soil_respiration.f90
 	cp -f $< $(<F:.f90=.f90)

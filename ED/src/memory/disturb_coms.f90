@@ -25,7 +25,8 @@ module disturb_coms
    !---------------------------------------------------------------------------------------!
    !     Maximum number of years in which land use can be applied.  In case the simulation !
    ! runs longer than this, the missing years will be filled with zeroes.  The first and   !
-   ! last year of each is checked in landuse_init.                                         !
+   ! last year of each is checked in landuse_init.  This variable is also used by the fire !
+   ! ignition files.                                                                       !
    !---------------------------------------------------------------------------------------!
    integer, parameter :: max_lu_years = 2500 
 
@@ -50,12 +51,19 @@ module disturb_coms
    !    soil is 1 m, so deeper soils will need to be much drier to allow fires to happen   !
    !    and often will never allow fires because the threshold may be below the minimum    !
    !    possible soil moisture.                                                            !
-   ! 2. Fire will be triggered with enough biomass and the total soil water at the top 1.0 !
-   !    m falls below a (relative) threshold.                                              !
-   ! 3. Similar to 2, but the fire intensity will depend on the soil dryness above the     !
-   !    threshold (the drier the soil the more extreme the fire is).                       !
+   ! 2. Fire will be triggered with enough biomass and the total soil water at the top     !
+   !    soil layer falls below a (relative) threshold.                                     !
+   ! 3. Similar to 2, but fuel load only accounts for near-ground carbon (as opposed to    !
+   !    the entire AGB), and fire survivorship is a simple function of height (higher      !
+   !    mortality for small trees). Also, part of the fuels are volatilised and lost to    !
+   !    the atmosphere (older ED options do not actually burn the fuels...).               !
+   ! 4. HESFIRE model (LePage et al. 2015, Biogeosciences), with a few additions for       !
+   !    survivorship based on SPITFIRE (Thonicke et al. 2010).                             !
    !---------------------------------------------------------------------------------------!
    integer :: include_fire
+   !---------------------------------------------------------------------------------------!
+
+
 
    !----- Dimensionless parameter controlling speed of fire spread. -----------------------!
    real :: fire_parameter
@@ -106,6 +114,10 @@ module disturb_coms
    character(len=str_len), dimension(maxgrds) :: plantation_file
    !----- File with initial land use area scale.  If no file is available, leave it blank. !
    character(len=str_len), dimension(maxgrds) :: lu_rescale_file
+   !----- The prefix for socio-economic indices. The path and prefix must be included. ----!
+   character(len=str_len), dimension(maxgrds) :: sei_database 
+   !----- The prefix for flash rate densities. The path and prefix must be included. ------!
+   character(len=str_len), dimension(maxgrds) :: flash_database 
    !---------------------------------------------------------------------------------------!
 
 
@@ -256,12 +268,207 @@ module disturb_coms
    real :: sm_fire
 
    !---------------------------------------------------------------------------------------!
-   !     Depth to be compared with the soil average when include_fire is 2. Units: meters. !
+   !     Depth to be compared with the soil average when include_fire is 2 or 3.           !
+   ! Units: meters, and this must be negative, consistent with slz.                        !
    !---------------------------------------------------------------------------------------!
    real :: fire_smoist_depth         
 
    !----- k level of the deepest layer to be considered. ----------------------------------!
    integer :: k_fire_first
+   !=======================================================================================!
+   !=======================================================================================!
+
+
+
+   !=======================================================================================!
+   !=======================================================================================!
+   !      Parameters for the new fire model based on HESFIRE/SPITFIRE.                     !
+   !                                                                                       !
+   ! Lower bound: minimum value for the variable in the model, even if the actual value    !
+   !              falls below this limit.                                                  !
+   ! Upper bound: maximum value for the variable in the model, even if the actual value    !
+   !              goes above this limit.                                                   !
+   !                                                                                       !
+   ! Note that the parameters for HDI replace the parameters for GDP (as it is already     !
+   ! normalised and accounts for other socio-economic factors).  Likewise, we use soil     !
+   ! matric potential instead of soil moisture as the former is more descriptive of        !
+   ! critical dryness than the latter.                                                     !
+   !                                                                                       !
+   ! Note: Parameters denoted with (*) should NOT be initialised through xml.              !
+   !---------------------------------------------------------------------------------------!
+   !----- Global parameters. --------------------------------------------------------------!
+   real(kind=4) :: fh_grid       ! HESFIRE equivalent grid size                [       deg]
+   real(kind=4) :: fh_f0001      ! Fraction of struct. C that is 1-hr fuel     [        --]
+   real(kind=4) :: fh_f0010      ! Fraction of struct. C that is 10-hr fuel    [        --]
+   real(kind=4) :: fh_f0100      ! Fraction of struct. C that is 100-hr fuel   [        --]
+   real(kind=4) :: fh_f1000      ! Fraction of struct. C that is 1000-hr fuel  [        --]
+   real(kind=4) :: fh_pcpg_ni0   ! Precipitation rate above which NI is reset  [   kg/m2/s]
+   !----- Ignition parameters. ------------------------------------------------------------!
+   real(kind=4) :: fi_cg_ignp    ! Cloud-to-ground ignition probability        [       ---]
+   real(kind=4) :: fi_lu_ignd    ! Land use ignition density                   [    1/m2/s]
+   real(kind=4) :: fi_sf_maxage  ! Max. age for secondary forests to be LU     [        yr]
+   real(kind=4) :: fi_lu_exp     ! Land use exponent                           [       ---]
+   real(kind=4) :: fi_lu_upr     ! Upper bound for land use (saturation point) [       ---]
+   real(kind=4) :: fi_lu_off     ! (*) Offset for the land use ignition        [       ---]
+   real(kind=4) :: fi_hdi_upr    ! Upper bound for HDI effect on termination   [       ---]
+   real(kind=4) :: fi_hdi_exp    ! HDI shape parameter to modulate ignitions   [       ---]
+   !----- Spread parameters. --------------------------------------------------------------!
+   real(kind=4) :: fs_ba_frag    ! Burnt area fragmentation (min age to burn)  [        yr]
+   real(kind=4) :: fs_rhv_lwr    ! Lower bound for relative humidity           [       ---]
+   real(kind=4) :: fs_rhv_upr    ! Upper bound for relative humidity           [       ---]
+   real(kind=4) :: fs_rhv_dti    ! (*) 1. / ( fs_rhv_upr - fs_rhv_lwr )        [       ---]
+   real(kind=4) :: fs_rhv_exp    ! Exponent for relative humidity              [       ---]
+   real(kind=4) :: fs_smpot_lwr  ! Lower bound for soil matric potential       [         m]
+   real(kind=4) :: fs_smpot_upr  ! Upper bound for soil matric potential       [         m]
+   real(kind=4) :: fs_smpot_dti  ! (*) 1. / ( fs_smpot_upr - fs_smpot_lwr )    [       1/m]
+   real(kind=4) :: fs_smpot_exp  ! Exponent for soil matric potential          [       ---]
+   real(kind=4) :: fs_temp_lwr   ! Lower bound for temperature                 [         K]
+   real(kind=4) :: fs_temp_upr   ! Upper bound for temperature                 [         K]
+   real(kind=4) :: fs_temp_dti   ! (*) 1. / ( fs_temp_upr - fs_temp_lwr )      [       1/K]
+   real(kind=4) :: fs_temp_exp   ! Exponent for temperature                    [       ---]
+   real(kind=4) :: fs_lbr_slp    ! Slope of the length-breadth ratio           [       ---]
+   real(kind=4) :: fs_lbr_exp    ! Exponential factor for wind                 [       s/m]
+   real(kind=4) :: fs_gw_infty   ! Value of g(W) at maximum wind speed         [       ---]
+   !----- Fire intensity parameters. ------------------------------------------------------!
+   real(kind=4) :: fx_a0001      ! Moist. sens. parameter (1-hr fuel)          [   1/degC2]
+   real(kind=4) :: fx_a0010      ! Moist. sens. parameter (10-hr fuel)         [   1/degC2]
+   real(kind=4) :: fx_a0100      ! Moist. sens. parameter (100-hr fuel)        [   1/degC2]
+   real(kind=4) :: fx_rmfac      ! Relative factor for living fuel moisture    [       ---]
+   real(kind=4) :: fx_tlh_slope  ! Slope for duration of lethal heating        [   m2 s/kg]
+   real(kind=4) :: fx_tlc_slope  ! Slope for critical lethal heating time      [      1/cm]
+   real(kind=4) :: fx_pmtau_di   ! Intercept for cambial damage mortality      [          ]
+   real(kind=4) :: fx_pmtau_ds   ! Slope for cambial damage mortality          [          ]
+   real(kind=4) :: fx_c0001_di   ! 1-hr fuel consump. factor: intercept/dry    [       ---]
+   real(kind=4) :: fx_c0001_ds   ! 1-hr fuel consump. factor: slope/dry        [       ---]
+   real(kind=4) :: fx_c0001_mi   ! 1-hr fuel consump. factor: intercept/moist  [       ---]
+   real(kind=4) :: fx_c0001_ms   ! 1-hr fuel consump. factor: slope/moist      [       ---]
+   real(kind=4) :: fx_c0010_di   ! 10-hr fuel consump. factor: intercept/dry   [       ---]
+   real(kind=4) :: fx_c0010_ds   ! 10-hr fuel consump. factor: slope/dry       [       ---]
+   real(kind=4) :: fx_c0010_mi   ! 10-hr fuel consump. factor: intercept/moist [       ---]
+   real(kind=4) :: fx_c0010_ms   ! 10-hr fuel consump. factor: slope/moist     [       ---]
+   real(kind=4) :: fx_c0100_di   ! 100-hr fuel consump. factor: intercept/dry  [       ---]
+   real(kind=4) :: fx_c0100_ds   ! 100-hr fuel consump. factor: slope/dry      [       ---]
+   real(kind=4) :: fx_c0100_mi   ! 100-hr fuel consump. factor: inter./moist   [       ---]
+   real(kind=4) :: fx_c0100_ms   ! 100-hr fuel consump. factor: slope/moist    [       ---]
+   real(kind=4) :: fx_c1000_di   ! 1000-hr fuel consump. factor: intercept/dry [       ---]
+   real(kind=4) :: fx_c1000_ds   ! 1000-hr fuel consump. factor: slope/dry     [       ---]
+   real(kind=4) :: fx_c1000_mi   ! 1000-hr fuel consump. factor: inter./moist  [       ---]
+   real(kind=4) :: fx_c1000_ms   ! 1000-hr fuel consump. factor: slope/moist   [       ---]
+   !----- Termination parameters. ---------------------------------------------------------!
+   real(kind=4) :: ft_fint_lwr   ! Lower bound for fire intensity              [       W/m]
+   real(kind=4) :: ft_fint_upr   ! Upper bound for fire intensity              [       W/m]
+   real(kind=4) :: ft_fint_exp   ! Exponent for fire intensity                 [       ---]
+   real(kind=4) :: ft_fint_dti   ! (*) 1. / ( ft_fint_upr - ft_fint_lwr )      [       m/W]
+   real(kind=4) :: ft_frag_exp   ! Exponent for fragmentation effect           [       ---]
+   real(kind=4) :: ft_lu_upr     ! Upper bound for land use effect             [       ---]
+   real(kind=4) :: ft_lu_exp     ! Exponent for land use effect                [       ---]
+   real(kind=4) :: ft_hdi_upr    ! Upper bound for HDI effect on termination   [       ---]
+   real(kind=4) :: ft_hdi_exp    ! Exponent for HDI effect on termination      [       ---]
+   !=======================================================================================!
+   !=======================================================================================!
+
+
+
+
+
+
+   !=======================================================================================!
+   !=======================================================================================!
+   !     Constants used to define the maximum spread rate.  These are defined based on the !
+   ! A18's revision of the R72 fire spread model, using "very dry" moisture conditions as  !
+   ! defined by SB05.                                                                      !
+   !                                                                                       !
+   ! References:                                                                           !
+   !                                                                                       !
+   ! Andrews PL. 2018. The Rothermel surface fire spread model and associated develop-     !
+   !    ments: A compre- hensive explanation. Gen. Tech. Rep. RMRS-GTR-371, U.S.           !
+   !    Department of Agriculture, Forest Service, Rocky Mountain Research Station, Fort   !
+   !    Collins, CO, U.S.A. https://www.fs.usda.gov/treesearch/pubs/55928 (A18).           !
+   !                                                                                       !
+   ! Rothermel RC. 1972. A mathematical model for predicting fire spread in wildland       !
+   !    fuels. Res. Pap. INT- 115, U.S. Department of Agriculture, Intermountain Forest    !
+   !    and Range Experiment Station, Ogden, UT, U. S. A.,                                 !
+   !    https://www.fs.usda.gov/treesearch/pubs/32533 (R72).                               !
+   !                                                                                       !
+   ! Scott JH , Burgan RE. 2005. Standard fire behavior fuel models: a comprehensive set   !
+   !    for use with Rothermel's surface fire spread model. Gen. Tech. Rep. RMRS-GTR-153,  !
+   !    U.S. Department of Agriculture, Forest Service, Rocky Mountain Research Station,   !
+   !    Fort Collins, CO, U.S.A. doi:10.2737/RMRS-GTR-153 (SB05).                          !
+   !                                                                                       !
+   !---------------------------------------------------------------------------------------!
+   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~!
+   !      Dimensions (currently these are hard parameter.                                  !
+   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~!
+   !----- Maximum number of SAV ratio breaks.  This has to be a fixed parameter. ----------!
+   integer, parameter :: n_sbmax  = 20
+   !----- Number of fuel statuses (dead/alive). -------------------------------------------!
+   integer, parameter :: n_fst    = 2
+   !----- Number of fuel classes. (1-hr, 10-hr, 100-hr, 1000-hr, herb, woody). ------------!
+   integer, parameter :: n_fcl    = 6
+   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~!
+   !----- Total mineral content.                   [     --]. -----------------------------!
+   real(kind=4)                            :: fr_ST
+   !----- Effective mineral content.               [     --]. -----------------------------!
+   real(kind=4)                            :: fr_Se
+   !----- Heat content                             [   J/kg]. -----------------------------!
+   real(kind=4)                            :: fr_h
+   !----- Particle density                         [  kg/m3]. -----------------------------!
+   real(kind=4)                            :: fr_rhop
+   !----- Number of SAV ratio bins. -------------------------------------------------------!
+   integer                                 :: n_sbins
+   !----- SAV ratio breaks for net load            [    1/m]. -----------------------------!
+   real(kind=4), dimension(n_sbmax)        :: fr_sig_brks
+   !----- Exponential factors for moisture of extinction (1=dead,2=live). -----------------!
+   real(kind=4), dimension(2)              :: fr_epsil_ee
+   !----- Linear Coefficients to obtain live fuel moisture of extinction. -----------------!
+   real(kind=4), dimension(2)              :: fr_mxl_aa
+   !----- Coefficients for moisture dampening coefficient. --------------------------------!
+   real(kind=4), dimension(4)              :: fr_eta_m_aa
+   !----- Power coefficients for mineral dampening coefficient. ---------------------------!
+   real(kind=4), dimension(2)              :: fr_eta_s_uu
+   !----- Coefficients for optimal packing ratio. -----------------------------------------!
+   real(kind=4), dimension(2)              :: fr_beta_op_uu
+   !----- Coefficients for maximum reaction velocity. -------------------------------------!
+   real(kind=4), dimension(4)              :: fr_gamma_xx
+   !----- Coefficients for ancillary variable used by optimim reaction velocity. ----------!
+   real(kind=4), dimension(2)              :: fr_AA_uu
+   !----- Coefficients for propagating flux ratio. ----------------------------------------!
+   real(kind=4), dimension(6)              :: fr_xi_xx
+   !----- Coefficients for corrected saturated wind speed. --------------------------------!
+   real(kind=4), dimension(2)              :: fr_Umax_uu
+   !----- Coefficients for intermediate parameters used by Rothermel's wind function. -----!
+   real(kind=4), dimension(2)              :: fr_BB_uu
+   real(kind=4), dimension(4)              :: fr_CC_xx
+   real(kind=4), dimension(2)              :: fr_EE_ee
+   !----- Coefficients for heat of pre-ignition. ------------------------------------------!
+   real(kind=4), dimension(2)              :: fr_Qig_aa
+   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~!
+   !      The following variables are fuel properties by class and status.  These are      !
+   ! organised into matrices, following the original R72/A18 model.                        !
+   !                                                                                       !
+   !  Rows    -- Fuel classes: 1-hr, 10-hr, 100-hr, 1000-hr, herb, woody.                  !
+   !  Columns -- Fuel status: dead and alive                                               !
+   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~!
+   !------ Default SAV ratios              [     1/m]. ------------------------------------!
+   real(kind=4), dimension(n_fst,n_fcl) :: fr_sigma_ij
+   !------ Default "dry" moisture (used for estimating the maximum ROS) [kg_H2O/kg_dry]. --!
+   real(kind=4), dimension(n_fst,n_fcl) :: fr_moist_ij
+   !------ Default low heat content            [    J/kg]. --------------------------------!
+   real(kind=4), dimension(n_fst,n_fcl) :: fr_hh_ij
+   !------ Flag for dead/alive pools. (0 = alive; 1 = dead, set to real for convenience). -!
+   real(kind=4), dimension(      n_fcl) :: fr_dead_j
+   !------ Indices for sigma by size classes. ---------------------------------------------!
+   integer     , dimension(n_fst,n_fcl) :: fr_sgclss_ij
+   !------ Dummy value for effective sigma when fuel area is zero [1/m]. ------------------!
+   real                                 :: fr_sigma_00
+   !------ Dummy value for live-to-dead ratio. --------------------------------------------!
+   real                                 :: fr_g_W_00
+   !------ Fuel moisture extinction (dead fuels). -----------------------------------------!
+   real                                 :: fr_Mxdead
+   !------ Effective mineral content (currently the same for dead and live fuels). --------!
+   real(kind=4), dimension(n_fst      ) :: fr_Se_i
+   !------ Fuel depth [m]. ----------------------------------------------------------------!
+   real                                 :: fr_depth
    !=======================================================================================!
    !=======================================================================================!
 
@@ -309,6 +516,45 @@ module disturb_coms
       !------------------------------------------------------------------------------------!
       real, dimension(num_lu_trans) :: landuse
    end type lutime
+   !=======================================================================================!
+   !=======================================================================================!
+
+
+
+
+
+
+   !=======================================================================================!
+   !=======================================================================================!
+   !     Variable type that contains the socio-economic index data, used to define fire    !
+   ! ignition and suppression.  We currently assume one data entry per year.  This could   !
+   ! be modified if monthly data become available.                                         !
+   !---------------------------------------------------------------------------------------!
+   type seitime
+      integer :: sei_year ! the year                                            [       --]
+      real    :: hdi      ! Human Development Index                             [       --]
+      real    :: gdpc     ! GDP                                                 [ USD yr-1]
+   end type seitime
+   !=======================================================================================!
+   !=======================================================================================!
+
+
+
+
+
+
+   !=======================================================================================!
+   !=======================================================================================!
+   !     Variable type that contains the flash rate density data, used to define fire      !
+   ! ignition.  We currently assume that only lightning climatology data are available, so !
+   ! we provide one data entry per month.  The structure is implemented so this could      !
+   ! be easily modified if monthly data with interannual variability become available.     !
+   !---------------------------------------------------------------------------------------!
+   type flashtime
+      integer :: flash_month ! the month                                        [       --]
+      real    :: frd         ! Flash rate density (any flash)                   [   1/m2/s]
+      real    :: c2g         ! Cloud-to-ground flash rate density               [   1/m2/s]
+   end type flashtime
    !=======================================================================================!
    !=======================================================================================!
 end module disturb_coms

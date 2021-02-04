@@ -1145,6 +1145,8 @@ end subroutine ed_opspec_times
 !------------------------------------------------------------------------------------------!
 subroutine ed_opspec_misc
    use ed_max_dims           , only : n_pft                        & ! intent(in)
+                                    , ed_nstyp                     & ! intent(in)
+                                    , ed_nscol                     & ! intent(in)
                                     , str_len                      & ! intent(in)
                                     , skip_integer                 & ! intent(in)
                                     , skip_real                    ! ! intent(in)
@@ -1189,9 +1191,7 @@ subroutine ed_opspec_misc
                                     , lwidth_nltree                & ! intent(in)
                                     , ribmax                       & ! intent(in)
                                     , leaf_maxwhc                  ! ! intent(in)
-   use soil_coms             , only : ed_nstyp                     & ! intent(in)
-                                    , ed_nscol                     & ! intent(in)
-                                    , isoilflg                     & ! intent(in)
+   use soil_coms             , only : isoilflg                     & ! intent(in)
                                     , islcolflg                    & ! intent(in)
                                     , nslcon                       & ! intent(in)
                                     , isoilcol                     & ! intent(in)
@@ -1471,10 +1471,10 @@ subroutine ed_opspec_misc
       write (unit=*,fmt='(a)') ' simulations only.  If that''s not what you wanted, change '
       write (unit=*,fmt='(a)') ' your IED_INIT_MODE variable on your ED2IN.                '
       write (unit=*,fmt='(a)') '==========================================================='
-   elseif ((ied_init_mode < -1 .or. ied_init_mode > 7) .and. &
+   elseif ((ied_init_mode < -1 .or. ied_init_mode > 8) .and. &
            (ied_init_mode /= 99 )) then
       write (reason,fmt='(a,1x,i4,a)')                                                     &
-                     'Invalid IED_INIT_MODE, it must be between -1 and 7. Yours is set to' &
+                     'Invalid IED_INIT_MODE, it must be between -1 and 8. Yours is set to' &
                     ,ied_init_mode,'...'
       call opspec_fatal(reason,'opspec_misc')
       ifaterr = ifaterr +1
@@ -1482,9 +1482,8 @@ subroutine ed_opspec_misc
 
 
 
-   if (ied_init_mode == 7 .and. isoilstateinit>0 ) then
-      write (reason,fmt='(a)')                                                   &
-           'Please set ISOILSTATEINIT=0 if using IED_INIT_MODE=7'
+   if (ied_init_mode == 7 .and. isoilstateinit > 0) then
+      write (reason,fmt='(a)') ' Please set ISOILSTATEINIT = 0 if using IED_INIT_MODE = 7.'
       call opspec_fatal(reason,'opspec_misc')
       ifaterr = ifaterr +1
    end if
@@ -2236,12 +2235,39 @@ end do
       ifaterr = ifaterr +1
    end if
 
-   if (include_fire < 0 .or. include_fire > 3) then
+   if (include_fire < 0 .or. include_fire > 4) then
       write (reason,fmt='(a,1x,i4,a)')                                                     &
                     'Invalid INCLUDE_FIRE, it must be between 0 and 3. Yours is set to'    &
                     ,include_fire,'...'
       call opspec_fatal(reason,'opspec_misc')
       ifaterr = ifaterr +1
+
+      !------------------------------------------------------------------------------------!
+      !   Beginning of the code that must be deleted/commented to run HESFIRE/SPITFIRE.    !
+      !------------------------------------------------------------------------------------!
+   else if (include_fire == 4) then
+      write(unit=*,fmt='(a)') '------------------------------------------------------------'
+      write(unit=*,fmt='(a)') '              Attempt to run HESFIRE/SPITFIRE!              '
+      write(unit=*,fmt='(a)') '------------------------------------------------------------'
+      write(unit=*,fmt='(a)') '    This module has been placed in the code, however it has'
+      write(unit=*,fmt='(a)') ' not been debugged or tested yet.  If you want to try it'
+      write(unit=*,fmt='(a)') ' anyway, go to ed_opspec.F90 and remove/comment this ''if'''
+      write(unit=*,fmt='(a)') ' statement and message.  Beware that you may need to debug'
+      write(unit=*,fmt='(a)') ' the code and optimise parameters.  If you do so, and debug'
+      write(unit=*,fmt='(a)') ' or improve the existing fire code, please submit your '
+      write(unit=*,fmt='(a)') ' developments as a pull request on GitHub.  ED2 is a'
+      write(unit=*,fmt='(a)') ' collaborative effort and every contribution is very'
+      write(unit=*,fmt='(a)') ' helpful!'
+      write(unit=*,fmt='(a)') ' '
+      write(unit=*,fmt='(a)') '                                                  Thanks!'
+      write(unit=*,fmt='(a)') '------------------------------------------------------------'
+      write (reason,fmt='(a)') ' HESFIRE/SPITFIRE (INCLUDE_FIRE=4) is not active yet.'
+      call opspec_fatal(reason,'opspec_misc')
+      ifaterr = ifaterr + 1
+      !------------------------------------------------------------------------------------!
+      !   End of the code that must be deleted/commented to run HESFIRE/SPITFIRE.          !
+      !------------------------------------------------------------------------------------!
+
    else if (include_fire /= 0) then
       if (fire_parameter < 0.0 .or. fire_parameter > 100.) then
          write (reason,fmt='(a,1x,es12.5,a)')                                              &

@@ -47,7 +47,10 @@ module vegetation_dynamics
       use update_derived_utils , only : update_workload               & ! sub-routine
                                       , update_polygon_derived_props  ! ! sub-routine
       use fusion_fission_coms  , only : ifusion                       ! ! intent(in)
-      use fire                 , only : fire_frequency                ! ! sub-routine
+      use fire                 , only : fire_frequency                & ! sub-routine
+                                      , integ_nesterov                & ! sub-routine
+                                      , integ_hesfire                 & ! sub-routine
+                                      , reset_hesfire                 ! ! sub-routine
       use budget_utils         , only : ed_init_budget                ! ! sub-routine
       implicit none
       !----- Arguments. -------------------------------------------------------------------!
@@ -101,6 +104,9 @@ module vegetation_dynamics
          !----- Update phenology and growth of live tissues. ------------------------------!
          call phenology_driver(cgrid,doy,current_time%month, dtlsm_o_day,veget_dyn_on)
          call dbalive_dt(cgrid,gr_tfact0,year_o_day,veget_dyn_on)
+         !----- Integrate fire-related variables (in case needed). ------------------------!
+         call integ_nesterov(cgrid)
+         call integ_hesfire (cgrid,day_sec)
          !---------------------------------------------------------------------------------!
 
 
@@ -122,6 +128,9 @@ module vegetation_dynamics
 
             !----- Update the fire disturbance rates. -------------------------------------!
             call fire_frequency(cgrid)
+
+            !----- Reset fire data for current month (only if running HESFIRE/SPITFIRE). --!
+            call reset_hesfire (cgrid)
          end if
          !---------------------------------------------------------------------------------!
 

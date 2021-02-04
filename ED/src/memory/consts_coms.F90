@@ -29,6 +29,7 @@ Module consts_coms
                         , b_onethird       => onethird       & ! intent(in)
                         , b_twothirds      => twothirds      & ! intent(in)
                         , b_onesixth       => onesixth       & ! intent(in)
+                        , b_onetwelfth     => onetwelfth     & ! intent(in)
                         , b_stefan         => stefan         & ! intent(in)
                         , b_boltzmann      => boltzmann      & ! intent(in)
                         , b_avogrado       => avogrado       & ! intent(in)
@@ -204,6 +205,7 @@ Module consts_coms
    real        , parameter :: onethird       = b_onethird
    real        , parameter :: twothirds      = b_twothirds
    real        , parameter :: onesixth       = b_onesixth
+   real        , parameter :: onetwelfth     = b_onetwelfth
    real        , parameter :: stefan         = b_stefan
    real        , parameter :: boltzmann      = b_boltzmann
    real        , parameter :: avogrado       = b_avogrado
@@ -379,14 +381,15 @@ Module consts_coms
    !---------------------------------------------------------------------------------------!
    ! Algebraic shortcuts                                                                   !
    !---------------------------------------------------------------------------------------!
-   real, parameter :: srtwo     = 1.414213562373095 ! Square root of 2.         [      ---]
-   real, parameter :: srthree   = 1.732050807568877 ! Square root of 3.         [      ---]
-   real, parameter :: sqrt2o2   = 0.5 * srtwo       ! ½ Square root of 2.       [      ---]
-   real, parameter :: srtwoi    = 1./srtwo          ! 1./ Square root of 2.     [      ---]
-   real, parameter :: srthreei  = 1./srthree        ! 1./ Square root of 3.     [      ---]
-   real, parameter :: onethird  = 1./3.             ! 1/3                       [      ---]
-   real, parameter :: twothirds = 2./3.             ! 2/3                       [      ---]
-   real, parameter :: onesixth  = 1./6.             ! 1/6                       [      ---]
+   real, parameter :: srtwo      = 1.414213562373095 ! Square root of 2.        [      ---]
+   real, parameter :: srthree    = 1.732050807568877 ! Square root of 3.        [      ---]
+   real, parameter :: sqrt2o2    = 0.5 * srtwo       ! ½ Square root of 2.      [      ---]
+   real, parameter :: srtwoi     = 1./srtwo          ! 1./ Square root of 2.    [      ---]
+   real, parameter :: srthreei   = 1./srthree        ! 1./ Square root of 3.    [      ---]
+   real, parameter :: onethird   = 1./3.             ! 1/3                      [      ---]
+   real, parameter :: twothirds  = 2./3.             ! 2/3                      [      ---]
+   real, parameter :: onesixth   = 1./6.             ! 1/6                      [      ---]
+   real, parameter :: onetwelfth = 1./12.            ! 1/12                     [      ---]
    !---------------------------------------------------------------------------------------!
 
 

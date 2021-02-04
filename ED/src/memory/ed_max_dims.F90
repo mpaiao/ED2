@@ -7,17 +7,21 @@
 module ed_max_dims
 
 #if defined(COUPLED)
-   use grid_dims, only : brams_maxgrds  => maxgrds   & ! intent(in)
-                       , brams_nxpmax   => nxpmax    & ! intent(in)
-                       , brams_nypmax   => nypmax    & ! intent(in)
-                       , brams_nzpmax   => nzpmax    & ! intent(in)
-                       , brams_nzgmax   => nzgmax    & ! intent(in)
-                       , brams_maxdim   => maxdim    & ! intent(in)
-                       , brams_maxdimp  => maxdimp   & ! intent(in)
-                       , brams_nxyzpm   => nxyzpm    & ! intent(in)
-                       , brams_maxmach  => maxmach   & ! intent(in)
-                       , brams_maxfiles => maxfiles  & ! intent(in)
-                       , brams_str_len  => str_len   ! ! intent(in)
+   use grid_dims, only : brams_maxgrds   => maxgrds    & ! intent(in)
+                       , brams_nxpmax    => nxpmax     & ! intent(in)
+                       , brams_nypmax    => nypmax     & ! intent(in)
+                       , brams_nzpmax    => nzpmax     & ! intent(in)
+                       , brams_nzgmax    => nzgmax     & ! intent(in)
+                       , brams_maxdim    => maxdim     & ! intent(in)
+                       , brams_maxdimp   => maxdimp    & ! intent(in)
+                       , brams_nxyzpm    => nxyzpm     & ! intent(in)
+                       , brams_maxmach   => maxmach    & ! intent(in)
+                       , brams_maxfiles  => maxfiles   & ! intent(in)
+                       , brams_str_len   => str_len    ! ! intent(in)
+   use leaf_coms, only : brams_nstyp     => nstyp      & ! intent(in)
+                       , brams_nscol     => nscol      & ! intent(in)
+                       , brams_nvtyp     => nvtyp      & ! intent(in)
+                       , brams_nvtyp_teb => nvtyp_teb  ! ! intent(in)
 #endif
 
    implicit none
@@ -28,26 +32,32 @@ module ed_max_dims
    ! assigning the BRAMS variables to ED in the coupled model.  The variables that will be !
    ! made compatible are:                                                                  !
    !                                                                                       !
-   !   MAXGRDS - Maximum number of grids                                                   !
-   !   NXPMAX  - Maximum number of points in x-direction                                   !
-   !   NYPMAX  - Maximum number of points in y-direction                                   !
-   !   NZPMAX  - Maximum number of points in z-direction                                   !
-   !   NZGMAX  - Maximum number of soil levels                                             !
-   !   MAXDIM  - the largest of NXPMAX,NYPMAX,NZPMAX+10,NZGMAX                             !
-   !   MAXDIMP - MAXDIM + 2                                                                !
-   !   NXYZPM  - Maximum number of volume points                                           !
-   !   MAXMACH - Maximum number of cores on a parallel run.                                !
+   !   MAXGRDS  - Maximum number of grids                                                  !
+   !   NXPMAX   - Maximum number of points in x-direction                                  !
+   !   NYPMAX   - Maximum number of points in y-direction                                  !
+   !   NZPMAX   - Maximum number of points in z-direction                                  !
+   !   NZGMAX   - Maximum number of soil levels                                            !
+   !   MAXDIM   - the largest of NXPMAX,NYPMAX,NZPMAX+10,NZGMAX                            !
+   !   MAXDIMP  - MAXDIM + 2                                                               !
+   !   NXYZPM   - Maximum number of volume points                                          !
+   !   MAXMACH  - Maximum number of cores on a parallel run.                               !
+   !   ED_NSTYP - Number of site texture types.                                            !
+   !   ED_NSCOL - Number of soil colour types.                                             !
+   !   ED_NVTYP - Number of vegetation classes (used only for land/water mask).            !
    !---------------------------------------------------------------------------------------!
 #if defined(COUPLED)
-   integer, parameter :: maxgrds = brams_maxgrds
-   integer, parameter :: nxpmax  = brams_nxpmax 
-   integer, parameter :: nypmax  = brams_nypmax 
-   integer, parameter :: nzpmax  = brams_nzpmax 
-   integer, parameter :: nzgmax  = brams_nzgmax 
-   integer, parameter :: maxdim  = brams_maxdim 
-   integer, parameter :: maxdimp = brams_maxdimp
-   integer, parameter :: nxyzpm  = brams_nxyzpm 
-   integer, parameter :: maxmach = brams_maxmach
+   integer, parameter :: maxgrds  = brams_maxgrds
+   integer, parameter :: nxpmax   = brams_nxpmax 
+   integer, parameter :: nypmax   = brams_nypmax 
+   integer, parameter :: nzpmax   = brams_nzpmax 
+   integer, parameter :: nzgmax   = brams_nzgmax 
+   integer, parameter :: maxdim   = brams_maxdim 
+   integer, parameter :: maxdimp  = brams_maxdimp
+   integer, parameter :: nxyzpm   = brams_nxyzpm 
+   integer, parameter :: maxmach  = brams_maxmach
+   integer, parameter :: ed_nstyp = brams_nstyp
+   integer, parameter :: ed_nscol = brams_nscol
+   integer, parameter :: ed_nvtyp = brams_nvtyp+brams_nvtyp_teb
 #else
    integer, parameter :: maxgrds = 10
    integer, parameter :: nxpmax  = 666
@@ -58,8 +68,15 @@ module ed_max_dims
    integer, parameter :: maxdimp = maxdim + 2
    integer, parameter :: nxyzpm  = nzpmax * nxpmax * nypmax
    integer, parameter :: maxmach = 3000
+   integer, parameter :: ed_nstyp = 17             ! total # of soil textural classes
+   integer, parameter :: ed_nscol = 21             ! total # of soil colour classes
+   integer, parameter :: ed_nvtyp = 21
 #endif
    !---------------------------------------------------------------------------------------!
+  !----- These variables depend on whether it's a coupled or stand alone model. -----------!
+#if defined(COUPLED)
+#else
+#endif
 
 
 
@@ -231,13 +248,15 @@ module ed_max_dims
    !      For restart runs, this is the maximum number of certain variables that can be    !
    ! read.                                                                                 !
    !  HUGE_POLYGON - maximum number of input polygons.                                     !
+   !  HUGE_SITE    - maximum number of input sites.                                        !
    !  HUGE_PATCH   - maximum number of input patches.                                      !
    !  HUGE_COHORT  - maximum number of input cohorts.                                      !
    !  MAX_WATER    - maximum number of soil water levels (not assigned to polygons).       !
    !---------------------------------------------------------------------------------------!
    integer, parameter :: huge_polygon = nxpmax * nypmax
-   integer, parameter :: huge_patch   = 10000
-   integer, parameter :: huge_cohort  = 250000
+   integer, parameter :: huge_site    = ed_nstyp
+   integer, parameter :: huge_patch   = 20000
+   integer, parameter :: huge_cohort  = 800000
    integer, parameter :: max_water    = 100
    !---------------------------------------------------------------------------------------!
 

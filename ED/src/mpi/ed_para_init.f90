@@ -188,6 +188,7 @@ subroutine get_work(ifm,nxp,nyp,is_poi)
                           , grid_type      & ! intent(in)
                           , maxsite        ! ! intent(in)
    use ed_misc_coms, only : min_site_area  ! ! intent(in)
+   use disturb_coms, only : include_fire   ! ! intent(in)
    implicit none
    !----- Arguments. ----------------------------------------------------------------------!
    integer, intent(in) :: ifm
@@ -351,11 +352,16 @@ subroutine get_work(ifm,nxp,nyp,is_poi)
    end if
 
    !---------------------------------------------------------------------------------------!
-   !     Generate the land/sea mask.  This is only needed in regional runs.  For single    !
-   ! polygons of interest, we assume that the place is in the land.                        !
+   !     Generate the land/sea/urban mask.  This is only used to calculate the fraction of !
+   ! land that can sustain natural vegetation (i.e., area excluding oceans, inland water,  !
+   ! glaciers, and urban areas.    Note that the fraction of land that can sustain natural !
+   ! vegetation MUST INCLUDE deserts and bare soil.  Polygons will only be excluded based  !
+   ! on this fraction when running ED2 in regional mode.  But we keep this information     !
+   ! even for polygon-of-interest runs when running HESFIRE, because this information is   !
+   ! used for fragmentation calculation.                                                   !
    !---------------------------------------------------------------------------------------!
-   write(unit=*,fmt=*) ' => Generating the land/sea mask.'
-   if (is_poi) then
+   write(unit=*,fmt=*) ' => Read in percentage of land that may sustain natural vegetation.'
+   if (is_poi .and. include_fire /= 4) then
       ipcent_land    (:,:) = 1.
       leaf_class_list(:,:) = 6
    else
@@ -443,7 +449,7 @@ subroutine get_work(ifm,nxp,nyp,is_poi)
    do j = 1,nyp
       do i=1,nxp
          ipy = ipy + 1
-         work_e(ifm)%land(i,j) = ipcent_land(1,ipy) > min_site_area
+         work_e(ifm)%land(i,j) = is_poi .or. ( ipcent_land(1,ipy) > min_site_area )
 
          if (work_e(ifm)%land(i,j)) then
             work_e(ifm)%landfrac(i,j) = ipcent_land(1,ipy)
@@ -517,7 +523,6 @@ subroutine ed_parvec_work(ifm,nxp,nyp)
                            , npolys_run          & ! intent(out)
                            , ed_alloc_work_vec   & ! subroutine
                            , ed_nullify_work_vec ! ! subroutine
-   use soil_coms    , only : ed_nstyp            ! ! intent(in)
    use mem_polygons , only : maxsite             ! ! intent(in)
    implicit none
    !----- Arguments. ----------------------------------------------------------------------!

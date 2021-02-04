@@ -814,6 +814,8 @@ subroutine init_disturb_params
 
    use disturb_coms , only : treefall_disturbance_rate & ! intent(in)
                            , include_fire              & ! intent(in)
+                           , n_fst                     & ! intent(in)
+                           , n_fcl                     & ! intent(in)
                            , treefall_hite_threshold   & ! intent(out)
                            , does_hite_limit_tfpatch   & ! intent(out)
                            , forestry_on               & ! intent(out)
@@ -831,15 +833,109 @@ subroutine init_disturb_params
                            , f_combusted_fast_n        & ! intent(out)
                            , f_combusted_struct_n      & ! intent(out)
                            , k_fire_first              & ! intent(out)
+                           , n_sbins                   & ! intent(out)
+                           , fh_grid                   & ! intent(out)
+                           , fh_f0001                  & ! intent(out)
+                           , fh_f0010                  & ! intent(out)
+                           , fh_f0100                  & ! intent(out)
+                           , fh_pcpg_ni0               & ! intent(out)
+                           , fi_sf_maxage              & ! intent(out)
+                           , fi_cg_ignp                & ! intent(out)
+                           , fi_lu_ignd                & ! intent(out)
+                           , fi_lu_exp                 & ! intent(out)
+                           , fi_lu_upr                 & ! intent(out)
+                           , fi_hdi_exp                & ! intent(out)
+                           , fi_hdi_upr                & ! intent(out)
+                           , fs_ba_frag                & ! intent(out)
+                           , fs_rhv_lwr                & ! intent(out)
+                           , fs_rhv_upr                & ! intent(out)
+                           , fs_rhv_exp                & ! intent(out)
+                           , fs_smpot_lwr              & ! intent(out)
+                           , fs_smpot_upr              & ! intent(out)
+                           , fs_smpot_exp              & ! intent(out)
+                           , fs_temp_lwr               & ! intent(out)
+                           , fs_temp_upr               & ! intent(out)
+                           , fs_temp_exp               & ! intent(out)
+                           , fs_lbr_slp                & ! intent(out)
+                           , fs_lbr_exp                & ! intent(out)
+                           , fx_a0001                  & ! intent(out)
+                           , fx_a0010                  & ! intent(out)
+                           , fx_a0100                  & ! intent(out)
+                           , fx_rmfac                  & ! intent(out)
+                           , fx_tlh_slope              & ! intent(out)
+                           , fx_tlc_slope              & ! intent(out)
+                           , fx_c0001_di               & ! intent(out)
+                           , fx_c0001_ds               & ! intent(out)
+                           , fx_c0001_mi               & ! intent(out)
+                           , fx_c0001_ms               & ! intent(out)
+                           , fx_c0010_di               & ! intent(out)
+                           , fx_c0010_ds               & ! intent(out)
+                           , fx_c0010_mi               & ! intent(out)
+                           , fx_c0010_ms               & ! intent(out)
+                           , fx_c0100_di               & ! intent(out)
+                           , fx_c0100_ds               & ! intent(out)
+                           , fx_c0100_mi               & ! intent(out)
+                           , fx_c0100_ms               & ! intent(out)
+                           , fx_c1000_di               & ! intent(out)
+                           , fx_c1000_ds               & ! intent(out)
+                           , fx_c1000_mi               & ! intent(out)
+                           , fx_c1000_ms               & ! intent(out)
+                           , fx_pmtau_di               & ! intent(out)
+                           , fx_pmtau_ds               & ! intent(out)
+                           , ft_fint_lwr               & ! intent(out)
+                           , ft_fint_upr               & ! intent(out)
+                           , ft_fint_exp               & ! intent(out)
+                           , ft_frag_exp               & ! intent(out)
+                           , ft_lu_upr                 & ! intent(out)
+                           , ft_lu_exp                 & ! intent(out)
+                           , ft_hdi_upr                & ! intent(out)
+                           , ft_hdi_exp                & ! intent(out)
+                           , fr_ST                     & ! intent(out)
+                           , fr_Se                     & ! intent(out)
+                           , fr_Se_i                   & ! intent(out)
+                           , fr_h                      & ! intent(out)
+                           , fr_rhop                   & ! intent(out)
+                           , fr_sig_brks               & ! intent(out)
+                           , fr_epsil_ee               & ! intent(out)
+                           , fr_mxl_aa                 & ! intent(out)
+                           , fr_eta_m_aa               & ! intent(out)
+                           , fr_eta_s_uu               & ! intent(out)
+                           , fr_beta_op_uu             & ! intent(out)
+                           , fr_gamma_xx               & ! intent(out)
+                           , fr_AA_uu                  & ! intent(out)
+                           , fr_xi_xx                  & ! intent(out)
+                           , fr_Umax_uu                & ! intent(out)
+                           , fr_BB_uu                  & ! intent(out)
+                           , fr_CC_xx                  & ! intent(out)
+                           , fr_EE_ee                  & ! intent(out)
+                           , fr_Qig_aa                 & ! intent(out)
+                           , fr_sigma_ij               & ! intent(out)
+                           , fr_moist_ij               & ! intent(out)
+                           , fr_hh_ij                  & ! intent(out)
+                           , fr_dead_j                 & ! intent(out)
+                           , fr_sgclss_ij              & ! intent(out)
+                           , fr_sigma_00               & ! intent(out)
+                           , fr_g_W_00                 & ! intent(out)
+                           , fr_Mxdead                 & ! intent(out)
+                           , fr_depth                  & ! intent(out)
                            , min_plantation_frac       & ! intent(out)
                            , max_plantation_dist       ! ! intent(out)
    use consts_coms  , only : erad                      & ! intent(in)
                            , pio180                    & ! intent(in)
+                           , twothirds                 & ! intent(in)
+                           , t00                       & ! intent(in)
+                           , day_sec                   & ! intent(in)
                            , tiny_num                  & ! intent(in)
                            , huge_num                  ! ! intent(in)
    use soil_coms    , only : slz                       ! ! intent(in)
    use grid_coms    , only : nzg                       ! ! intent(in)
    implicit none
+   !------ Local variables. ---------------------------------------------------------------!
+   integer :: j
+   !---------------------------------------------------------------------------------------!
+
+
+
 
    !----- Only trees above this height create a gap when they fall. -----------------------!
    treefall_hite_threshold = 10.0
@@ -873,16 +969,21 @@ subroutine init_disturb_params
    !---------------------------------------------------------------------------------------!
 
    !----- Maximum depth that will be considered in the average soil -----------------------!
-   fire_smoist_depth     = -0.50
+   select case (include_fire)
+   case (3,4)
+      fire_smoist_depth = -0.10
+   case default
+      fire_smoist_depth = -0.50
+   end select
    !---------------------------------------------------------------------------------------!
 
-   !----- Cut-off for fuel counting (used only when include_fire is 3). -------------------!
+   !----- Cut-off for fuel counting (used only when include_fire is 3 or 4). ----  --------!
    fuel_height_max       = 2.0
    !---------------------------------------------------------------------------------------!
 
    !----- Fraction of biomass and necromass that are combusted and lost to air. -----------!
    select case (include_fire)
-   case (3)
+   case (3,4)
       f_combusted_fast_c   = 0.8
       f_combusted_struct_c = 0.5
       f_combusted_fast_n   = 0.72
@@ -897,17 +998,285 @@ subroutine init_disturb_params
 
 
 
-   !----- Determine the top layer to consider for fires in case include_fire is 2 or 3. ---!
-   kfireloop: do k_fire_first=nzg-1,1,-1
-      if (slz(k_fire_first) < fire_smoist_depth) exit kfireloop
-   end do kfireloop
-   k_fire_first = k_fire_first + 1
    !---------------------------------------------------------------------------------------!
+   !     Determine the top layer to consider for fires in case include_fire (ignored if    !
+   ! include_fire is 0 or 1.                                                               !
+   !---------------------------------------------------------------------------------------!
+   select case (include_fire)
+   case (0,1)
+      !----- Fire either won't happen, or it will use the total soil (ED-1 legacy). -------!
+      k_fire_first = 1
+      !------------------------------------------------------------------------------------!
+   case default
+      !----- Select the first layer whose bottom is deeper than the fire depth. -----------!
+      k_fire_first = maxloc(slz(1:nzg),dim=1,mask=slz(1:nzg) <= fire_smoist_depth)
+      !------------------------------------------------------------------------------------!
+   end select
+   !---------------------------------------------------------------------------------------!
+
+
+   !---------------------------------------------------------------------------------------!
+   !      Parameters for the new fire model based on HESFIRE (LP15/LP17), with some        !
+   ! elements of SPITFIRE (T10).                                                           !
+   !                                                                                       !
+   ! References:                                                                           !
+   !                                                                                       !
+   ! Le Page Y, Morton D, Bond-Lamberty B, Pereira JMC , Hurtt G. 2015. HESFIRE: a global  !
+   !    fire model to explore the role of anthropogenic and weather drivers. Biogeo-       !
+   !    sciences, 12: 887-903. doi:10.5194/bg-12-887-2015 (LP15).                          !
+   !                                                                                       !
+   ! Le Page Y, Morton D, Hartin C, Bond-Lamberty B, Pereira JMC, Hurtt G , Asrar G. 2017. !
+   !    Synergy between land use and climate change increases future fire risk in Amazon   !
+   !    forests. Earth Syst. Dynam., 8: 1237-1246. doi:10.5194/esd-8-1237-2017 (LP17).     !
+   !                                                                                       !
+   ! Thonicke K, Spessa A, Prentice IC, Harrison SP, Dong L, Carmona-Moreno C. 2010. The   !
+   !    influence of vegetation, fire spread and fire behaviour on biomass burning and     !
+   !    trace gas emissions: results from a process-based model. Biogeosciences, 7:        !
+   !    1991-2011. doi:10.5194/bg-7-1991-2010 (T10).                                       !
+   !                                                                                       !
+   !---------------------------------------------------------------------------------------!
+   !      Global parameters.                                                               !
+   !---------------------------------------------------------------------------------------!
+   !----- HESFIRE equivalent grid size. ---------------------------------------------------!
+   fh_grid       = 1.0
+   !-----  Fraction of struct. C that is 1-hr fuel     [        --] -----------------------!
+   fh_f0001      = 0.045
+   !-----  Fraction of struct. C that is 10-hr fuel    [        --] -----------------------!
+   fh_f0010      = 0.075
+   !-----  Fraction of struct. C that is 100-hr fuel   [        --] -----------------------!
+   fh_f0100      = 0.210
+   !-----  Precipitation rate above which NI is reset  [   kg/m2/s] -----------------------!
+   fh_pcpg_ni0   = 3. / day_sec
+   !.......................................................................................!
+   !      Fraction of struct. C that is 1000-hr fuel is defined after XML, so the total    !
+   ! does not exceed 1.                                                                    !
+   !.......................................................................................!
+   !---------------------------------------------------------------------------------------!
+   !    Ignition parameters.                                                               !
+   !---------------------------------------------------------------------------------------!
+   !------ Cloud-to-ground ignition probability        [       ---] -----------------------!
+   fi_cg_ignp    = 0.068
+   !------ Land use ignition density                   [    1/m2/s] -----------------------!
+   fi_lu_ignd    = 2.66e-14
+   !------ Max. age for "secondary" forests to be LU   [        yr] -----------------------!
+   fi_sf_maxage  = 2.
+   !------ Land use exponent                           [       ---] -----------------------!
+   fi_lu_exp     = 14.9
+   !------ Upper bound for land use (saturation point) [       ---] -----------------------!
+   fi_lu_upr     = 0.10
+   !------ HDI shape parameter to modulate ignitions   [       ---] -----------------------!
+   fi_hdi_exp    = 7.75
+   !------ Upper bound for human development index     [       ---] -----------------------!
+   fi_hdi_upr    = 0.925
+   !---------------------------------------------------------------------------------------!
+   !    Spread parameters.                                                                 !
+   !---------------------------------------------------------------------------------------!
+   !------  Burnt area fragmentation (min age to burn)  [        yr] ----------------------!
+   fs_ba_frag    = twothirds
+   !------  Lower bound for relative humidity           [       ---] ----------------------!
+   fs_rhv_lwr    = 0.30
+   !------  Upper bound for relative humidity           [       ---] ----------------------!
+   fs_rhv_upr    = 0.80
+   !------  Exponent for relative humidity              [       ---] ----------------------!
+   fs_rhv_exp    = 1.18
+   !------  Lower bound for soil matric potential       [         m] ----------------------!
+   fs_smpot_lwr  = -120.
+   !------  Upper bound for soil matric potential       [         m] ----------------------!
+   fs_smpot_upr  =   -1.
+   !------  Exponent for soil matric potential          [       ---] ----------------------!
+   fs_smpot_exp  = 0.20
+   !------  Lower bound for temperature                 [         K] ----------------------!
+   fs_temp_lwr   = t00
+   !------  Upper bound for temperature                 [         K] ----------------------!
+   fs_temp_upr   = t00 + 30.
+   !------  Exponent for temperature                    [       ---] ----------------------!
+   fs_temp_exp   = 1.78
+   !------  Slope of the length-to-breadth ratio        [       ---] ----------------------!
+   fs_lbr_slp    = 10.
+   !------  Exponential factor for wind                 [       s/m] ----------------------!
+   fs_lbr_exp    = -0.06
+   !---------------------------------------------------------------------------------------!
+   !    Fire intensity parameters.                                                         !
+   !---------------------------------------------------------------------------------------!
+   !------  Moist. sens. parameter (1-hr fuel)          [   1/degC2] ----------------------!
+   fx_a0001      = 1.e-3
+   !------  Moist. sens. parameter (10-hr fuel)         [   1/degC2] ----------------------!
+   fx_a0010      = 5.42e-5
+   !------  Moist. sens. parameter (100-hr fuel)        [   1/degC2] ----------------------!
+   fx_a0100      = 1.49e-5
+   !------  Relative factor for living fuel moisture    [       ---] ----------------------!
+   fx_rmfac      = 9.0
+   !------  Slope for duration of lethal heating        [   m2 s/kg] ----------------------!
+   fx_tlh_slope  = 236.4
+   !------  Slope for critical lethal heating time      [      1/cm] ----------------------!
+   fx_tlc_slope  = 174.
+   !------  Intercept for cambial damage mortality      [          ] ----------------------!
+   fx_pmtau_di   = -0.125
+   !------  Slope for cambial damage mortality          [          ] ----------------------!
+   fx_pmtau_ds   = 0.563
+   !------  1-hr fuel consump. factor: intercept/dry    [       ---] ----------------------!
+   fx_c0001_di   = 1.2
+   !------  1-hr fuel consump. factor: slope/dry        [       ---] ----------------------!
+   fx_c0001_ds   = -0.62
+   !------  1-hr fuel consump. factor: intercept/moist  [       ---] ----------------------!
+   fx_c0001_mi   = 2.45
+   !------  1-hr fuel consump. factor: slope/moist      [       ---] ----------------------!
+   fx_c0001_ms   = -fx_c0001_mi
+   !------  10-hr fuel consump. factor: intercept/dry   [       ---] ----------------------!
+   fx_c0010_di   = 1.09
+   !------  10-hr fuel consump. factor: slope/dry       [       ---] ----------------------!
+   fx_c0010_ds   = -0.72
+   !------  10-hr fuel consump. factor: intercept/moist [       ---] ----------------------!
+   fx_c0010_mi   = 1.47
+   !------  10-hr fuel consump. factor: slope/moist     [       ---] ----------------------!
+   fx_c0010_ms   = -fx_c0010_mi
+   !------  100-hr fuel consump. factor: intercept/dry  [       ---] ----------------------!
+   fx_c0100_di   = 0.98
+   !------  100-hr fuel consump. factor: slope/dry      [       ---] ----------------------!
+   fx_c0100_ds   = -0.85
+   !------  100-hr fuel consump. factor: intercept/mst. [       ---] ----------------------!
+   fx_c0100_mi   = 1.06
+   !------  100-hr fuel consump. factor: slope/moist    [       ---] ----------------------!
+   fx_c0100_ms   = -fx_c0100_mi
+   !------  1000-hr fuel consump. factor: intercept/dry [       ---] ----------------------!
+   fx_c1000_di   = 1.0
+   !------  1000-hr fuel consump. factor: slope/dry     [       ---] ----------------------!
+   fx_c1000_ds   = 0.0
+   !------  1000-hr fuel consump. factor: inter./mst.   [       ---] ----------------------!
+   fx_c1000_mi   = 0.8
+   !------  1000-hr fuel consump. factor: slope/moist   [       ---] ----------------------!
+   fx_c1000_ms   = -fx_c1000_mi
+   !---------------------------------------------------------------------------------------!
+   !    Termination parameters.                                                            !
+   !---------------------------------------------------------------------------------------!
+   !------ Lower bound for fire intensity              [       W/m] -----------------------!
+   ft_fint_lwr   = 10000.
+   !------ Upper bound for fire intensity              [       W/m] -----------------------!
+   ft_fint_upr   = 90000.
+   !------ Exponent for precipitation fuel build up    [       ---] -----------------------!
+   ft_fint_exp   = 1.5
+   !------ Exponent for fragmentation effect           [       ---] -----------------------!
+   ft_frag_exp   = 1.81
+   !------ Upper bound for land use effect             [       ---] -----------------------!
+   ft_lu_upr     = 0.1
+   !------ Exponent for land use effect                [       ---] -----------------------!
+   ft_lu_exp     = 4.81
+   !------ Upper bound for HDI effect on termination   [       ---] -----------------------!
+   ft_hdi_upr    = 0.925
+   !------ Exponent for HDI effect on termination      [       ---] -----------------------!
+   ft_hdi_exp    = 7.75
+   !---------------------------------------------------------------------------------------!
+
+
+
+   !---------------------------------------------------------------------------------------!
+   !     Constants used to define the maximum spread rate.  These are defined based on the !
+   ! A18's revision of the R72 fire spread model, using "very dry" moisture conditions as  !
+   ! defined by SB05.                                                                      !
+   !                                                                                       !
+   ! References:                                                                           !
+   !                                                                                       !
+   ! Andrews PL. 2018. The Rothermel surface fire spread model and associated develop-     !
+   !    ments: A compre- hensive explanation. Gen. Tech. Rep. RMRS-GTR-371, U.S.           !
+   !    Department of Agriculture, Forest Service, Rocky Mountain Research Station, Fort   !
+   !    Collins, CO, U.S.A. https://www.fs.usda.gov/treesearch/pubs/55928 (A18).           !
+   !                                                                                       !
+   ! Rothermel RC. 1972. A mathematical model for predicting fire spread in wildland       !
+   !    fuels. Res. Pap. INT- 115, U.S. Department of Agriculture, Intermountain Forest    !
+   !    and Range Experiment Station, Ogden, UT, U. S. A.,                                 !
+   !    https://www.fs.usda.gov/treesearch/pubs/32533 (R72).                               !
+   !                                                                                       !
+   ! Scott JH , Burgan RE. 2005. Standard fire behavior fuel models: a comprehensive set   !
+   !    for use with Rothermel's surface fire spread model. Gen. Tech. Rep. RMRS-GTR-153,  !
+   !    U.S. Department of Agriculture, Forest Service, Rocky Mountain Research Station,   !
+   !    Fort Collins, CO, U.S.A. doi:10.2737/RMRS-GTR-153 (SB05).                          !
+   !                                                                                       !
+   ! Note: coefficients are consistent to A18, but all of them were converted so we could  !
+   !       use input variables in SI (A18 uses imperial units).  Most coefficients are     !
+   !       empirical, so they were rounded to 4 significant digits.                        !
+   !---------------------------------------------------------------------------------------!
+   !----- Total mineral content.                   [     --]. -----------------------------!
+   fr_ST         = 0.0555
+   !----- Effective mineral content.               [     --]. -----------------------------!
+   fr_Se         = 0.01
+   fr_Se_i(:)    = (/ fr_Se, fr_Se /)
+   !----- Heat content                             [   J/kg]. -----------------------------!
+   fr_h          = 1.861e7
+   !----- Particle density                         [  kg/m3]. -----------------------------!
+   fr_rhop       = 512.6
+   !----- Number of SAV ratio breaks. -----------------------------------------------------!
+   n_sbins       = 6
+   !----- SAV ratio breaks for net load            [    1/m]. -----------------------------!
+   fr_sig_brks(:)         = huge_num
+   fr_sig_brks(1:n_sbins) = (/ 0.0000, 52.49, 157.5, 315.0, 629.9, 3937. /)
+   !----- Exponential factors for moisture of extinction (1=dead,2=live). -----------------!
+   fr_epsil_ee(:)   = (/-452.8, -1640./)
+   !----- Linear Coefficients to obtain live fuel moisture of extinction. -----------------!
+   fr_mxl_aa(:)     = (/ -0.0226, 2.9 /)
+   !----- Coefficients for moisture dampening coefficient. --------------------------------!
+   fr_eta_m_aa(:)   = (/ +1.00, -2.59, +5.11, -3.52 /)
+   !----- Power coefficients for mineral dampening coefficient. ---------------------------!
+   fr_eta_s_uu(:)   = (/ +0.174, -0.190 /)
+   !----- Coefficients for optimal packing ratio. -----------------------------------------!
+   fr_beta_op_uu(:) = (/ 8.858, -0.8189 /)
+   !----- Coefficients for maximum reaction velocity. -------------------------------------!
+   fr_gamma_xx(:)   = (/ 0.01667, 0.0594, 2942.,   -1.5/)
+   !----- Coefficients for ancillary variable used by optimim reaction velocity. ----------!
+   fr_AA_uu(:)      = (/ 340.5,  -0.7913 /)
+   !----- Coefficients for propagating flux ratio. ----------------------------------------!
+   fr_xi_xx(:)      = (/ 0.792, 0.3760,   0.5,   0.1, 192.0, 0.07910 /)
+   !----- Coefficients for corrected saturated wind speed. --------------------------------!
+   fr_Umax_uu(:)    = (/ 0.08564, 0.3333 /)
+   !----- Coefficients for intermediate parameters used by Rothermel's wind function. -----!
+   fr_BB_uu(:)      = (/ 0.013298, 0.54 /)
+   fr_CC_xx(:)      = (/ 7.47, 196.9, -0.06919, 0.55 /)
+   fr_EE_ee(:)      = (/ 0.715, -1.094e-4 /)
+   !----- Coefficients for heat of pre-ignition. ------------------------------------------!
+   fr_Qig_aa(:)     = (/ 5.815e5, 2.596e6 /)
+   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~!
+   !      The following variables are fuel properties by class and status.  These are      !
+   ! organised into matrices, following the original R72/A18 model.                        !
+   !                                                                                       !
+   !  Rows    -- Fuel classes: 1-hr, 10-hr, 100-hr, 1000-hr, herb, woody.                  !
+   !  Columns -- Fuel status: dead and alive                                               !
+   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~!
+   !------ Default SAV ratios              [     1/m]. ------------------------------------!
+   fr_sigma_ij(1,:)   = (/ 5906., 357.6, 98.43, 26.25, 5614., 5239. /)
+   fr_sigma_ij(2,:)   = fr_sigma_ij(1,:)
+   !------ Default "dry" moisture (used for estimating the maximum ROS) [kg_H2O/kg_dry]. --!
+   fr_moist_ij(1,:)   = (/ 0.03, 0.04, 0.05, 0.06, 0.30, 0.60 /)
+   fr_moist_ij(2,:)   = fr_moist_ij(1,:)
+   !------ Default low heat content   [    J/kg]. -----------------------------------------!
+   fr_hh_ij   (:,:)   = 1.861e7
+   !------ Flag for dead/alive pools. (0 = alive; 1 = dead, set to real for convenience). -!
+   fr_dead_j  (  :)   = (/ 1., 1., 1., 1., 0., 0. /)
+   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~!
+   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~!
+   !------ Indices for sigma by size classes. ---------------------------------------------!
+   do j=1,n_fcl
+      fr_sgclss_ij(1,j) = maxloc( fr_sig_brks(:), dim = 1                                  &
+                                , mask = fr_sig_brks(:) <= fr_sigma_ij(1,j) )
+      fr_sgclss_ij(2,j) = fr_sgclss_ij(1,j)
+   end do
+   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~!
+   !------ Dummy value for effective sigma when fuel area is zero [1/m]. ------------------!
+   fr_sigma_00 = 0.01
+   !------ Dummy value for live-to-dead ratio. --------------------------------------------!
+   fr_g_W_00   = 10.
+   !------ Fuel moisture extinction (dead fuels). -----------------------------------------!
+   fr_Mxdead   = 0.35
+   !------ Fuel depth  [m]. ---------------------------------------------------------------!
+   fr_depth    = 0.183
+   !---------------------------------------------------------------------------------------!
+
 
 
 
    !----- Minimum plantation fraction to consider the site a plantation. ------------------!
    min_plantation_frac = 0.125
+   !---------------------------------------------------------------------------------------!
+
+
 
    !---------------------------------------------------------------------------------------!
    !    Maximum distance to the current polygon that we still consider the file grid point !
@@ -1528,9 +1897,9 @@ end subroutine init_hydro_coms
 !------------------------------------------------------------------------------------------!
 subroutine init_soil_coms
    use detailed_coms  , only : idetailed             ! ! intent(in)
-   use ed_max_dims    , only : str_len               ! ! intent(in)
-   use soil_coms      , only : ed_nstyp              & ! intent(in)
-                             , isoilflg              & ! intent(in)
+   use ed_max_dims    , only : str_len               & ! intent(in)
+                             , ed_nstyp              ! ! intent(in)
+   use soil_coms      , only : isoilflg              & ! intent(in)
                              , nslcon                & ! intent(in)
                              , soil_hydro_scheme     & ! intent(in)
                              , slxclay               & ! intent(in)
@@ -5360,6 +5729,7 @@ subroutine init_pft_mort_params()
    use pft_coms    ,    only : is_grass                   & ! intent(in)
                              , is_tropical                & ! intent(in)
                              , is_conifer                 & ! intent(in)
+                             , is_savannah                & ! intent(in)
                              , is_liana                   & ! intent(in)
                              , mort0                      & ! intent(out)
                              , mort1                      & ! intent(out)
@@ -5376,6 +5746,9 @@ subroutine init_pft_mort_params()
                              , fire_s_max                 & ! intent(out)
                              , fire_s_inter               & ! intent(out)
                              , fire_s_slope               & ! intent(out)
+                             , fscorch                    & ! intent(out)
+                             , fx_rck_pft                 & ! intent(out)
+                             , fx_pck_pft                 & ! intent(out)
                              , felling_s_ltharv           & ! intent(out)
                              , felling_s_gtharv           & ! intent(out)
                              , skid_s_ltharv              & ! intent(out)
@@ -5797,6 +6170,45 @@ subroutine init_pft_mort_params()
       fire_s_inter(:) =  1.5
       fire_s_slope(:) = -1.0
    end select
+   !---------------------------------------------------------------------------------------!
+
+
+
+
+   !---------------------------------------------------------------------------------------!
+   !    Scorch height parameter.  This parameter will be used to define the scorch height  !
+   ! from fire line intensity.  Values are assumed the same as (T10).                      !
+   !                                                                                       !
+   ! References:                                                                           !
+   !                                                                                       !
+   !                                                                                       !
+   ! Thonicke K, Spessa A, Prentice IC, Harrison SP, Dong L, Carmona-Moreno C. 2010. The   !
+   !    influence of vegetation, fire spread and fire behaviour on biomass burning and     !
+   !    trace gas emissions: results from a process-based model. Biogeosciences, 7:        !
+   !    1991-2011. doi:10.5194/bg-7-1991-2010 (T10).                                       !
+   !---------------------------------------------------------------------------------------!
+   fscorch(:) = merge( 0.10                                                                &
+                     , merge( merge( 0.1                                                   &
+                                   , merge( 0.061, 0.1487, is_savannah(:) )                &
+                                   , is_conifer(:) )                                       &
+                            , merge( 0.1, 0.094, is_conifer(:) )                           &
+                            , is_tropical (:) )                                            &
+                     , is_grass (:)                                                       )
+   !---------------------------------------------------------------------------------------!
+
+
+   !---------------------------------------------------------------------------------------!
+   !    Parameters that control for probability of mortality due to fire-driven crown      !
+   ! damage (SPITFIRE).   The values are taken from T10.                                   !
+   !---------------------------------------------------------------------------------------!
+   fx_rck_pft(:) = merge( 0.05                                                             &
+                        , merge( 1.0                                                       &
+                               , 0.95                                                      &
+                               , is_tropical(:) .or. is_grass(:) .or. is_conifer(:) )      &
+                        , is_savannah(:)                                              )
+   fx_pck_pft(:) = merge( 0.01                                                             &
+                        , merge( 3.75, 3.00, is_conifer(:) .and. (.not. is_tropical(:)) )  &
+                        , is_grass(:)                                                     )
    !---------------------------------------------------------------------------------------!
 
    return
@@ -8200,6 +8612,9 @@ subroutine init_derived_params_after_xml()
                                    , fire_s_max                & ! intent(in)
                                    , fire_s_inter              & ! intent(in)
                                    , fire_s_slope              & ! intent(in)
+                                   , fscorch                   & ! intent(in)
+                                   , fx_rck_pft                & ! intent(in)
+                                   , fx_pck_pft                & ! intent(in)
                                    , st_fract                  & ! intent(in)
                                    , r_fract                   & ! intent(in)
                                    , r_bang                    & ! intent(in)
@@ -8366,6 +8781,27 @@ subroutine init_derived_params_after_xml()
                                    , radto_max                 & ! intent(out)
                                    , vm0_wgt                   & ! intent(out)
                                    , sla_wgt                   ! ! intent(out)
+   use disturb_coms         , only : fi_lu_exp                 & ! intent(in)
+                                   , fi_lu_upr                 & ! intent(in)
+                                   , fs_rhv_lwr                & ! intent(in)
+                                   , fs_rhv_upr                & ! intent(in)
+                                   , fs_smpot_lwr              & ! intent(in)
+                                   , fs_smpot_upr              & ! intent(in)
+                                   , fs_temp_lwr               & ! intent(in)
+                                   , fs_temp_upr               & ! intent(in)
+                                   , fs_lbr_slp                & ! intent(in)
+                                   , ft_fint_lwr               & ! intent(in)
+                                   , ft_fint_upr               & ! intent(in)
+                                   , fh_f0001                  & ! intent(in)
+                                   , fh_f0010                  & ! intent(in)
+                                   , fh_f0100                  & ! intent(in)
+                                   , fi_lu_off                 & ! intent(out)
+                                   , fs_rhv_dti                & ! intent(out)
+                                   , fs_smpot_dti              & ! intent(out)
+                                   , fs_temp_dti               & ! intent(out)
+                                   , fs_gw_infty               & ! intent(out)
+                                   , ft_fint_dti               & ! intent(out)
+                                   , fh_f1000                  ! ! intent(out)
    use farq_leuning         , only : arrhenius                 & ! function
                                    , collatz                   ! ! function
    use plant_hydro          , only : psi2rwc                   & ! function
@@ -8422,6 +8858,8 @@ subroutine init_derived_params_after_xml()
    real                              :: leaf_rwc_small
    real                              :: wood_rwc_small
    real                              :: Rdark25
+   real                              :: lbr_infty
+   real                              :: hbr_infty
    real(kind=8)                      :: temp25C8
    real(kind=8)                      :: Vcmax258
    real(kind=8)                      :: Jmax258
@@ -8463,7 +8901,7 @@ subroutine init_derived_params_after_xml()
    !------ Make sure the soil carbon fractions add up to one. -----------------------------!
    if (f0_msc < 0. .or. f0_psc < 0.0 .or. (f0_msc + f0_psc) > 1.0) then
       write (unit=*,fmt='(a)')          '-------------------------------------------------'
-      write (unit=*,fmt='(a)')          ' F0_MSC and F0_SSC must be fractions (0-1)'
+      write (unit=*,fmt='(a)')          ' F0_MSC and F0_PSC must be fractions (0-1)'
       write (unit=*,fmt='(a)')          '    and their sum cannot exceed 1.0'
       write (unit=*,fmt='(a)')          ''
       write (unit=*,fmt='(a)')          ' Current values: '
@@ -8539,6 +8977,43 @@ subroutine init_derived_params_after_xml()
       radto_max       = (turnamp_max - radint) / radslp
       !------------------------------------------------------------------------------------!
    end select
+   !---------------------------------------------------------------------------------------!
+
+
+
+   !---------------------------------------------------------------------------------------!
+   !     Derived HESFIRE parameters.                                                       !
+   !---------------------------------------------------------------------------------------!
+   !------ Offset for the land use ignition effect. ---------------------------------------!
+   fi_lu_off = fi_lu_upr / (1. + fi_lu_exp)
+   !------ Scaling factors for normalised quantities. -------------------------------------!
+   fs_rhv_dti   = 1. / ( fs_rhv_upr   - fs_rhv_lwr   )
+   fs_temp_dti  = 1. / ( fs_temp_upr  - fs_temp_lwr  )
+   fs_smpot_dti = 1. / ( fs_smpot_upr - fs_smpot_lwr )
+   ft_fint_dti  = 1. / ( ft_fint_upr  - ft_fint_lwr  )
+   !------ Wind influence function at maximum wind speed. ---------------------------------!
+   lbr_infty    = 1. + fs_lbr_slp
+   hbr_infty    = ( lbr_infty + sqrt(lbr_infty*lbr_infty-1.) )                             &
+                / ( lbr_infty - sqrt(lbr_infty*lbr_infty-1.) )
+   fs_gw_infty  = ( 1. + 1. / hbr_infty ) / ( 2. * lbr_infty )
+   !----- Find the fraction of structural carbon that goes to the 1000-h fuels. -----------!
+   fh_f1000     = 1. - fh_f0100 - fh_f0010 - fh_f0001
+   if (fh_f1000 < 0. .or. fh_f1000 > 1.) then
+      write(unit=*,fmt='(a)')           ' ------------------------------------------------'
+      write(unit=*,fmt='(a)')           ' Inconsistent fuel settings. '
+      write(unit=*,fmt='(a)')           ' ------------------------------------------------'
+      write(unit=*,fmt='(a,1x,es12.5)') ' FH_F0001 = ',fh_f0001
+      write(unit=*,fmt='(a,1x,es12.5)') ' FH_F0010 = ',fh_f0010
+      write(unit=*,fmt='(a,1x,es12.5)') ' FH_F0100 = ',fh_f0100
+      write(unit=*,fmt='(a,1x,es12.5)') ' FH_F1000 = ',fh_f1000
+      write(unit=*,fmt='(a)')           ' ------------------------------------------------'
+      write(unit=*,fmt='(a)')           '    All fuel allocation classes must be between  '
+      write(unit=*,fmt='(a)')           ' 0. and 1.  FH_F1000 is derived from the others, '
+      write(unit=*,fmt='(a)')           ' which may have been initialised through xml.    '
+      write(unit=*,fmt='(a)')           ' ------------------------------------------------'
+      call fatal_error(' Invalid fuel allocation settings after reading XML.'              &
+                      ,'init_derived_params_after_xml','ed_params.f90')
+   end if
    !---------------------------------------------------------------------------------------!
 
 
@@ -9742,7 +10217,7 @@ subroutine init_derived_params_after_xml()
    !----- Print trait coefficients. -------------------------------------------------------!
    if (print_zero_table) then
       open (unit=19,file=trim(strat_file),status='replace',action='write')
-      write(unit=19,fmt='(102(1x,a))') '          PFT','     TROPICAL','        GRASS'      &
+      write(unit=19,fmt='(105(1x,a))') '          PFT','     TROPICAL','        GRASS'      &
                                       ,'      CONIFER','     SAVANNAH','        LIANA'     &
                                       ,'       R_BANG','          RHO','          SLA'     &
                                       ,'          SRA','    ROOT_BETA','          VM0'     &
@@ -9753,7 +10228,8 @@ subroutine init_derived_params_after_xml()
                                       ,'    SEED_MORT',' TFALL_S_GTHT','  FELL_S_GTHV'     &
                                       ,'  FELL_S_LTHV','  SKID_S_GTHV','  SKID_S_LTHV'     &
                                       ,'   FIRE_S_MIN','   FIRE_S_MAX',' FIRE_S_INTER'     &
-                                      ,' FIRE_S_SLOPE','     ST_FRACT','      R_FRACT'     &
+                                      ,' FIRE_S_SLOPE', '     FSCORCH','   FX_RCK_PFT'     &
+                                      ,'   FX_PCK_PFT','     ST_FRACT','      R_FRACT'     &
                                       ,'       R_CV50','  NONLOC_DISP','    SEED_RAIN'     &
                                       ,'     EFF_HEAT','     EFF_EVAP','   EFF_TRANSP'     &
                                       ,'   LTRANS_VIS',' LREFLECT_VIS','   WTRANS_VIS'     &
@@ -9778,7 +10254,7 @@ subroutine init_derived_params_after_xml()
                                       ,'  STOMA_PSI_C',' HIGH_PSI_THR','  LOW_PSI_THR'
 
       do ipft=1,n_pft
-         write (unit=19,fmt='(9x,i5,6(13x,l1),93(1x,f13.6),2(1x,i13))')                    &
+         write (unit=19,fmt='(9x,i5,6(13x,l1),96(1x,f13.6),2(1x,i13))')                    &
                         ipft,is_tropical(ipft),is_grass(ipft),is_conifer(ipft)             &
                        ,is_savannah(ipft),is_liana(ipft),r_bang(ipft),rho(ipft),SLA(ipft)  &
                        ,SRA(ipft),root_beta(ipft),Vm0(ipft),dark_respiration_factor(ipft)  &
@@ -9789,7 +10265,8 @@ subroutine init_derived_params_after_xml()
                        ,mort3(ipft),seedling_mortality(ipft),treefall_s_ltht(ipft)         &
                        ,felling_s_gtharv(ipft),felling_s_ltharv(ipft),skid_s_gtharv(ipft)  &
                        ,skid_s_ltharv(ipft),fire_s_min(ipft),fire_s_max(ipft)              &
-                       ,fire_s_inter(ipft),fire_s_slope(ipft),st_fract(ipft),r_fract(ipft) &
+                       ,fire_s_inter(ipft),fire_s_slope(ipft),fscorch(ipft)                &
+                       ,fx_rck_pft(ipft),fx_pck_pft(ipft),st_fract(ipft),r_fract(ipft)     &
                        ,r_cv50(ipft),nonlocal_dispersal(ipft),seed_rain(ipft)              &
                        ,effarea_heat,effarea_evap,effarea_transp(ipft)                     &
                        ,leaf_trans_vis(ipft),leaf_reflect_vis(ipft),wood_trans_vis(ipft)   &

@@ -157,6 +157,8 @@ subroutine copy_nl(copy_type)
                                    , lu_database               & ! intent(out)
                                    , plantation_file           & ! intent(out)
                                    , lu_rescale_file           & ! intent(out)
+                                   , sei_database              & ! intent(out)
+                                   , flash_database            & ! intent(out)
                                    , sm_fire                   & ! intent(out)
                                    , time2canopy               & ! intent(out)
                                    , min_patch_area            & ! intent(out)
@@ -393,6 +395,8 @@ subroutine copy_nl(copy_type)
       lu_database               = nl%lu_database
       plantation_file           = nl%plantation_file
       lu_rescale_file           = nl%lu_rescale_file
+      sei_database              = nl%sei_database
+      flash_database            = nl%flash_database
       thsums_database           = nl%thsums_database
 
       ed_met_driver_db          = nl%ed_met_driver_db
@@ -733,6 +737,8 @@ subroutine copy_nl(copy_type)
    call copy_path_from_grid_1(ngrids,'lu_database'    ,lu_database    )
    call copy_path_from_grid_1(ngrids,'plantation_file',plantation_file)
    call copy_path_from_grid_1(ngrids,'lu_rescale_file',lu_rescale_file)
+   call copy_path_from_grid_1(ngrids,'sei_database'   ,sei_database   )
+   call copy_path_from_grid_1(ngrids,'flash_database' ,flash_database )
 
    call copy_path_from_grid_1(ngrids,'sfilin'         ,sfilin         )
    !---------------------------------------------------------------------------------------!

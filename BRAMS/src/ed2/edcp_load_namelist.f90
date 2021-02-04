@@ -114,10 +114,12 @@ subroutine read_ednl(iunit,filename)
                                    , sl_felling_s_ltharv                   & ! intent(out)
                                    , cl_fseeds_harvest                     & ! intent(out)
                                    , cl_fstorage_harvest                   & ! intent(out)
-                                   , cl_fleaf_harvest                      ! ! intent(out)
+                                   , cl_fleaf_harvest                      & ! intent(out)
                                    , lu_database                           & ! intent(out)
                                    , plantation_file                       & ! intent(out)
                                    , lu_rescale_file                       & ! intent(out)
+                                   , sei_database                          & ! intent(out)
+                                   , flash_database                        & ! intent(out)
                                    , treefall_disturbance_rate             & ! intent(out)
                                    , time2canopy                           & ! intent(out)
                                    , sm_fire                               & ! intent(out)
@@ -288,15 +290,16 @@ subroutine read_ednl(iunit,filename)
                        ,iadd_patch_means,iadd_cohort_means,attach_metadata,outfast         &
                        ,outstate,ffilout,sfilout,ied_init_mode,edres,sfilin,islcolflg      &
                        ,slsoc,slph,slcec,sldbd,veg_database,soil_database,slcol_database   &
-                       ,lu_database,plantation_file,lu_rescale_file,thsums_database        &
-                       ,obstime_db,soilstate_db,soildepth_db,isoilstateinit,isoildepthflg  &
-                       ,soil_hydro_scheme,ivegt_dynamics,ibigleaf,integration_scheme       &
-                       ,nsub_euler,rk4_tolerance,ibranch_thermo,iphysiol,iallom            &
-                       ,economics_scheme,igrass,iphen_scheme,radint,radslp,repro_scheme    &
-                       ,lapse_scheme,crown_mod,icanrad,ihrzrad,ltrans_vis,ltrans_nir       &
-                       ,lreflect_vis,lreflect_nir,orient_tree,orient_grass,clump_tree      &
-                       ,clump_grass,decomp_scheme,h2o_plant_lim,plant_hydro_scheme         &
-                       ,istomata_scheme,istruct_growth_scheme,istem_respiration_scheme     &
+                       ,lu_database,plantation_file,lu_rescale_file,sei_database           &
+                       ,flash_database,thsums_database,obstime_db,soilstate_db             &
+                       ,soildepth_db,isoilstateinit,isoildepthflg,soil_hydro_scheme        &
+                       ,ivegt_dynamics,ibigleaf,integration_scheme,nsub_euler              &
+                       ,rk4_tolerance,ibranch_thermo,iphysiol,iallom,economics_scheme      &
+                       ,igrass,iphen_scheme,radint,radslp,repro_scheme,lapse_scheme        &
+                       ,crown_mod,icanrad,ihrzrad,ltrans_vis,ltrans_nir,lreflect_vis       &
+                       ,lreflect_nir,orient_tree,orient_grass,clump_tree,clump_grass       &
+                       ,decomp_scheme,h2o_plant_lim,plant_hydro_scheme,istomata_scheme     &
+                       ,istruct_growth_scheme,istem_respiration_scheme                     &
                        ,trait_plasticity_scheme,iddmort_scheme,cbr_scheme,ddmort_const     &
                        ,carbon_mortality_scheme,hydraulic_mortality_scheme,vmfact_c3       &
                        ,vmfact_c4,mphoto_trc3,mphoto_tec3,mphoto_c4,bphoto_blc3            &
@@ -321,7 +324,8 @@ subroutine read_ednl(iunit,filename)
    lu_database     (:) = undef_path
    plantation_file (:) = undef_path
    lu_rescale_file (:) = undef_path
-
+   sei_database    (:) = undef_path
+   flash_database  (:) = undef_path
    sfilin          (:) = undef_path
    !---------------------------------------------------------------------------------------!
 
@@ -379,6 +383,10 @@ subroutine read_ednl(iunit,filename)
                                                           ,i=1,size(plantation_file))
       write (unit=*,fmt=*) ' lu_rescale_file           =',(trim(lu_rescale_file(i))//';'   &
                                                           ,i=1,size(lu_rescale_file))
+      write (unit=*,fmt=*) ' sei_database              =',(trim(sei_database(i))//';'      &
+                                                          ,i=1,size(sei_database))
+      write (unit=*,fmt=*) ' flash_database            =',(trim(flash_database(i))//';'    &
+                                                          ,i=1,size(flash_database))
       write (unit=*,fmt=*) ' thsums_database           =',trim(thsums_database)
       write (unit=*,fmt=*) ' soilstate_db              =',trim(soilstate_db)
       write (unit=*,fmt=*) ' soildepth_db              =',trim(soildepth_db)
@@ -636,6 +644,8 @@ subroutine read_ednl(iunit,filename)
    call copy_path_from_grid_1(ngrids,'lu_database'    ,lu_database    )
    call copy_path_from_grid_1(ngrids,'plantation_file',plantation_file)
    call copy_path_from_grid_1(ngrids,'lu_rescale_file',lu_rescale_file)
+   call copy_path_from_grid_1(ngrids,'sei_database'   ,sei_database   )
+   call copy_path_from_grid_1(ngrids,'flash_database' ,flash_database )
 
    call copy_path_from_grid_1(ngrids,'sfilin'         ,sfilin         )
    !---------------------------------------------------------------------------------------!

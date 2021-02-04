@@ -845,6 +845,7 @@ module ed_type_init
       use grid_coms      , only : nzs                  & ! intent(in)
                                 , nzg                  ! ! intent(in)
       use soil_coms      , only : slz                  ! ! intent(in)
+      use consts_coms    , only : huge_num             ! ! intent(in)
       use canopy_air_coms, only : ustmin               ! ! intent(in)
       use ed_misc_coms   , only : writing_long         & ! intent(in)
                                 , writing_eorq         & ! intent(in)
@@ -970,6 +971,22 @@ module ed_type_init
       csite%today_Af_decomp                 (ipaa:ipaz) = 0.0
       csite%today_Bf_decomp                 (ipaa:ipaz) = 0.0
       csite%today_rh                        (ipaa:ipaz) = 0.0
+      !------------------------------------------------------------------------------------!
+
+
+      !------------------------------------------------------------------------------------!
+      !    Variables used by the new fire model. Note that we should not set daily minima  !
+      ! and maxima to zero, but with very large numbers (positive/negative) so they will   !
+      ! be replaced immediately.                                                           !
+      !------------------------------------------------------------------------------------!
+      csite%tdmax_can_temp                  (ipaa:ipaz) = -huge_num
+      csite%tdmin_can_temp                  (ipaa:ipaz) =  huge_num
+      csite%tdmax_can_rhv                   (ipaa:ipaz) = -huge_num
+      csite%tdmin_can_temp                  (ipaa:ipaz) =  huge_num
+      csite%today_sfc_wetness               (ipaa:ipaz) =       0.0
+      csite%today_sfc_mstpot                (ipaa:ipaz) =       0.0
+      csite%today_can_vels                  (ipaa:ipaz) =       0.0
+      csite%today_can_tdew                  (ipaa:ipaz) =       0.0
       !------------------------------------------------------------------------------------!
 
 
@@ -1506,35 +1523,47 @@ module ed_type_init
    !     This sub-routine initialises some site-level variables.                           !
    !---------------------------------------------------------------------------------------!
    subroutine init_ed_site_vars(cpoly)
-      use ed_state_vars , only : polygontype        ! ! intent(in)
-      use ed_max_dims   , only : n_pft              & ! intent(in)
-                               , n_dbh              ! ! intent(in)
-      use pft_coms      , only : pasture_stock      & ! intent(in)
-                               , agri_stock         & ! intent(in)
-                               , plantation_stock   & ! intent(in)
-                               , sla_s0             & ! intent(in)
-                               , sla_s1             & ! intent(in)
-                               , SLA                & ! intent(in)
-                               , leaf_turnover_rate & ! intent(in)
-                               , Vm0_v0             & ! intent(in)
-                               , Vm0_v1             & ! intent(in)
-                               , Vm0                & ! intent(in)
-                               , Rd0                & ! intent(in)
-                               , phenology          ! ! intent(in)
-      use phenology_coms, only : vm0_tran           & ! intent(in)
-                               , vm0_slope          & ! intent(in)
-                               , vm0_amp            & ! intent(in)
-                               , vm0_min            & ! intent(in)
-                               , llspan_inf         ! ! intent(in)
-      use ed_misc_coms  , only : writing_long       & ! intent(in)
-                               , writing_eorq       & ! intent(in)
-                               , writing_dcyc       & ! intent(in)
-                               , economics_scheme   ! ! intent(in)
+      use ed_state_vars , only : polygontype            ! ! intent(in)
+      use ed_max_dims   , only : n_pft                  & ! intent(in)
+                               , n_dbh                  ! ! intent(in)
+      use grid_coms     , only : nzg                    ! ! intent(in)
+      use pft_coms      , only : pasture_stock          & ! intent(in)
+                               , agri_stock             & ! intent(in)
+                               , plantation_stock       & ! intent(in)
+                               , sla_s0                 & ! intent(in)
+                               , sla_s1                 & ! intent(in)
+                               , SLA                    & ! intent(in)
+                               , leaf_turnover_rate     & ! intent(in)
+                               , Vm0_v0                 & ! intent(in)
+                               , Vm0_v1                 & ! intent(in)
+                               , Vm0                    & ! intent(in)
+                               , Rd0                    & ! intent(in)
+                               , phenology              ! ! intent(in)
+      use phenology_coms, only : vm0_tran               & ! intent(in)
+                               , vm0_slope              & ! intent(in)
+                               , vm0_amp                & ! intent(in)
+                               , vm0_min                & ! intent(in)
+                               , llspan_inf             ! ! intent(in)
+      use ed_misc_coms  , only : writing_long           & ! intent(in)
+                               , writing_eorq           & ! intent(in)
+                               , writing_dcyc           & ! intent(in)
+                               , economics_scheme       ! ! intent(in)
+      use consts_coms   , only : wdns                   ! ! intent(in)
+      use disturb_coms  , only : include_fire           & ! intent(in)
+                               , fire_dryness_threshold & ! intent(in)
+                               , k_fire_first           & ! intent(in)
+                               , fire_smoist_depth      ! ! intent(in)
+      use soil_coms     , only : soil                   & ! intent(in)
+                               , slz                    ! ! intent(in)
       implicit none
       !----- Arguments. -------------------------------------------------------------------!
       type(polygontype), target     :: cpoly
       !----- Local variables. -------------------------------------------------------------!
       integer                       :: ipft
+      integer                       :: k
+      integer                       :: isi
+      integer                       :: nsoil
+      real                          :: fm_dslz
       !----- External functions. ----------------------------------------------------------!
       integer          , external   :: julday
       !------------------------------------------------------------------------------------!
@@ -1687,12 +1716,26 @@ module ed_type_init
 
 
       !------------------------------------------------------------------------------------!
+      !      Initialise Nesterov index.                                                    !
+      !------------------------------------------------------------------------------------!
+      cpoly%nesterov_index(:) = 0.
+      !------------------------------------------------------------------------------------!
+
+
+      !------------------------------------------------------------------------------------!
+      !      Initialise daily rainfall rate.                                               !
+      !------------------------------------------------------------------------------------!
+      cpoly%today_pcpg(:) = 0.
+      !------------------------------------------------------------------------------------!
+
+
+      !------------------------------------------------------------------------------------!
       !      Initialise monthly rainfall with some arbitrary but high number.  This will   !
       ! probably prevent fires to happen at the first year, but all data will be replaced  !
       ! by actual rainfall after 12 months.  In the future we may initialise with climato- !
       ! logical rainfall.                                                                  !
       !------------------------------------------------------------------------------------!
-      cpoly%avg_monthly_pcpg(:,:) = 500.
+      cpoly%avg_monthly_accp(:,:) = 500.
       !------------------------------------------------------------------------------------!
 
 
@@ -1710,12 +1753,66 @@ module ed_type_init
       cpoly%secondary_harvest_target         (:) = 0.0
       cpoly%primary_harvest_memory           (:) = 0.0
       cpoly%secondary_harvest_memory         (:) = 0.0
+      cpoly%fire_density                     (:) = 0.0
+      cpoly%fire_intensity                   (:) = 0.0
+      cpoly%fire_tlethal                     (:) = 0.0
+      cpoly%fire_spread                      (:) = 0.0
+      cpoly%burnt_area                       (:) = 0.0
       cpoly%ignition_rate                    (:) = 0.0
+      cpoly%fire_f_bherb                     (:) = 0.0
+      cpoly%fire_f_bwoody                    (:) = 0.0
+      cpoly%fire_f_fgc                       (:) = 0.0
+      cpoly%fire_f_stgc                      (:) = 0.0
+      cpoly%avg_fire_intensity             (:,:) = 0.0
+      cpoly%avg_fire_tlethal               (:,:) = 0.0
+      cpoly%avg_fire_f_bherb               (:,:) = 0.0
+      cpoly%avg_fire_f_bwoody              (:,:) = 0.0
+      cpoly%avg_fire_f_fgc                 (:,:) = 0.0
+      cpoly%avg_fire_f_stgc                (:,:) = 0.0
       cpoly%lambda_fire                    (:,:) = 0.0
       cpoly%disturbance_memory           (:,:,:) = 0.0
       cpoly%disturbance_rates            (:,:,:) = 0.0
       !------------------------------------------------------------------------------------!
 
+
+      !----- Initialise water mass threshold. ---------------------------------------------!
+      do isi=1,cpoly%nsites
+         !------ Calculate fire water mass threshold based on the fire model. -------------!
+         select case (include_fire)
+         case (0)
+            !----- Fires are suprressed. Set threshold to zero. ---------------------------!
+            cpoly%fire_wmass_threshold(isi) = 0.0
+            !------------------------------------------------------------------------------!
+         case (1)
+            !------------------------------------------------------------------------------!
+            !     The fire threshold is equivalent to the dryness factor, converted to     !
+            ! kg/m2.  This will be compared to the full column, so if the soil is too deep !
+            ! then fires would be nearly impossible.                                       !
+            !------------------------------------------------------------------------------!
+            cpoly%fire_wmass_threshold(isi) = fire_dryness_threshold * wdns
+            !------------------------------------------------------------------------------!
+         case (2)
+            !------------------------------------------------------------------------------!
+            !     Find the minimum amount of water in kg/m2 that the soil must have to     !
+            ! avoid fires, using the soil properties and the soil moisture fraction        !
+            ! threshold.                                                                   !
+            !------------------------------------------------------------------------------!
+            cpoly%fire_wmass_threshold(isi) = 0.
+            do k = k_fire_first, nzg
+               nsoil                           = cpoly%ntext_soil(k,isi)
+               fm_dslz                         = slz(k+1) - max(fire_smoist_depth,slz(k))
+               cpoly%fire_wmass_threshold(isi) = cpoly%fire_wmass_threshold(isi)           &
+                                               + soil(nsoil)%soilfr * fm_dslz * wdns
+            end do
+            !------------------------------------------------------------------------------!
+         case default
+            !----- Other approaches that may not depend on thresholds. --------------------!
+            cpoly%fire_wmass_threshold(isi) = 0.0
+            !------------------------------------------------------------------------------!
+         end select
+         !---------------------------------------------------------------------------------!
+      end do
+      !------------------------------------------------------------------------------------!
 
 
       !----- Initialise the mean radiation. -----------------------------------------------!
@@ -1788,6 +1885,15 @@ module ed_type_init
          cpoly%mmean_pcpg                  (:) = 0.0
          cpoly%mmean_qpcpg                 (:) = 0.0
          cpoly%mmean_dpcpg                 (:) = 0.0
+         cpoly%mmean_fire_density          (:) = 0.0
+         cpoly%mmean_fire_intensity        (:) = 0.0
+         cpoly%mmean_fire_tlethal          (:) = 0.0
+         cpoly%mmean_fire_spread           (:) = 0.0
+         cpoly%mmean_ignition_rate         (:) = 0.0
+         cpoly%mmean_fire_f_bherb          (:) = 0.0
+         cpoly%mmean_fire_f_bwoody         (:) = 0.0
+         cpoly%mmean_fire_f_fgc            (:) = 0.0
+         cpoly%mmean_fire_f_stgc           (:) = 0.0
       end if
       !------------------------------------------------------------------------------------!
 
@@ -2528,6 +2634,15 @@ module ed_type_init
             cgrid%mmean_pcpg                 (ipy) = 0.0
             cgrid%mmean_qpcpg                (ipy) = 0.0
             cgrid%mmean_dpcpg                (ipy) = 0.0
+            cgrid%mmean_fire_density         (ipy) = 0.0
+            cgrid%mmean_fire_intensity       (ipy) = 0.0
+            cgrid%mmean_fire_tlethal         (ipy) = 0.0
+            cgrid%mmean_fire_spread          (ipy) = 0.0
+            cgrid%mmean_ignition_rate        (ipy) = 0.0
+            cgrid%mmean_fire_f_bherb         (ipy) = 0.0
+            cgrid%mmean_fire_f_bwoody        (ipy) = 0.0
+            cgrid%mmean_fire_f_fgc           (ipy) = 0.0
+            cgrid%mmean_fire_f_stgc          (ipy) = 0.0
             cgrid%mmsqu_gpp                  (ipy) = 0.0
             cgrid%mmsqu_npp                  (ipy) = 0.0
             cgrid%mmsqu_plresp               (ipy) = 0.0

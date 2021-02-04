@@ -47,7 +47,8 @@ module ed_init_history
                                   , globdims              & ! intent(inout)
                                   , chnkdims              & ! intent(inout)
                                   , chnkoffs              ! ! intent(inout)
-      use landuse_init     , only : read_landuse_matrix   ! ! intent(in)
+      use landuse_init     , only : read_landuse_matrix   ! ! sub-routine
+      use fire_init        , only : read_fire_ignition    ! ! sub-routine
       implicit none
       !------ Local variables. ------------------------------------------------------------!
       type(edtype)                        , pointer     :: cgrid
@@ -424,13 +425,20 @@ module ed_init_history
 
 
       !----- Load the anthropogenic disturbance (or set them all to zero). ----------------!
-      write(unit=*,fmt='(a,i2.2)') ' Checking anthropogenic disturbance.  Node: ',mynum
+      write(unit=*,fmt='(a,i2.2)') ' Loading anthropogenic disturbance.  Node: ',mynum
       call read_landuse_matrix()
       !------------------------------------------------------------------------------------!
 
 
+
+      !----- Load the anthropogenic disturbance (or set them all to zero). ----------------!
+      write(unit=*,fmt='(a,i2.2)') ' Loading fire ignition data.  Node: ',mynum
+      call read_fire_ignition()
+      !------------------------------------------------------------------------------------!
+
+
       !----- Load phenology in case it is prescribed (or set them with defaults). ---------!
-      write(unit=*,fmt='(a,i2.2)') ' Checking prescribed phenology.  Node: ',mynum
+      write(unit=*,fmt='(a,i2.2)') ' Loading prescribed phenology.  Node: ',mynum
       call phenology_init()
 
       return
@@ -576,6 +584,8 @@ module ed_init_history
       call hdf_getslab_i(cgrid%load_adjacency          (ipy:ipy)                           &
                         ,'LOAD_ADJACENCY '           ,dsetrank,iparallel,.true. ,foundvar)
 
+      call hdf_getslab_r(cgrid%landfrac                (ipy:ipy)                           &
+                        ,'LANDFRAC '                 ,dsetrank,iparallel,.true. ,foundvar)
       call hdf_getslab_r(cgrid%wbar                    (ipy:ipy)                           &
                         ,'WBAR '                     ,dsetrank,iparallel,.true. ,foundvar)
       call hdf_getslab_r(cgrid%Te                      (ipy:ipy)                           &
@@ -1552,6 +1562,24 @@ module ed_init_history
                         ,'MMEAN_QPCPG_PY            ',dsetrank,iparallel,.false.,foundvar)
          call hdf_getslab_r(cgrid%mmean_dpcpg          (ipy:ipy)                           &
                         ,'MMEAN_DPCPG_PY            ',dsetrank,iparallel,.false.,foundvar)
+         call hdf_getslab_r(cgrid%mmean_fire_density   (ipy:ipy)                           &
+                        ,'MMEAN_FIRE_DENSITY_PY     ',dsetrank,iparallel,.false.,foundvar)
+         call hdf_getslab_r(cgrid%mmean_fire_intensity (ipy:ipy)                           &
+                        ,'MMEAN_FIRE_INTENSITY_PY   ',dsetrank,iparallel,.false.,foundvar)
+         call hdf_getslab_r(cgrid%mmean_fire_tlethal   (ipy:ipy)                           &
+                        ,'MMEAN_FIRE_TLETHAL_PY     ',dsetrank,iparallel,.false.,foundvar)
+         call hdf_getslab_r(cgrid%mmean_fire_spread    (ipy:ipy)                           &
+                        ,'MMEAN_FIRE_SPREAD_PY      ',dsetrank,iparallel,.false.,foundvar)
+         call hdf_getslab_r(cgrid%mmean_ignition_rate  (ipy:ipy)                           &
+                        ,'MMEAN_IGNITION_RATE_PY    ',dsetrank,iparallel,.false.,foundvar)
+         call hdf_getslab_r(cgrid%mmean_fire_f_bherb   (ipy:ipy)                           &
+                        ,'MMEAN_FIRE_F_BHERB_PY     ',dsetrank,iparallel,.false.,foundvar)
+         call hdf_getslab_r(cgrid%mmean_fire_f_bwoody  (ipy:ipy)                           &
+                        ,'MMEAN_FIRE_F_BWOODY_PY    ',dsetrank,iparallel,.false.,foundvar)
+         call hdf_getslab_r(cgrid%mmean_fire_f_fgc     (ipy:ipy)                           &
+                        ,'MMEAN_FIRE_F_FGC_PY       ',dsetrank,iparallel,.false.,foundvar)
+         call hdf_getslab_r(cgrid%mmean_fire_f_stgc    (ipy:ipy)                           &
+                        ,'MMEAN_FIRE_F_STGC_PY      ',dsetrank,iparallel,.false.,foundvar)
          call hdf_getslab_r(cgrid%mmsqu_gpp            (ipy:ipy)                           &
                         ,'MMSQU_GPP_PY              ',dsetrank,iparallel,.false.,foundvar)
          call hdf_getslab_r(cgrid%mmsqu_npp            (ipy:ipy)                           &
@@ -2888,6 +2916,10 @@ module ed_init_history
                         ,'SITENUM                 ',dsetrank,iparallel,.true. ,foundvar)
       call hdf_getslab_i(cpoly%num_landuse_years                                           &
                         ,'NUM_LANDUSE_YEARS       ',dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_i(cpoly%num_sei_times                                               &
+                        ,'NUM_SEI_TIMES           ',dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_i(cpoly%num_flash_times                                             &
+                        ,'NUM_FLASH_TIMES         ',dsetrank,iparallel,.true. ,foundvar)
       call hdf_getslab_i(cpoly%hydro_next                                                  &
                         ,'HYDRO_NEXT              ',dsetrank,iparallel,.true. ,foundvar)
       call hdf_getslab_i(cpoly%hydro_prev                                                  &
@@ -2995,12 +3027,32 @@ module ed_init_history
                       ,'PRIMARY_HARVEST_MEMORY     ' ,dsetrank,iparallel,.true. ,foundvar)
       call hdf_getslab_r(cpoly%secondary_harvest_memory                                    &
                       ,'SECONDARY_HARVEST_MEMORY   ' ,dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_r(cpoly%fire_wmass_threshold                                        &
+                      ,'FIRE_WMASS_THRESHOLD       ' ,dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_r(cpoly%fire_density                                                &
+                      ,'FIRE_DENSITY               ' ,dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_r(cpoly%fire_intensity                                              &
+                      ,'FIRE_INTENSITY             ' ,dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_r(cpoly%fire_tlethal                                                &
+                      ,'FIRE_TLETHAL               ' ,dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_r(cpoly%fire_spread                                                 &
+                      ,'FIRE_SPREAD                ' ,dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_r(cpoly%burnt_area                                                  &
+                      ,'BURNT_AREA                 ' ,dsetrank,iparallel,.true. ,foundvar)
       call hdf_getslab_r(cpoly%ignition_rate                                               &
                       ,'IGNITION_RATE              ' ,dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_r(cpoly%fire_f_bherb                                                &
+                      ,'FIRE_F_BHERB               ' ,dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_r(cpoly%fire_f_bwoody                                               &
+                      ,'FIRE_F_BWOODY              ' ,dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_r(cpoly%fire_f_fgc                                                  &
+                      ,'FIRE_F_FGC                 ' ,dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_r(cpoly%fire_f_stgc                                                 &
+                      ,'FIRE_F_STGC                ' ,dsetrank,iparallel,.true. ,foundvar)
       call hdf_getslab_r(cpoly%rad_avg                                                     &
                       ,'RAD_AVG                    ' ,dsetrank,iparallel,.true. ,foundvar)
       call hdf_getslab_r(cpoly%turnover_amp                                                &
-                        ,'TURNOVER_AMP             ' ,dsetrank,iparallel,.true. ,foundvar)
+                      ,'TURNOVER_AMP               ' ,dsetrank,iparallel,.true. ,foundvar)
       call hdf_getslab_r(cpoly%daylight                                                    &
                       ,'DAYLIGHT                   ' ,dsetrank,iparallel,.true. ,foundvar)
       call hdf_getslab_r(cpoly%cosaoi                                                      &
@@ -3011,7 +3063,11 @@ module ed_init_history
                      ,'LOGGING_HARVEST_SI           ',dsetrank,iparallel,.true. ,foundvar)
       call hdf_getslab_r(cpoly%combusted_fuel                                              &
                      ,'COMBUSTED_FUEL_SI            ',dsetrank,iparallel,.true. ,foundvar)
-      !------ Daily means. -------------------------------------------------------------------!
+      call hdf_getslab_r(cpoly%nesterov_index                                              &
+                     ,'NESTEROV_INDEX               ',dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_r(cpoly%today_pcpg                                                  &
+                     ,'TODAY_PCPG                   ',dsetrank,iparallel,.true. ,foundvar)
+      !------ Daily means. ----------------------------------------------------------------!
       if (writing_long) then
          call hdf_getslab_r(cpoly%dmean_atm_theiv                                          &
                         ,'DMEAN_ATM_THEIV_SI        ',dsetrank,iparallel,.false.,foundvar)
@@ -3084,6 +3140,24 @@ module ed_init_history
                         ,'MMEAN_QPCPG_SI            ',dsetrank,iparallel,.false.,foundvar)
          call hdf_getslab_r(cpoly%mmean_dpcpg                                              &
                         ,'MMEAN_DPCPG_SI            ',dsetrank,iparallel,.false.,foundvar)
+         call hdf_getslab_r(cpoly%mmean_fire_density                                       &
+                        ,'MMEAN_FIRE_DENSITY_SI     ',dsetrank,iparallel,.false.,foundvar)
+         call hdf_getslab_r(cpoly%mmean_fire_intensity                                     &
+                        ,'MMEAN_FIRE_INTENSITY_SI   ',dsetrank,iparallel,.false.,foundvar)
+         call hdf_getslab_r(cpoly%mmean_fire_tlethal                                       &
+                        ,'MMEAN_FIRE_TLETHAL_SI     ',dsetrank,iparallel,.false.,foundvar)
+         call hdf_getslab_r(cpoly%mmean_fire_spread                                        &
+                        ,'MMEAN_FIRE_SPREAD_SI      ',dsetrank,iparallel,.false.,foundvar)
+         call hdf_getslab_r(cpoly%mmean_ignition_rate                                      &
+                        ,'MMEAN_IGNITION_RATE_SI    ',dsetrank,iparallel,.false.,foundvar)
+         call hdf_getslab_r(cpoly%mmean_fire_f_bherb                                       &
+                        ,'MMEAN_FIRE_F_BHERB_SI     ',dsetrank,iparallel,.false.,foundvar)
+         call hdf_getslab_r(cpoly%mmean_fire_f_bwoody                                      &
+                        ,'MMEAN_FIRE_F_BWOODY_SI    ',dsetrank,iparallel,.false.,foundvar)
+         call hdf_getslab_r(cpoly%mmean_fire_f_fgc                                         &
+                        ,'MMEAN_FIRE_F_FGC_SI       ',dsetrank,iparallel,.false.,foundvar)
+         call hdf_getslab_r(cpoly%mmean_fire_f_stgc                                        &
+                        ,'MMEAN_FIRE_F_STGC_SI      ',dsetrank,iparallel,.false.,foundvar)
       end if
       !------------------------------------------------------------------------------------!
       !------------------------------------------------------------------------------------!
@@ -3255,12 +3329,24 @@ module ed_init_history
       memdims (2) = int(cpoly%nsites  ,8)
       memsize (2) = int(cpoly%nsites  ,8)
       memoffs (2) = 0_8
+      call hdf_getslab_r(cpoly%avg_fire_intensity                                          &
+                        ,'AVG_FIRE_INTENSITY '   ,dsetrank,iparallel,.true.,foundvar)
+      call hdf_getslab_r(cpoly%avg_fire_tlethal                                            &
+                        ,'AVG_FIRE_TLETHAL '     ,dsetrank,iparallel,.true.,foundvar)
       call hdf_getslab_r(cpoly%lambda_fire                                                 &
-                        ,'LAMBDA_FIRE ',dsetrank,iparallel,.true.,foundvar)
-      call hdf_getslab_r(cpoly%avg_monthly_pcpg                                            &
-                        ,'AVG_MONTHLY_PCPG ',dsetrank,iparallel,.true.,foundvar)
+                        ,'LAMBDA_FIRE '          ,dsetrank,iparallel,.true.,foundvar)
+      call hdf_getslab_r(cpoly%avg_fire_f_bherb                                            &
+                        ,'AVG_FIRE_F_BHERB '     ,dsetrank,iparallel,.true.,foundvar)
+      call hdf_getslab_r(cpoly%avg_fire_f_bwoody                                           &
+                        ,'AVG_FIRE_F_BWOODY '    ,dsetrank,iparallel,.true.,foundvar)
+      call hdf_getslab_r(cpoly%avg_fire_f_fgc                                              &
+                        ,'AVG_FIRE_F_FGC '       ,dsetrank,iparallel,.true.,foundvar)
+      call hdf_getslab_r(cpoly%avg_fire_f_stgc                                             &
+                        ,'AVG_FIRE_F_STGC '      ,dsetrank,iparallel,.true.,foundvar)
+      call hdf_getslab_r(cpoly%avg_monthly_accp                                            &
+                        ,'AVG_MONTHLY_ACCP '     ,dsetrank,iparallel,.true.,foundvar)
       call hdf_getslab_r(cpoly%crop_yield                                                  &
-                        ,'CROP_YIELD_SI ',dsetrank,iparallel,.true.,foundvar)
+                        ,'CROP_YIELD_SI '        ,dsetrank,iparallel,.true.,foundvar)
       !------------------------------------------------------------------------------------!
       !------------------------------------------------------------------------------------!
       !------------------------------------------------------------------------------------!
@@ -3857,6 +3943,22 @@ module ed_init_history
                      ,'TODAY_BF_DECOMP             ',dsetrank,iparallel,.true. ,foundvar)
       call hdf_getslab_r(csite%today_rh                                                    &
                      ,'TODAY_RH                    ',dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_r(csite%tdmax_can_temp                                              &
+                     ,'TDMAX_CAN_TEMP              ',dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_r(csite%tdmin_can_temp                                              &
+                     ,'TDMIN_CAN_TEMP              ',dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_r(csite%tdmax_can_rhv                                               &
+                     ,'TDMAX_CAN_RHV               ',dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_r(csite%tdmin_can_rhv                                               &
+                     ,'TDMIN_CAN_RHV               ',dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_r(csite%today_sfc_wetness                                           &
+                     ,'TODAY_SFC_WETNESS           ',dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_r(csite%today_sfc_mstpot                                            &
+                     ,'TODAY_SFC_MSTPOT            ',dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_r(csite%today_can_vels                                              &
+                     ,'TODAY_CAN_VELS              ',dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_r(csite%today_can_tdew                                              &
+                     ,'TODAY_CAN_TDEW              ',dsetrank,iparallel,.true. ,foundvar)
       call hdf_getslab_r(csite%veg_rough                                                   &
                      ,'VEG_ROUGH                   ',dsetrank,iparallel,.true. ,foundvar)
       call hdf_getslab_r(csite%veg_height                                                  &

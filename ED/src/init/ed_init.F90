@@ -94,12 +94,29 @@ module ed_init
          cgrid => edgrid_g(ifm)
 
          polyloop: do ipy=1,cgrid%npolygons
-         
+
+            !------------------------------------------------------------------------------!
+            !     Set the fraction of the land that can sustain natural vegetation (i.e.,  !
+            ! fraction of the total area after excluding oceans, inland water, glaciers,   !
+            ! and urban areas).  Note that the fraction of land that can sustain natural   !
+            ! vegetation INCLUDES deserts and bare soil.  This is only used for HESFIRE.   !
+            !------------------------------------------------------------------------------!
+            cgrid%landfrac(ipy) = work_v(ifm)%landfrac(ipy)
+            !------------------------------------------------------------------------------!
+
+
+
             !----- Initialise load adjacency with dummy value. ----------------------------!
             cgrid%load_adjacency(ipy) = 0
+            !------------------------------------------------------------------------------!
+
+
 
             !----- Alias to current polygon. ----------------------------------------------!
             cpoly => cgrid%polygon(ipy)
+            !------------------------------------------------------------------------------!
+
+
 
             !------------------------------------------------------------------------------!
             !    Find the total usable area and the number of sites to be allocated.       !
@@ -307,6 +324,7 @@ module ed_init
       use grid_coms         , only : ngrids                         ! ! intent(in)
       use ed_state_vars     , only : edgrid_g                       ! ! structure
       use landuse_init      , only : read_landuse_matrix            ! ! sub-routine
+      use fire_init         , only : read_fire_ignition             ! ! sub-routine
       use ed_nbg_init       , only : near_bare_ground_init          & ! sub-routine
                                    , near_bare_ground_big_leaf_init ! ! sub-routine
       use ed_bigleaf_init  , only : sas_to_bigleaf                 ! ! sub-routine
@@ -318,7 +336,7 @@ module ed_init
 #else
       use ed_node_coms      , only : mynum                          ! ! intent(in)
 #endif
-
+  
       implicit none
 #if defined(RAMS_MPI)
       include 'mpif.h'
@@ -353,10 +371,15 @@ module ed_init
          do igr = 1,ngrids
             call read_site_file(edgrid_g(igr),igr)
          end do
-      case (4,7)
+         !---------------------------------------------------------------------------------!
+      case (4,7,8)
+         !----- Hydrology is off but we will read site information from files. ------------!
          continue
+         !---------------------------------------------------------------------------------!
       case default
+         !----- Use default site properties. ----------------------------------------------!
          call set_site_defprops()
+         !---------------------------------------------------------------------------------!
       end select
 
 #if defined(RAMS_MPI)
@@ -446,8 +469,32 @@ module ed_init
                call sas_to_bigleaf(edgrid_g(igr))
             end do
          end select
-         
+
+
+      case (8)
+         !---------------------------------------------------------------------------------!
+         !    Initialise model with ED-2 initial conditions file.   This is somewhat       !
+         ! similar to option 6, but it allows multiple sites, and these files do not       !
+         ! require any transformation of PFTs and disturbance type flags.                  !
+         !---------------------------------------------------------------------------------!
+         write(unit=*,fmt='(a,i3.3)')                                                      &
+             ' + Initialise from ED2 initial conditions file. Node: ',mynum
+         call read_ed22_initial_file()
+         !---------------------------------------------------------------------------------!
+
+
+
+         !----- In case this is a big-leaf simulation, convert initial conditions. --------!
+         select case (ibigleaf)
+         case (1)
+            do igr=1,ngrids
+               call sas_to_bigleaf(edgrid_g(igr))
+            end do
+         end select
+         !---------------------------------------------------------------------------------!
+
       end select
+      !------------------------------------------------------------------------------------!
 
 
 
@@ -502,6 +549,29 @@ module ed_init
 #endif
       !------------------------------------------------------------------------------------!
 
+
+
+      !------------------------------------------------------------------------------------!
+      ! STEP 6: Initialize fire ignition.                                                  !
+      !------------------------------------------------------------------------------------!
+#if defined(RAMS_MPI)
+      if (mynum /= 1) then
+         call MPI_Recv(ping,1,MPI_INTEGER,recvnum,104,MPI_COMM_WORLD,MPI_STATUS_IGNORE,ierr)
+      end if
+#endif
+
+      write(unit=*,fmt='(a,i3.3)')                                                         &
+         ' + Initializing fire ignition forcing. Node: ',mynum
+
+      call read_fire_ignition()
+
+#if defined(RAMS_MPI)
+      if (mynum < nnodetot ) then
+         call MPI_Send(ping,1,MPI_INTEGER,sendnum,104,MPI_COMM_WORLD,ierr)
+      end if
+#endif
+      !------------------------------------------------------------------------------------!
+
       if (mynum == 1) then
          do igr=1,ngrids
             call ed_newgrid(igr)
@@ -529,8 +599,8 @@ module ed_init
       use rk4_coms    , only : ipercol           ! ! intent(in)
       use grid_coms   , only : nzg               & ! intent(in)
                              , nzs               ! ! intent(in)
-      use soil_coms   , only : ed_nstyp          & ! intent(in)
-                             , soil_hydro_scheme & ! intent(in)
+      use ed_max_dims , only : ed_nstyp          ! ! intent(in)
+      use soil_coms   , only : soil_hydro_scheme & ! intent(in)
                              , slz               & ! intent(in)
                              , dslz              & ! intent(out)
                              , dslzo2            & ! intent(out)

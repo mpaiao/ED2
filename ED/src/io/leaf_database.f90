@@ -8,8 +8,8 @@ subroutine leaf_database(ofn,nsite,nlandsea,iaction,lat,lon,classout,pctout)
    use soil_coms  , only : nzg           & ! intent(in)
                          , slz           & ! intent(in)
                          , nslcon        & ! intent(in)
-                         , isoilcol      & ! intent(in)
-                         , ed_nstyp      & ! intent(in)
+                         , isoilcol      ! ! intent(in)
+   use ed_max_dims, only : ed_nstyp      & ! intent(in)
                          , ed_nvtyp      & ! intent(in)
                          , ed_nscol      ! ! intent(in)
    implicit none
@@ -63,6 +63,7 @@ subroutine leaf_database(ofn,nsite,nlandsea,iaction,lat,lon,classout,pctout)
    real           , dimension(:)             , allocatable :: ed_slz
    real           , dimension(:)             , allocatable :: fraction
    real                                                    :: total_count
+   real                                                    :: potential_count
    real                                                    :: zdepth
    real                                                    :: xyoff
    integer                                                 :: ifile
@@ -404,13 +405,21 @@ subroutine leaf_database(ofn,nsite,nlandsea,iaction,lat,lon,classout,pctout)
    case ('leaf_class')
       !------------------------------------------------------------------------------------!
       !     Leaf class.  We really don't care about the leaf class, we just want to know   !
-      ! the percentage that is not water.                                                  !
+      ! the percentage that is not possible to maintain natural vegetation.  These classes !
+      ! current include oceans, inland waters, glaciers, and urban/built-up.  This         !
+      ! fraction is now saved for all runs, including POIs, because it may be used in the  !
+      ! fire model.                                                                        !
       !------------------------------------------------------------------------------------!
       do ilandsea = 1,nlandsea
 
          total_count          = real(sum(class_count(0:ed_nvtyp,ilandsea)))
+         potential_count      = total_count - real( class_count( 0,ilandsea)               &
+                                                  + class_count( 1,ilandsea)               &
+                                                  + class_count( 2,ilandsea)               &
+                                                  + class_count(19,ilandsea)               &
+                                                  + class_count(21,ilandsea) )
          pctout  (:,ilandsea) = 0.
-         pctout  (1,ilandsea) = real(sum(class_count(2:ed_nvtyp,ilandsea))) / total_count
+         pctout  (1,ilandsea) = potential_count / total_count
          !----- This won't be used, assign any number. ------------------------------------!
          classout(:,ilandsea) = 6
       end do

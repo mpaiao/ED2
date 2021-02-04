@@ -143,7 +143,8 @@ module mortality
    !     This subroutine determines the mortality rates associated with the current        !
    ! disturbance.                                                                          !
    !---------------------------------------------------------------------------------------!
-   subroutine disturbance_mortality(csite,ipa,area_loss,mindbh_harvest)
+   subroutine disturbance_mortality(csite,ipa,area_loss,mindbh_harvest                     &
+                                   ,avg_fire_intensity,avg_fire_tlethal)
       use ed_state_vars, only : sitetype      & ! structure
                               , patchtype     ! ! structure
       use ed_max_dims  , only : n_pft         & ! intent(in)
@@ -157,6 +158,8 @@ module mortality
       integer                                , intent(in)  :: ipa
       real          , dimension(n_dist_types), intent(in)  :: area_loss
       real          , dimension(n_pft)       , intent(in)  :: mindbh_harvest
+      real          , dimension(12)          , intent(in)  :: avg_fire_intensity
+      real          , dimension(12)          , intent(in)  :: avg_fire_tlethal
       !----- Local variables. -------------------------------------------------------------!
       type(patchtype)                        , pointer     :: cpatch
       integer                                              :: ico
@@ -186,7 +189,7 @@ module mortality
          if (area_loss(new_lu) > tiny_num) then
             do ico=1,cpatch%ncohorts
               f_survival    = survivorship(new_lu,csite%dist_type(ipa),mindbh_harvest      &
-                                          ,cpatch,ico)
+                                          ,avg_fire_intensity,avg_fire_tlethal,cpatch,ico)
               a_factor(ico) = a_factor(ico)                                                &
                             + ( 1.0 - f_survival ) * area_loss(new_lu) / csite%area(ipa)
             end do
@@ -236,9 +239,14 @@ module mortality
    !  -- cpatch: current patch.                                                            !
    !  -- ico: index for current cohort.                                                    !
    !---------------------------------------------------------------------------------------!
-   real function survivorship(new_lu,old_lu,mindbh_harvest,cpatch,ico)
+   real function survivorship(new_lu,old_lu,mindbh_harvest                                 &
+                             ,avg_fire_intensity,avg_fire_tlethal,cpatch,ico)
       use ed_state_vars, only : patchtype                ! ! structure
-      use disturb_coms , only : treefall_hite_threshold  ! ! intent(in)
+      use disturb_coms , only : include_fire             & ! intent(in)
+                              , treefall_hite_threshold  & ! intent(in)
+                              , fx_tlc_slope             & ! intent(in)
+                              , fx_pmtau_di              & ! intent(in)
+                              , fx_pmtau_ds              ! ! intent(in)
       use pft_coms     , only : treefall_s_ltht          & ! intent(in)
                               , treefall_s_gtht          & ! intent(in)
                               , fire_s_min               & ! intent(in)
@@ -248,20 +256,37 @@ module mortality
                               , felling_s_gtharv         & ! intent(in)
                               , felling_s_ltharv         & ! intent(in)
                               , skid_s_ltharv            & ! intent(in)
-                              , skid_s_gtharv            ! ! intent(in)
+                              , skid_s_gtharv            & ! intent(in)
+                              , fscorch                  & ! intent(in)
+                              , fx_rck_pft               & ! intent(in)
+                              , fx_pck_pft               ! ! intent(in)
       use ed_max_dims  , only : n_pft                    ! ! intent(in)
       use consts_coms  , only : lnexp_min                & ! intent(in)
-                              , lnexp_max                ! ! intent(in)
+                              , lnexp_max                & ! intent(in)
+                              , tiny_num                 & ! intent(in)
+                              , onetwelfth               ! ! intent(in)
+      use allometry    , only : h2crownbh                ! ! function
       implicit none
       !----- Arguments. -------------------------------------------------------------------!
       type(patchtype)                 , target     :: cpatch
       real          , dimension(n_pft), intent(in) :: mindbh_harvest
+      real          , dimension(12)   , intent(in) :: avg_fire_intensity
+      real          , dimension(12)   , intent(in) :: avg_fire_tlethal
       integer                         , intent(in) :: ico
       integer                         , intent(in) :: new_lu
       integer                         , intent(in) :: old_lu
       !----- Local variables. -------------------------------------------------------------!
       integer                                      :: ipft
       real                                         :: lnexp
+      real          , dimension(12)                :: avg_scorch_height
+      real          , dimension(12)                :: avg_crown_damage
+      real          , dimension(12)                :: avg_tl_ratio
+      real          , dimension(12)                :: avg_pmtau
+      real          , dimension(12)                :: avg_pmck
+      real          , dimension(12)                :: avg_mortality
+      real                                         :: tlethal_crit
+      real                                         :: chbase
+      real                                         :: clength
       !------------------------------------------------------------------------------------!
 
 
@@ -294,16 +319,80 @@ module mortality
 
       case (4)
          !---------------------------------------------------------------------------------!
-         !     Fire.  Currently the fire survival rates are not dependent upon fire        !
-         ! intensity or flame height.  Survival rates are a function of bark thickness     !
-         ! (and size as BT depends on DBH and height).   The original scheme kills all     !
-         ! individuals and this is maintained by setting both fire_s_min and fire_s_max    !
-         ! to 0.                                                                           !
+         !     Fire.  Survivorship will depend on the fire model.                          !
          !---------------------------------------------------------------------------------!
-         lnexp        = fire_s_inter(ipft) + fire_s_slope(ipft) * cpatch%thbark(ico)
-         lnexp        = max(lnexp_min,min(lnexp_max,lnexp))
-         survivorship = fire_s_min(ipft)                                                   &
-                      + (fire_s_max(ipft) - fire_s_min(ipft)) / (1. + exp(lnexp))
+         select case (include_fire)
+         case (4)
+            !------------------------------------------------------------------------------!
+            !      SPITFIRE-based approach.  We calculate the average mortality of each    !
+            ! month, based on the average fire intensity and scorch height.                !
+            !------------------------------------------------------------------------------!
+
+            !------ Average scorch height [m]. --------------------------------------------!
+            avg_scorch_height(:) = fscorch(ipft) * avg_fire_intensity(:)
+            !------------------------------------------------------------------------------!
+
+            !------ Average fire damage. --------------------------------------------------!
+            chbase               = h2crownbh(cpatch%hite(ico),ipft)
+            clength              = cpatch%hite(ico) - chbase
+            avg_crown_damage (:) = ( avg_scorch_height(:) - chbase ) / clength
+            avg_crown_damage (:) = max(0.,avg_crown_damage(:))
+            !------------------------------------------------------------------------------!
+
+
+            !------ Find critical duration of lethal heating. -----------------------------!
+            tlethal_crit = fx_tlc_slope * cpatch%thbark(ico) * cpatch%thbark(ico)
+            !------------------------------------------------------------------------------!
+
+
+            !------ Find how close to critical fire duration the system has been. ---------!
+            if ( tlethal_crit > tiny_num ) then
+               !------ Find the tl:tc ratio. ----------------------------------------------!
+               avg_tl_ratio (:) =  avg_fire_tlethal(:) / tlethal_crit
+               !---------------------------------------------------------------------------!
+            else
+               !---------------------------------------------------------------------------!
+               !     Critical duration is zero, assume tl:tc for maximum mortality in case !
+               ! there is any fire, or zero otherwise.                                     !
+               !---------------------------------------------------------------------------!
+               avg_tl_ratio (:) = merge( (1.0-fx_pmtau_di)/fx_pmtau_ds                     &
+                                       , 0.0                                               &
+                                       , avg_fire_intensity(:) > 0.    )
+               !---------------------------------------------------------------------------!
+            end if
+            !------------------------------------------------------------------------------!
+
+
+            !------ Find the mortality probability due to cambial damage. -----------------!
+            avg_pmtau(:) = max(0.,min(1.,fx_pmtau_di + fx_pmtau_ds * avg_tl_ratio(:)))
+            !------------------------------------------------------------------------------!
+
+
+            !------ Find the mortality probability due to crown damage. -------------------!
+            avg_pmck(:) = fx_rck_pft(ipft) * avg_crown_damage(:) ** fx_pck_pft(ipft)
+            avg_pmck(:) = max(0.,min(1.,avg_pmck(:)))
+            !------------------------------------------------------------------------------!
+
+
+            !------ Find the probability of mortality. ------------------------------------!
+            avg_mortality(:) = avg_pmtau(:) + avg_pmck(:) - avg_pmtau(:) * avg_pmck(:)
+            survivorship     = sum(1. - avg_mortality(:)) * onetwelfth
+            !------------------------------------------------------------------------------!
+
+         case default
+            !------------------------------------------------------------------------------!
+            !     Old fire approach.  Fire survival rates are not dependent upon fire      !
+            ! intensity or flame height.  Survival rates are a function of bark thickness  !
+            ! (and size as BT depends on DBH and height).   The original scheme kills all  !
+            ! individuals and this is maintained by setting both fire_s_min and fire_s_max !
+            ! to 0.                                                                        !
+            !------------------------------------------------------------------------------!
+            lnexp        = fire_s_inter(ipft) + fire_s_slope(ipft) * cpatch%thbark(ico)
+            lnexp        = max(lnexp_min,min(lnexp_max,lnexp))
+            survivorship = fire_s_min(ipft)                                                &
+                         + (fire_s_max(ipft) - fire_s_min(ipft)) / (1. + exp(lnexp))
+            !------------------------------------------------------------------------------!
+         end select
          !---------------------------------------------------------------------------------!
 
       case (5)

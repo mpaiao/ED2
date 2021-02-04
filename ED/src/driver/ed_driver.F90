@@ -447,8 +447,9 @@ subroutine find_frqsum()
                           , frqsum          & ! intent(out)
                           , frqsumi         & ! intent(out)
                           , dtlsm_o_frqsum  & ! intent(out)
-                          , radfrq_o_frqsum ! ! intent(out)
-   use consts_coms, only: day_sec
+                          , radfrq_o_frqsum & ! intent(out)
+                          , dtlsm_o_day_sec ! ! intent(out)
+   use consts_coms , only : day_sec         ! ! intent(in)
 
    implicit none 
    !----- Local variables. ----------------------------------------------------------------!
@@ -547,10 +548,13 @@ subroutine find_frqsum()
    ! 3. RADFRQ_O_FRQSUM -- inverse of the number of radiation time steps since the         !
    !                       previous analysis.  Only radiation-related variables should use !
    !                       this factor.                                                    !
+   ! 4. DTLSM_O_DAY_SEC -- inverse of the number of main time steps within a day.  These   !
+   !                       are used for the new fire model.                                !
    !---------------------------------------------------------------------------------------!
    frqsumi         = 1.0    / frqsum
    dtlsm_o_frqsum  = dtlsm  * frqsumi
    radfrq_o_frqsum = radfrq * frqsumi
+   dtlsm_o_day_sec = dtlsm  / day_sec
    !---------------------------------------------------------------------------------------!
 
 

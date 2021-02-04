@@ -123,6 +123,8 @@ module ename_coms
       character(len=str_len), dimension(maxgrds)        :: lu_database
       character(len=str_len), dimension(maxgrds)        :: plantation_file
       character(len=str_len), dimension(maxgrds)        :: lu_rescale_file
+      character(len=str_len), dimension(maxgrds)        :: sei_database
+      character(len=str_len), dimension(maxgrds)        :: flash_database
       character(len=str_len)                            :: thsums_database 
       character(len=str_len)                            :: soilstate_db
       character(len=str_len)                            :: soildepth_db
@@ -428,6 +430,8 @@ module ename_coms
       enl%lu_database               = (/ (undef_path, i=1,maxgrds) /)
       enl%plantation_file           = (/ (undef_path, i=1,maxgrds) /)
       enl%lu_rescale_file           = (/ (undef_path, i=1,maxgrds) /)
+      enl%sei_database              = (/ (undef_path, i=1,maxgrds) /)
+      enl%flash_database            = (/ (undef_path, i=1,maxgrds) /)
 
       enl%thsums_database           =     undef_path
       enl%soilstate_db              =     undef_path

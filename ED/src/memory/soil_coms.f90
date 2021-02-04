@@ -11,28 +11,15 @@
 module soil_coms
    use ed_max_dims  , only : str_len   & ! intent(in)
                            , maxgrds   & ! intent(in)
-                           , nzgmax    ! ! intent(in)
+                           , nzgmax    & ! intent(in)
+                           , ed_nstyp  & ! intent(in)
+                           , ed_nscol  & ! intent(in)
+                           , ed_nvtyp  ! ! intent(in)
    use grid_coms    , only : nzg       & ! intent(in)
                            , nzs       ! ! intent(in)
-#if defined(COUPLED)
-   use leaf_coms    , only : nstyp     & ! intent(in)
-                           , nscol     & ! intent(in)
-                           , nvtyp     & ! intent(in)
-                           , nvtyp_teb ! ! intent(in)
-#endif
 
    implicit none
 
-  !----- These variables depend on whether it's a coupled or stand alone model. -----------!
-#if defined(COUPLED)
-   integer, parameter :: ed_nstyp = nstyp          ! total # of soil textural classes
-   integer, parameter :: ed_nscol = nscol          ! total # of soil colour classes
-   integer, parameter :: ed_nvtyp = nvtyp+nvtyp_teb
-#else
-   integer, parameter :: ed_nstyp = 17             ! total # of soil textural classes
-   integer, parameter :: ed_nscol = 21             ! total # of soil colour classes
-   integer, parameter :: ed_nvtyp = 21
-#endif
 
    !=======================================================================================!
    !=======================================================================================!
@@ -581,6 +568,7 @@ module soil_coms
    !    This subroutine allocates soil grid arrays.                                        !
    !---------------------------------------------------------------------------------------!
    subroutine alloc_soilgrid()
+      use ed_max_dims, only : ed_nstyp ! ! intent(in)
       implicit none
 
 
@@ -624,7 +612,8 @@ module soil_coms
    !---------------------------------------------------------------------------------------!
    subroutine ed_init_soil()
       use ed_max_dims, only : undef_real      & ! intent(in)
-                            , undef_dble      ! ! intent(in)
+                            , undef_dble      & ! intent(in)
+                            , ed_nstyp        ! ! intent(in)
 
       implicit none
       !------ Local variables. ------------------------------------------------------------!

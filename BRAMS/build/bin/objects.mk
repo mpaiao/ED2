@@ -307,9 +307,10 @@ OBJ_MODEL =                         \
 	ed_opspec.o                 \
 	ed_para_coms.o              \
 	ed_params.o                 \
-	ed_print.o                 \
+	ed_print.o                  \
 	ed_read_ed10_20_history.o   \
 	ed_read_ed21_history.o      \
+	ed_read_ed22_initial.o      \
 	ed_state_vars.o             \
 	ed_therm_lib.o              \
 	ed_type_init.o              \
@@ -323,8 +324,8 @@ OBJ_MODEL =                         \
 	farq_katul.o                \
 	farq_leuning.o              \
 	fatal_error.o               \
-	fire_ed10.o                 \
-	fire_ed22.o                 \
+	fire.o                      \
+	fire_init.o                 \
 	forestry.o                  \
 	fuse_fiss_utils.o           \
 	fusion_fission_coms.o       \
