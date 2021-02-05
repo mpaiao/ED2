@@ -52,7 +52,18 @@ subroutine read_ed22_initial_file
                                   , allocate_patchtype          ! ! subroutine
    use grid_coms           , only : ngrids                      & ! intent(in)
                                   , nzg                         ! ! intent(in)
-   use soil_coms           , only : slz                         ! ! intent(in)
+   use soil_coms           , only : soil_hydro_scheme           & ! intent(in)
+                                  , slz                         & ! intent(in)
+                                  , slxkey_ref                  & ! intent(inout)
+                                  , slxsand_ref                 & ! intent(inout)
+                                  , slxsilt_ref                 & ! intent(inout)
+                                  , slxclay_ref                 & ! intent(inout)
+                                  , slhydro_ref                 & ! intent(inout)
+                                  , slsoc_ref                   & ! intent(inout)
+                                  , slph_ref                    & ! intent(inout)
+                                  , slcec_ref                   & ! intent(inout)
+                                  , sldbd_ref                   & ! intent(inout)
+                                  , ed_gen_soil_table           ! ! subroutine
    use allometry           , only : bd2dbh                      & ! function
                                   , dbh2h                       & ! function
                                   , size2bd                     & ! function
@@ -137,6 +148,7 @@ subroutine read_ed22_initial_file
    integer                                                     :: nsites
    logical              , dimension(n_pft)                     :: discarded_pft
    logical              , dimension(:)           , allocatable :: shmask
+   logical                                                     :: single_poi
    real(kind=8)                                                :: darea
    real                 , dimension(huge_site)                 :: s_area
    real                 , dimension(huge_site)                 :: depth
@@ -227,6 +239,15 @@ subroutine read_ed22_initial_file
       call ed1_fileinfo('.sss',nflist,full_list,nflsss,sss_list,slon_list,slat_list)
       call ed1_fileinfo('.pss',nflist,full_list,nflpss,pss_list,plon_list,plat_list)
       call ed1_fileinfo('.css',nflist,full_list,nflcss,css_list,clon_list,clat_list)
+      !------------------------------------------------------------------------------------!
+
+
+      !------------------------------------------------------------------------------------!
+      !      Save logical flag to decide whether or not this is a single-grid, single-     !
+      ! -polygon simulation.  This information allows us to change the default soil        !
+      ! properties so they are site-specific.                                              !
+      !------------------------------------------------------------------------------------!
+      single_poi = (ngrids == 1) .and. (cgrid%npolygons == 1)
       !------------------------------------------------------------------------------------!
 
 
@@ -819,9 +840,35 @@ subroutine read_ed22_initial_file
             !------------------------------------------------------------------------------!
 
 
+
             !------------------------------------------------------------------------------!
-            !    Initialise site variables.  This could be eventually expanded to read     !
-            ! soil properties in more detail.   If TOPMODEL becomes again functional, this !
+            !     In case this is a single-grid, single-polygon simulation, we rewrite     !
+            ! the site properties of the first soil classes with the site-level            !
+            ! information.                                                                 !
+            !------------------------------------------------------------------------------!
+            if (single_poi) then
+               !----- Replace texture with the site ID. -----------------------------------!
+               ntext(gsi) = isi
+               !---------------------------------------------------------------------------!
+
+
+               !----- Overwrite reference properties of the isi-th site. ------------------!
+               slxkey_ref (isi) = 'Site'
+               slhydro_ref(isi) = soil_hydro_scheme
+               slxsand_ref(isi) = sand (gsi)
+               slxclay_ref(isi) = clay (gsi)
+               slxsilt_ref(isi) = 1. - slxsand_ref(isi) - slxclay_ref(isi)
+               slsoc_ref  (isi) = slsoc(gsi)
+               slph_ref   (isi) = slph (gsi)
+               slcec_ref  (isi) = slcec(gsi)
+               sldbd_ref  (isi) = sldbd(gsi)
+               !---------------------------------------------------------------------------!
+            end if
+            !------------------------------------------------------------------------------!
+
+
+            !------------------------------------------------------------------------------!
+            !    Initialise site variables.  If TOPMODEL becomes again functional, this    !
             ! list may need to be expanded.                                                !
             !------------------------------------------------------------------------------!
             cpoly%area        (isi) = s_area   (gsi)
@@ -1219,6 +1266,12 @@ subroutine read_ed22_initial_file
 
 
 
+   !---------------------------------------------------------------------------------------!
+   !      Update the soil parameter table as soil properties have been overwritten for     !
+   ! a few sites.                                                                          !
+   !---------------------------------------------------------------------------------------!
+   call ed_gen_soil_table()
+   !---------------------------------------------------------------------------------------!
 
 
    !---------------------------------------------------------------------------------------!

@@ -623,7 +623,8 @@ module ed_init
                              , slcons18          & ! intent(out)
                              , soil              & ! intent(in)
                              , thicknet          & ! intent(out)
-                             , thick             ! ! intent(out)
+                             , thick             & ! intent(out)
+                             , ed_gen_soil_table ! ! subroutine
       use consts_coms , only : wdns              & ! intent(in)
                              , wdnsi8            ! ! intent(in)
       use rk4_coms    , only : rk4min_sfcw_moist & ! intent(in)
@@ -631,6 +632,11 @@ module ed_init
                              , rk4min_sfcw_mass  & ! intent(out)
                              , rk4min_virt_water ! ! intent(out)
       use ed_misc_coms, only : dtlsm             ! ! intent(in)
+      use disturb_coms, only : include_fire      & ! intent(in)
+                             , fire_smoist_depth & ! intent(in)
+                             , k_fire_first      ! ! intent(out)
+      use decomp_coms , only : rh_active_depth   & ! intent(in)
+                             , k_rh_active       ! ! intent(out)
       implicit none
       !----- Local variables --------------------------------------------------------------!
       integer                :: k
@@ -732,7 +738,7 @@ module ed_init
       !------------------------------------------------------------------------------------!
 
 
-      !----- Defining some snow thickness variables ---------------------------------------!
+      !----- Define some snow thickness variables -----------------------------------------!
       stretch = 2.0
       do kzs = 1,nzs
          thik          = 1.0
@@ -748,10 +754,45 @@ module ed_init
             thick(k,kzs) = thick(k,kzs) / thicknet(kzs)
          end do
       end do
+      !------------------------------------------------------------------------------------!
 
-      !----- Assigning some soil grid-dependent RK4 variables -----------------------------!
+
+
+      !----- Assign some soil grid-dependent RK4 variables --------------------------------!
       rk4min_sfcw_mass  = rk4min_sfcw_moist * wdns   * dslz(nzg)
       rk4min_virt_water = rk4min_virt_moist * wdns   * dslz(nzg)
+      !------------------------------------------------------------------------------------!
+
+
+
+      !------------------------------------------------------------------------------------!
+      !     Determine the top layer to consider for fires in case include_fire (ignored if !
+      ! include_fire is 0 or 1.                                                            !
+      !------------------------------------------------------------------------------------!
+      select case (include_fire)
+      case (0,1)
+         !----- Fire either won't happen, or it will use the total soil (ED-1 legacy). ----!
+         k_fire_first = 1
+         !---------------------------------------------------------------------------------!
+      case default
+         !----- Select the first layer whose bottom is deeper than the fire depth. --------!
+         k_fire_first = maxloc(slz(1:nzg),dim=1,mask=slz(1:nzg) <= fire_smoist_depth)
+         !---------------------------------------------------------------------------------!
+      end select
+      !------------------------------------------------------------------------------------!
+
+
+
+
+      !------------------------------------------------------------------------------------!
+      !     Determine the bottommost layer to consider for environmental regulation of     !
+      ! heterotrophic respiration.                                                         !
+      !------------------------------------------------------------------------------------!
+      k_rh_loop: do k_rh_active=nzg-1,1,-1
+         if (slz(k_rh_active) < rh_active_depth) exit k_rh_loop
+      end do k_rh_loop
+      k_rh_active = k_rh_active + 1
+      !------------------------------------------------------------------------------------!
 
       return
    end subroutine sfcdata_ed

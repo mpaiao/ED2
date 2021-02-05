@@ -663,10 +663,18 @@ subroutine copy_nl(copy_type)
       imontha       = nl%imontha
       iyeara        = nl%iyeara
 
-      nzg           = nl%nzg
-      nzs           = nl%nzs
 
-      slz(1:nzgmax) = nl%slz(1:nzgmax)
+      !------------------------------------------------------------------------------------!
+      !      These variables are copied here but will be updated when reading the history  !
+      ! file.                                                                              !
+      !------------------------------------------------------------------------------------!
+      ! nzg           = nl%nzg
+      ! nzs           = nl%nzs
+      ! slz(1:nzgmax) = nl%slz(1:nzgmax)
+      !------------------------------------------------------------------------------------!
+
+
+
       
       !------------------------------------------------------------------------------------!
       !      Set current time to initial time here.  If this is a history run, reset       !

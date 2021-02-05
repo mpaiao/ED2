@@ -163,14 +163,6 @@ subroutine ed_driver()
    !---------------------------------------------------------------------------------------!
 
 
-   !---------------------------------------------------------------------------------------!
-   !      Allocate soil grid arrays.                                                       !
-   !---------------------------------------------------------------------------------------!
-   if (mynum == nnodetot) write (unit=*,fmt='(a)') ' [+] Alloc_Soilgrid...'
-   call alloc_soilgrid()
-   !---------------------------------------------------------------------------------------!
-
-
 
    !---------------------------------------------------------------------------------------!
    !      Set some polygon-level basic information, such as lon/lat/soil texture.          !
@@ -182,16 +174,14 @@ subroutine ed_driver()
 
 
    !---------------------------------------------------------------------------------------!
-   !      Initialize inherent soil and vegetation properties.                              !
+   !      Decide whether to initialise ED2 or resume from history files.  Note that the    !
+   ! order of operations will depend upon the run type.  If we resume from HISTORY, we     !
+   ! must read the history first then allocate soil data (as they will be read from the    !
+   ! history file itself).  Otherwise, we allocate and initialise soils, then read/assign  !
+   ! the initial conditions.                                                               !
    !---------------------------------------------------------------------------------------!
-   if (mynum == nnodetot) write (unit=*,fmt='(a)') ' [+] Sfcdata_ED...'
-   call sfcdata_ed()
-   !---------------------------------------------------------------------------------------!
-
-
-
-   !---------------------------------------------------------------------------------------!
-   if (trim(runtype) == 'HISTORY' ) then
+   select case (trim(runtype))
+   case ('HISTORY')
       !------------------------------------------------------------------------------------!
       !      Initialize the model state as a replicate image of a previous  state.         !
       !------------------------------------------------------------------------------------!
@@ -216,7 +206,46 @@ subroutine ed_driver()
       if (nnodetot /= 1 ) call MPI_Barrier(MPI_COMM_WORLD,ierr)
 #endif
       !------------------------------------------------------------------------------------!
-   else
+
+
+
+
+      !------------------------------------------------------------------------------------!
+      !      Allocate soil grid arrays.                                                    !
+      !------------------------------------------------------------------------------------!
+      if (mynum == nnodetot) write (unit=*,fmt='(a)') ' [+] Alloc_Soilgrid...'
+      call alloc_soilgrid()
+      !------------------------------------------------------------------------------------!
+
+
+
+      !------------------------------------------------------------------------------------!
+      !      Initialise variables that are related to soil layers.                         !
+      !------------------------------------------------------------------------------------!
+      if (mynum == nnodetot) write (unit=*,fmt='(a)') ' [+] Sfcdata_ED...'
+      call sfcdata_ed()
+      !------------------------------------------------------------------------------------!
+
+
+   case default
+      !------------------------------------------------------------------------------------!
+      !      Allocate soil grid arrays.                                                    !
+      !------------------------------------------------------------------------------------!
+      if (mynum == nnodetot) write (unit=*,fmt='(a)') ' [+] Alloc_Soilgrid...'
+      call alloc_soilgrid()
+      !------------------------------------------------------------------------------------!
+
+
+
+      !------------------------------------------------------------------------------------!
+      !      Initialise variables that are related to soil layers.                         !
+      !------------------------------------------------------------------------------------!
+      if (mynum == nnodetot) write (unit=*,fmt='(a)') ' [+] Sfcdata_ED...'
+      call sfcdata_ed()
+      !------------------------------------------------------------------------------------!
+
+
+
 
       !------------------------------------------------------------------------------------!
       !      Initialize state properties of polygons/sites/patches/cohorts.                !
@@ -224,7 +253,11 @@ subroutine ed_driver()
       if (mynum == nnodetot) write (unit=*,fmt='(a)') ' [+] Load_Ecosystem_State...'
       call load_ecosystem_state()
       !------------------------------------------------------------------------------------!
-   end if
+   end select
+   !---------------------------------------------------------------------------------------!
+
+
+
 
    !---------------------------------------------------------------------------------------!
    !      In case the runs is going to produce detailed output, we eliminate all patches   !
