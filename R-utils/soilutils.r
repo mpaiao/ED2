@@ -623,6 +623,21 @@ sclass <<- function(sandfrac,clayfrac){
    silt = 100. - sand - clay
    #---------------------------------------------------------------------------------------#
 
+
+   #----- If the fractions are vectors, use mapply to get the answer. ---------------------#
+   if (length(sand) > 1){
+      l.sand = as.list(0.01*sand)
+      l.clay = as.list(0.01*clay)
+      ans    = mapply( FUN      = sclass
+                     , sandfrac = l.sand
+                     , clayfrac = l.clay
+                     , SIMPLIFY = TRUE
+                     )#end mapply
+      return(ans)
+   }#end if
+   #---------------------------------------------------------------------------------------#
+
+
    #---------------------------------------------------------------------------------------#
    #     Here there is not much we can do other than explore where in the triangle space   #
    # we are.                                                                               #

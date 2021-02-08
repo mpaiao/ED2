@@ -5238,7 +5238,7 @@ module ed_state_vars
       allocate(csite%tdmax_can_temp                (              npatches))
       allocate(csite%tdmin_can_temp                (              npatches))
       allocate(csite%tdmax_can_rhv                 (              npatches))
-      allocate(csite%tdmin_can_temp                (              npatches))
+      allocate(csite%tdmin_can_rhv                 (              npatches))
       allocate(csite%today_sfc_wetness             (              npatches))
       allocate(csite%today_sfc_mstpot              (              npatches))
       allocate(csite%today_can_vels                (              npatches))
@@ -7513,7 +7513,7 @@ module ed_state_vars
       nullify(csite%tdmax_can_temp             )
       nullify(csite%tdmin_can_temp             )
       nullify(csite%tdmax_can_rhv              )
-      nullify(csite%tdmin_can_temp             )
+      nullify(csite%tdmin_can_rhv              )
       nullify(csite%today_sfc_wetness          )
       nullify(csite%today_sfc_mstpot           )
       nullify(csite%today_can_vels             )
@@ -8687,7 +8687,7 @@ module ed_state_vars
       if(associated(csite%tdmax_can_temp             )) deallocate(csite%tdmax_can_temp             )
       if(associated(csite%tdmin_can_temp             )) deallocate(csite%tdmin_can_temp             )
       if(associated(csite%tdmax_can_rhv              )) deallocate(csite%tdmax_can_rhv              )
-      if(associated(csite%tdmin_can_temp             )) deallocate(csite%tdmin_can_temp             )
+      if(associated(csite%tdmin_can_rhv              )) deallocate(csite%tdmin_can_rhv              )
       if(associated(csite%today_sfc_wetness          )) deallocate(csite%today_sfc_wetness          )
       if(associated(csite%today_sfc_mstpot           )) deallocate(csite%today_sfc_mstpot           )
       if(associated(csite%today_can_vels             )) deallocate(csite%today_can_vels             )
@@ -9885,7 +9885,7 @@ module ed_state_vars
          osite%tdmax_can_temp             (opa) = isite%tdmax_can_temp             (ipa)
          osite%tdmin_can_temp             (opa) = isite%tdmin_can_temp             (ipa)
          osite%tdmax_can_rhv              (opa) = isite%tdmax_can_rhv              (ipa)
-         osite%tdmin_can_temp             (opa) = isite%tdmin_can_temp             (ipa)
+         osite%tdmin_can_rhv              (opa) = isite%tdmin_can_rhv              (ipa)
          osite%today_sfc_wetness          (opa) = isite%today_sfc_wetness          (ipa)
          osite%today_sfc_mstpot           (opa) = isite%today_sfc_mstpot           (ipa)
          osite%today_can_vels             (opa) = isite%today_can_vels             (ipa)
@@ -10654,7 +10654,7 @@ module ed_state_vars
       osite%tdmax_can_temp             (1:z) = pack(isite%tdmax_can_temp             ,lmask)
       osite%tdmin_can_temp             (1:z) = pack(isite%tdmin_can_temp             ,lmask)
       osite%tdmax_can_rhv              (1:z) = pack(isite%tdmax_can_rhv              ,lmask)
-      osite%tdmin_can_temp             (1:z) = pack(isite%tdmin_can_temp             ,lmask)
+      osite%tdmin_can_rhv              (1:z) = pack(isite%tdmin_can_rhv              ,lmask)
       osite%today_sfc_wetness          (1:z) = pack(isite%today_sfc_wetness          ,lmask)
       osite%today_sfc_mstpot           (1:z) = pack(isite%today_sfc_mstpot           ,lmask)
       osite%today_can_vels             (1:z) = pack(isite%today_can_vels             ,lmask)
@@ -13473,7 +13473,7 @@ module ed_state_vars
       call vtable_edio_r(ed_nstyp,slxsilt_ref,nvar,igr,0,0                                 &
                         ,var_len,var_len_global,max_ptrs                                   &
                         ,'SLXSILT_REF :98:hist:anal:dail:mont:dcyc:year')
-      call vtable_edio_r(ed_nstyp,slxsand_ref,nvar,igr,1,0                                 &
+      call vtable_edio_r(ed_nstyp,slxsilt_ref,nvar,igr,1,0                                 &
                         ,var_len,var_len_global,max_ptrs                                   &
                         ,'SLXSILT_REF :98:hist:anal:dail:mont:dcyc:year')
 

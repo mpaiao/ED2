@@ -472,7 +472,7 @@ ptcloud.2.patch <<- function( pt.cloud
          ipft.bft   = rep(mypfts         , each = bcoh ) + 0L * bpft
          wdns.bft   = rep(pft$rho[mypfts], each = bcoh ) + 0. * bpft
          sla.bft    = rep(pft$SLA[mypfts], each = bcoh ) + 0. * bpft
-         bleaf.bft  = ( size2bl(dbh=dbh.bft,hgt=hgt.bft,sla=sla.pft,ipft=ipft.bft)
+         bleaf.bft  = ( size2bl(dbh=dbh.bft,hgt=hgt.bft,sla=sla.bft,ipft=ipft.bft)
                       + 0. * bpft
                       )#end bleaf.bft
          bdead.bft  = size2bd(dbh=dbh.bft,hgt=hgt.bft,ipft=ipft.bft)  + 0. * bpft

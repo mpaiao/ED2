@@ -2395,10 +2395,27 @@ do
          #---------------------------------------------------------------------------------#
          ;;
       5)
-         #---------------------------------------------------------------------------------#
-         #     ALS initialisation from EBA data sets.                                      #
-         #---------------------------------------------------------------------------------#
-         thissfilin="${ebainit}/eba_tn_default."
+         #----- isizepft controls actual (0) or intact (1) initialisation. ----------------#
+         case ${isizepft} in
+         0)
+            #----- Actual sampling. -------------------------------------------------------#
+            thissfilin="${ebainit}/eba_actual_default."
+            #------------------------------------------------------------------------------#
+            ;;
+         1)
+            #----- Intact sampling. -------------------------------------------------------#
+            thissfilin="${ebainit}/eba_intact_default."
+            #------------------------------------------------------------------------------#
+            ;;
+         *)
+            #----- Invalid option. Stop the script. ---------------------------------------#
+            echo " Polygon:  ${polyname}"
+            echo " IATA:     ${polyiata}"
+            echo " ISIZEPFT: ${isizepft}"
+            echo "This IATA cannot be used by biomass initialisation with this ISIZEPFT!"
+            exit 57
+            ;;
+         esac
          #---------------------------------------------------------------------------------#
          ;;
       esac

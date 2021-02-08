@@ -129,8 +129,8 @@ polar.periodogram <<- function( X
       s.II = tapply(X=II.keep,INDEX=list(R.cut,TH.cut),FUN=sd  ,na.rm=TRUE)
       ans  = m.II / s.II
    }else if (which.bin %in% "length"){
-      m.II       = tapply(X=II.keep,INDEX=list(R.cut,TH.cut),FUN=mean,na.rm=TRUE)
-      s.II       = tapply(X=II.keep,INDEX=list(R.cut,TH.cut),FUN=sd  ,na.rm=TRUE)
+      m.II       = tapply(X=II.keep,INDEX=R.cut,FUN=mean,na.rm=TRUE)
+      s.II       = tapply(X=II.keep,INDEX=R.cut,FUN=sd  ,na.rm=TRUE)
       ans        = m.II / s.II
       len        = tapply(X=LL.keep,INDEX=R.cut,FUN=mean,na.rm=TRUE)
       names(ans) = len

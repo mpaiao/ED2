@@ -33,8 +33,7 @@ subroutine read_ed22_initial_file
                                   , leaf_turnover_rate          & ! intent(in)
                                   , vm0                         & ! intent(in)
                                   , rd0                         & ! intent(in)
-                                  , negligible_nplant           & ! intent(in)
-                                  , sla                         ! ! intent(in)
+                                  , negligible_nplant           ! ! intent(in)
    use ed_misc_coms        , only : sfilin                      ! ! intent(in)
    use consts_coms         , only : pio180                      & ! intent(in)
                                   , pio4                        & ! intent(in)
@@ -122,9 +121,9 @@ subroutine read_ed22_initial_file
    integer               , dimension(huge_patch)               :: ppatch_id
    integer               , dimension(huge_patch)               :: cohort_count
    integer               , dimension(huge_patch)               :: last_ico
-   integer               , dimension(huge_cohort)              :: ipft
    integer               , dimension(huge_patch)               :: csite_id
-   integer               , dimension(huge_patch)               :: cpatch_id
+   integer               , dimension(huge_cohort)              :: ipft
+   integer               , dimension(huge_cohort)              :: cpatch_id
    integer                                                     :: year
    integer                                                     :: igr
    integer                                                     :: ipy
@@ -230,6 +229,7 @@ subroutine read_ed22_initial_file
    ! cohorts from the closest polygon.                                                     !
    !---------------------------------------------------------------------------------------!
    main_gridloop: do igr = 1,ngrids
+      cgrid => edgrid_g(igr)
 
       !----- Retrieve all files with the specified prefix. --------------------------------!
       call ed_filelist(full_list,sfilin(igr),nflist)
@@ -255,7 +255,6 @@ subroutine read_ed22_initial_file
       !------------------------------------------------------------------------------------!
       !     Loop through every polygon.                                                    !
       !------------------------------------------------------------------------------------!
-      cgrid => edgrid_g(igr)
       main_polyloop: do ipy = 1,cgrid%npolygons
          cpoly => cgrid%polygon(ipy)
          
@@ -396,7 +395,7 @@ subroutine read_ed22_initial_file
          !     Now we loop over all patches and decide whether they should be included or  !
          ! not.                                                                            !
          !---------------------------------------------------------------------------------!
-         gsi     = 0
+         gsi     = 1
          read_sites: do
 
             !------------------------------------------------------------------------------!
@@ -448,7 +447,7 @@ subroutine read_ed22_initial_file
          !      Here we determine the number of sites.  We also make sure that there is at !
          ! least one valid site, otherwise we issue an error.                              !
          !---------------------------------------------------------------------------------!
-         nsites = gsi-1
+         nsites = gsi - 1
          if (nsites <= 0) then
             write (unit=*,fmt='(a,1x,a)')  ' In file:',trim(sss_name)
             write (unit=*,fmt='(a)')       ' Invalid number of sites: ',nsites
@@ -502,7 +501,7 @@ subroutine read_ed22_initial_file
             !     We must check whether we are not exceeding the maximum number of patches !
             ! that we can read.                                                            !
             !------------------------------------------------------------------------------!
-            if (ipa > huge_patch) then
+            if (gpa > huge_patch) then
                write (unit=*,fmt='(a,1x,a)')  ' In file:',trim(pss_name)
                write (unit=*,fmt='(a)')       ' Number of patches is > HUGE_PATCH...'
                write (unit=*,fmt='(a,1x,i7)') ' HUGE_PATCH:',huge_patch
@@ -581,7 +580,6 @@ subroutine read_ed22_initial_file
          !---------------------------------------------------------------------------------!
          open(unit=12,file=trim(css_name),form='formatted',status='old')
          read(unit=12,fmt='(a4)')  cdum
-         gco = 0
          !---------------------------------------------------------------------------------!
 
 
@@ -764,8 +762,9 @@ subroutine read_ed22_initial_file
                !---------------------------------------------------------------------------!
                do gco=aco,ncohorts
                   !----- Flag all cohorts associated with this patch and site. ------------!
-                  if ( (trim(cpname(gco)) == trim( pname(gpa))) .and.                      &
-                       (trim(csname(gco)) == trim(psname(gpa)))       ) then
+                  if ( (trim(cpname(gco)) == trim(pname (gpa))) .and.                      &
+                       (trim(csname(gco)) == trim(psname(gpa))) .and.                     &
+                       (trim(csname(gco)) == trim(sname (gsi)))       ) then
                      cpatch_id(gco) = gpa
                      csite_id (gco) = gsi
 
@@ -884,7 +883,7 @@ subroutine read_ed22_initial_file
 
 
             !------ Dummy variables. ------------------------------------------------------!
-            cpoly%sitenum    (isi) = 1
+            cpoly%sitenum    (isi) = isi
             !------------------------------------------------------------------------------!
 
 
@@ -922,7 +921,8 @@ subroutine read_ed22_initial_file
             isi            =  psite_id(gpa)
             ipa            =  last_ipa(isi) + 1
             ppatch_id(gpa) =  ipa
-            csite          => cpoly%site(isi)
+            csite          => cpoly%site (isi)
+            cpatch         => csite%patch(ipa)
             !------------------------------------------------------------------------------!
 
 
@@ -992,7 +992,7 @@ subroutine read_ed22_initial_file
 
 
             !------ Allocate cohorts for this patch. --------------------------------------!
-            if ( cohort_count(gpa) == 0) then
+            if ( cohort_count(gpa) /= 0) then
                call allocate_patchtype(cpatch,cohort_count(gpa))
             end if
             !------------------------------------------------------------------------------!
@@ -1003,6 +1003,7 @@ subroutine read_ed22_initial_file
             !------------------------------------------------------------------------------!
          end do init_patches
          !---------------------------------------------------------------------------------!
+
 
 
 
@@ -1020,6 +1021,8 @@ subroutine read_ed22_initial_file
             csite  => cpoly%site(isi)
             cpatch => csite%patch(ipa)
             !------------------------------------------------------------------------------!
+
+
 
 
             !------ Copy data from files to cohort. ---------------------------------------!
@@ -1041,11 +1044,16 @@ subroutine read_ed22_initial_file
 
 
             !------------------------------------------------------------------------------!
-            !     Initialise SLA with the look-up table value, this may be updated during  !
-            ! phenology initialisation and trait plasticity, but an initial assignment is  !
-            ! needed to obtain area indices.                                               !
+            !     Initialise SLA, Vm0, Rd0, and  with the look-up table value.  These      !
+            ! variables may be updated during phenology initialisation, or trait           !
+            ! plasticity, but they must have an initial assignment so we can even          !
+            ! calculate the initial area indices and inicial trait values needed for the   !
+            ! trait update.                                                                !
             !------------------------------------------------------------------------------!
-            cpatch%sla(ico) = SLA(ipft(gco))
+            cpatch%sla   (ico) = SLA               (ipft(gco))
+            cpatch%vm_bar(ico) = Vm0               (ipft(gco))
+            cpatch%rd_bar(ico) = Rd0               (ipft(gco))
+            cpatch%llspan(ico) = leaf_turnover_rate(ipft(gco))
             !------------------------------------------------------------------------------!
 
 

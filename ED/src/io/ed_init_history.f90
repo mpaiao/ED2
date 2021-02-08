@@ -49,11 +49,14 @@ module ed_init_history
                                     , slsoc_ref             & ! intent(out)
                                     , slph_ref              & ! intent(out)
                                     , slcec_ref             & ! intent(out)
-                                    , sldbd_ref             ! ! intent(out)
+                                    , sldbd_ref             & ! intent(out)
+                                    , alloc_soilgrid        ! ! sub-routine
       use fusion_fission_coms, only : ff_nhgt               & ! intent(in)
                                     , hgt_class             ! ! intent(in)
-      use phenology_startup  , only : phenology_init        ! ! subroutine
-      use ed_node_coms       , only : mynum                 ! ! intent(in)
+      use phenology_startup  , only : phenology_init        ! ! sub-routine
+      use ed_node_coms       , only : mynum                 & ! intent(in)
+                                    , nnodetot              ! ! intent(in)
+      use ed_init            , only : sfcdata_ed            ! ! sub-routine
       use hdf5
       use hdf5_coms          , only : file_id               & ! intent(inout)
                                     , dset_id               & ! intent(inout)
@@ -103,6 +106,7 @@ module ed_init_history
 
       write (unit=*,fmt='(a)') '-----------------------------------------------------'
       write (unit=*,fmt='(a)') '  Loading Full State (HISTORY)'
+      write (unit=*,fmt='(a)') '-----------------------------------------------------'
 
 
       !----- Open the HDF environment. ----------------------------------------------------!
@@ -158,6 +162,8 @@ module ed_init_history
          !---------------------------------------------------------------------------------!
          select case (ngr)
          case (1)
+            if (mynum == nnodetot) write (unit=*,fmt='(a)')                                &
+               '     [-] Load global dimensions...'
 
             !------------------------------------------------------------------------------!
             !     Retrieve global vector sizes.  This includes the number of soil and snow !
@@ -261,47 +267,65 @@ module ed_init_history
 
             call h5dopen_f(file_id,'SLXSAND_REF', dset_id, hdferr)
             call h5dget_space_f(dset_id, dspace_id, hdferr)
-            call h5dread_f(dset_id, H5T_NATIVE_INTEGER,slxsand_ref,globdims, hdferr)
+            call h5dread_f(dset_id, H5T_NATIVE_REAL,slxsand_ref,globdims, hdferr)
             call h5sclose_f(dspace_id, hdferr)
             call h5dclose_f(dset_id, hdferr)
 
             call h5dopen_f(file_id,'SLXSILT_REF', dset_id, hdferr)
             call h5dget_space_f(dset_id, dspace_id, hdferr)
-            call h5dread_f(dset_id, H5T_NATIVE_INTEGER,slxsilt_ref,globdims, hdferr)
+            call h5dread_f(dset_id, H5T_NATIVE_REAL,slxsilt_ref,globdims, hdferr)
             call h5sclose_f(dspace_id, hdferr)
             call h5dclose_f(dset_id, hdferr)
 
             call h5dopen_f(file_id,'SLXCLAY_REF', dset_id, hdferr)
             call h5dget_space_f(dset_id, dspace_id, hdferr)
-            call h5dread_f(dset_id, H5T_NATIVE_INTEGER,slxclay_ref,globdims, hdferr)
+            call h5dread_f(dset_id, H5T_NATIVE_REAL,slxclay_ref,globdims, hdferr)
             call h5sclose_f(dspace_id, hdferr)
             call h5dclose_f(dset_id, hdferr)
 
             call h5dopen_f(file_id,'SLSOC_REF', dset_id, hdferr)
             call h5dget_space_f(dset_id, dspace_id, hdferr)
-            call h5dread_f(dset_id, H5T_NATIVE_INTEGER,slsoc_ref,globdims, hdferr)
+            call h5dread_f(dset_id, H5T_NATIVE_REAL,slsoc_ref,globdims, hdferr)
             call h5sclose_f(dspace_id, hdferr)
             call h5dclose_f(dset_id, hdferr)
 
             call h5dopen_f(file_id,'SLPH_REF', dset_id, hdferr)
             call h5dget_space_f(dset_id, dspace_id, hdferr)
-            call h5dread_f(dset_id, H5T_NATIVE_INTEGER,slph_ref,globdims, hdferr)
+            call h5dread_f(dset_id, H5T_NATIVE_REAL,slph_ref,globdims, hdferr)
             call h5sclose_f(dspace_id, hdferr)
             call h5dclose_f(dset_id, hdferr)
 
             call h5dopen_f(file_id,'SLCEC_REF', dset_id, hdferr)
             call h5dget_space_f(dset_id, dspace_id, hdferr)
-            call h5dread_f(dset_id, H5T_NATIVE_INTEGER,slcec_ref,globdims, hdferr)
+            call h5dread_f(dset_id, H5T_NATIVE_REAL,slcec_ref,globdims, hdferr)
             call h5sclose_f(dspace_id, hdferr)
             call h5dclose_f(dset_id, hdferr)
 
             call h5dopen_f(file_id,'SLDBD_REF', dset_id, hdferr)
             call h5dget_space_f(dset_id, dspace_id, hdferr)
-            call h5dread_f(dset_id, H5T_NATIVE_INTEGER,sldbd_ref,globdims, hdferr)
+            call h5dread_f(dset_id, H5T_NATIVE_REAL,sldbd_ref,globdims, hdferr)
             call h5sclose_f(dspace_id, hdferr)
             call h5dclose_f(dset_id, hdferr)
-            !---------------------------------------------------------------------------------!
+            !------------------------------------------------------------------------------!
 
+
+
+
+            !------------------------------------------------------------------------------!
+            !      Allocate soil grid arrays.                                              !
+            !------------------------------------------------------------------------------!
+            if (mynum == nnodetot) write (unit=*,fmt='(a)') '     [-] Alloc_Soilgrid...'
+            call alloc_soilgrid()
+            !------------------------------------------------------------------------------!
+
+
+
+            !------------------------------------------------------------------------------!
+            !      Initialise variables that are related to soil layers.                   !
+            !------------------------------------------------------------------------------!
+            if (mynum == nnodetot) write (unit=*,fmt='(a)') '     [-] Sfcdata_ED...'
+            call sfcdata_ed()
+            !------------------------------------------------------------------------------!
          end select
          !---------------------------------------------------------------------------------!
 

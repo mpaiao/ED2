@@ -140,12 +140,14 @@ subroutine ed_driver()
    call init_derived_params_after_xml()
    !---------------------------------------------------------------------------------------!
 
-   !-----Always write out a copy of model parameters in xml--------------------------!
+
+
+   !-----Always write out a copy of model parameters in xml--------------------------------!
    if (mynum == nnodetot) then 
-       write (unit=*,fmt='(a)') ' [+] Write parameters to xml...'      
+       write (unit=*,fmt='(a)') ' [+] Write parameters to xml...'
        call write_ed_xml_config()
    endif
-   !---------------------------------------------------------------------------------!
+   !---------------------------------------------------------------------------------------!
 
 
 
@@ -205,25 +207,6 @@ subroutine ed_driver()
 
       if (nnodetot /= 1 ) call MPI_Barrier(MPI_COMM_WORLD,ierr)
 #endif
-      !------------------------------------------------------------------------------------!
-
-
-
-
-      !------------------------------------------------------------------------------------!
-      !      Allocate soil grid arrays.                                                    !
-      !------------------------------------------------------------------------------------!
-      if (mynum == nnodetot) write (unit=*,fmt='(a)') ' [+] Alloc_Soilgrid...'
-      call alloc_soilgrid()
-      !------------------------------------------------------------------------------------!
-
-
-
-      !------------------------------------------------------------------------------------!
-      !      Initialise variables that are related to soil layers.                         !
-      !------------------------------------------------------------------------------------!
-      if (mynum == nnodetot) write (unit=*,fmt='(a)') ' [+] Sfcdata_ED...'
-      call sfcdata_ed()
       !------------------------------------------------------------------------------------!
 
 
@@ -433,7 +416,7 @@ subroutine ed_driver()
          !---------------------------------------------------------------------------------!
          !     Write a file with the current history time.                                 !
          !---------------------------------------------------------------------------------!
-         if (mynum == 1) then
+         if (mynum == nnodetot) then
             open (unit=18,file=trim(restore_file),form='formatted',status='replace'        &
                  ,action='write')
             write(unit=18,fmt=fmtrest) current_time%year,current_time%month                &

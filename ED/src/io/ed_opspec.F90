@@ -51,6 +51,7 @@ subroutine ed_opspec_grid
                           , ed_reg_lonmin       & ! intent(in)
                           , ed_reg_lonmax       ! ! intent(in)
    use soil_coms   , only : slz                 ! ! intent(in)
+   use ed_misc_coms, only : runtype             ! ! intent(in)
 
    implicit none
    !----- Local variables. ----------------------------------------------------------------!
@@ -285,61 +286,69 @@ subroutine ed_opspec_grid
    end if
 
    !---------------------------------------------------------------------------------------!
-   !      Check whether ED soil layers are reasonable, i.e, enough layers, sorted from the !
-   ! deepest to the shallowest.                                                            !
+   !      The checks on surface and snow settings should be made only for INITIAL runs.    !
    !---------------------------------------------------------------------------------------!
-   if (nzg < 2) then
-      write (reason,'(a,1x,i4,a)')                                                         &
-            'Too few soil layers.  Set it to at least 2. Your nzg is currently set to'     &
-           ,nzg,'...'
-      call opspec_fatal(reason,'opspec_grid')  
-      ifaterr=ifaterr+1        
-   elseif (nzg > nzgmax) then 
-      write (reason,'(2(a,1x,i5,a))')                                                      &
-            'The number of soil layers cannot be greater than ',nzgmax,'.'                 &
-           ,' Your nzg is currently set to',nzg,'.'
-      call opspec_fatal(reason,'opspec_grid') 
-      ifaterr=ifaterr+1 
-   end if
-   do k=1,nzg
-      if (slz(k) > -.001) then
-         write (reason,'(a,1x,i4,1x,a,1x,es14.7,a)')                                       &
-               'Your soil level #',k,'is not enough below ground. It is currently set to'  &
-               ,slz(k),', make it deeper than -0.001...'
+   select case (trim(runtype))
+   case ('INITIAL')
+      !------------------------------------------------------------------------------------!
+      !      Check whether ED soil layers are reasonable, i.e, enough layers, sorted from  !
+      ! the deepest to the shallowest.                                                     !
+      !------------------------------------------------------------------------------------!
+      if (nzg < 2) then
+         write (reason,'(a,1x,i4,a)')                                                      &
+               'Too few soil layers.  Set it to at least 2. Your nzg is currently set to'  &
+              ,nzg,'...'
          call opspec_fatal(reason,'opspec_grid')  
          ifaterr=ifaterr+1        
+      elseif (nzg > nzgmax) then 
+         write (reason,'(2(a,1x,i5,a))')                                                   &
+               'The number of soil layers cannot be greater than ',nzgmax,'.'              &
+              ,' Your nzg is currently set to',nzg,'.'
+         call opspec_fatal(reason,'opspec_grid') 
+         ifaterr=ifaterr+1 
       end if
-   end do
+      do k=1,nzg
+         if (slz(k) > -.001) then
+            write (reason,'(a,1x,i4,1x,a,1x,es14.7,a)')                                    &
+                  'Your soil level #',k,'is too thin. It is currently set to',slz(k)       &
+                 ,', make it deeper than -0.001...'
+            call opspec_fatal(reason,'opspec_grid')  
+            ifaterr=ifaterr+1        
+         end if
+      end do
 
-   do k=1,nzg-1
-      if (slz(k)-slz(k+1) > .001) then
-         write (reason,'(2(a,1x,i4,1x),a,2x,a,1x,es14.7,1x,a,1x,es14.7,a)')                &
-               'Soil layers #',k,'and',k+1,'are not enough apart (i.e. > 0.001).'          &
-              ,'They are currently set as ',slz(k),'and',slz(k+1),'...'
+      do k=1,nzg-1
+         if (slz(k)-slz(k+1) > .001) then
+            write (reason,'(2(a,1x,i4,1x),a,2x,a,1x,es14.7,1x,a,1x,es14.7,a)')             &
+                  'Soil layers #',k,'and',k+1,'are not enough apart (i.e. > 0.001).'       &
+                 ,'They are currently set as ',slz(k),'and',slz(k+1),'...'
+            call opspec_fatal(reason,'opspec_grid')  
+            ifaterr=ifaterr+1        
+         end if
+      end do
+
+
+      !------------------------------------------------------------------------------------!
+      !     Check whether ED snow layers are well set, i.e., the number of soil levels is  !
+      ! within the allowed range.                                                          !
+      !------------------------------------------------------------------------------------!
+      if (nzs < 1) then
+         write (reason,'(a,2x,a,1x,i4,a)')                                                 &
+               'Too few maximum # of snow layers. Set it to at least 1.'                   &
+              ,'Your nzs is currently set to',nzs,'.'
          call opspec_fatal(reason,'opspec_grid')  
          ifaterr=ifaterr+1        
+      elseif (nzs > nzsmax) then 
+         write (reason,'(2(a,1x,i5,a))')                                                   &
+               'The number of snow layers cannot be greater than ',nzsmax,'.'              &
+              ,' Your nzs is currently set to',nzs,'.'
+         call opspec_fatal(reason,'opspec_grid') 
+         ifaterr=ifaterr+1 
       end if
-   end do
+      !------------------------------------------------------------------------------------!
+   end select
+   !---------------------------------------------------------------------------------------!
 
-
-   !---------------------------------------------------------------------------------------!
-   !     Check whether ED snow layers are well set, i.e., the number of soil levels is     !
-   ! within the allowed range.                                                             !
-   !---------------------------------------------------------------------------------------!
-   if (nzs < 1) then
-      write (reason,'(a,2x,a,1x,i4,a)')                                                    &
-            'Too few maximum # of snow layers. Set it to at least 1.'                      &
-           ,'Your nzs is currently set to',nzs,'.'
-      call opspec_fatal(reason,'opspec_grid')  
-      ifaterr=ifaterr+1        
-   elseif (nzs > nzsmax) then 
-      write (reason,'(2(a,1x,i5,a))')                                                      &
-            'The number of snow layers cannot be greater than ',nzsmax,'.'                 &
-           ,' Your nzs is currently set to',nzs,'.'
-      call opspec_fatal(reason,'opspec_grid') 
-      ifaterr=ifaterr+1 
-   end if
-   !---------------------------------------------------------------------------------------!
 
 
    !----- Stop the run in case there is any fatal error. ----------------------------------!
