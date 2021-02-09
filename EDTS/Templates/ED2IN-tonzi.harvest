@@ -588,6 +588,12 @@ $ED_NL
    !  PLANTATION_FILE  -- plantation fraction file.  In case you don't have such a file or !
    !                      you do not want to use it, you must leave this variable empty:   !
    !                      (NL%PLANTATION_FILE = ''                                         !
+   !  SEI_DATABASE     -- Socio-economic data base files, used to drive anthropogenic      !
+   !                      ignitions when using HESFIRE/SPITFIRE model (INCLUDE_FIRE=4).    !
+   !                      Ignored otherwise.                                               !
+   !  FLASH_DATABASE   -- Lightning flash climate data base files, used to drive natural   !
+   !                      ignitions when using HESFIRE/SPITFIRE model (INCLUDE_FIRE=4).    !
+   !                      Ignored otherwise.                                               !
    !  THSUMS_DATABASE  -- input directory with dataset to initialise chilling degrees and  !
    !                      growing degree days, which is used to drive the cold-deciduous   !
    !                      phenology (you must always provide this, even when your PFTs are !
@@ -603,6 +609,8 @@ $ED_NL
    NL%SLCOL_DATABASE    = '/mypath/soil_data/colour/LC2007JGRB/LC2007JGRB_'
    NL%LU_DATABASE	    = ''
    NL%PLANTATION_FILE   = ''
+   NL%SEI_DATABASE      = ''
+   NL%FLASH_DATABASE    = ''
    NL%THSUMS_DATABASE   = 'common/ed_inputs/'
    NL%ED_MET_DRIVER_DB  = 'tonzi/met/ED_MET_DRIVER_HEADER'
    NL%OBSTIME_DB        = 'tonzi/Tonzi.lat38.432lon-120.966.time'
@@ -729,6 +737,19 @@ $ED_NL
    !                           leaf temp, forward Euler for else, under development).      !
    !---------------------------------------------------------------------------------------!
    NL%INTEGRATION_SCHEME = 1
+   !---------------------------------------------------------------------------------------!
+
+
+
+
+   !---------------------------------------------------------------------------------------!
+   ! NSUB_EULER -- The number of sub-steps in case we are running forward Euler.  The      !
+   !               maximum time step will then be DTLSM / NSUB_EULER.  This is needed to   !
+   !               make sure we don't take too long steps with Euler, as we cannot         !
+   !               estimate errors using first-order schemes.  This number is ignored      !
+   !               except when INTEGRATION_SCHEME is 0.                                    !
+   !---------------------------------------------------------------------------------------!
+   NL%NSUB_EULER = 40
    !---------------------------------------------------------------------------------------!
 
 
@@ -985,6 +1006,19 @@ $ED_NL
    NL%ORIENT_GRASS   =  0.000
    NL%CLUMP_TREE     =  0.800
    NL%CLUMP_GRASS    =  1.000
+   !---------------------------------------------------------------------------------------!
+
+
+
+
+   !---------------------------------------------------------------------------------------!
+   ! IGOUTPUT -- In case IHRZRAD is not zero, should the model write the patch table and   !
+   !             gap realisation files? (0 -- no; 1 -- yes).  Note these files are still   !
+   !             in text files so they may take considerable disk space.                   !
+   ! GFILOUT  -- Prefix for the output patch table/gap files.                              !
+   !---------------------------------------------------------------------------------------!
+   NL%IGOUTPUT = 0
+   NL%GFILOUT  = '/mypath/generic-prefix'
    !---------------------------------------------------------------------------------------!
 
 
@@ -1327,7 +1361,22 @@ $ED_NL
    !                   0.  no anthropogenic disturbance.                                   !
    !                   1.  use anthropogenic disturbance dataset.                          !
    !---------------------------------------------------------------------------------------!
-   NL%IANTH_DISTURB   = 0
+   NL%IANTH_DISTURB       = 0
+   NL%SL_SCALE            = 1
+   NL%SL_SCALE            = 0
+   NL%SL_YR_FIRST         = 1992
+   NL%SL_NYRS             = 50
+   NL%SL_PFT              = 2,3,4
+   NL%SL_PROB_HARVEST     = 1.0,1.0,1.0
+   NL%SL_MINDBH_HARVEST   = 50.,50.,50.
+   NL%SL_BIOMASS_HARVEST  = 0
+   NL%SL_SKID_REL_AREA    = 1
+   NL%SL_SKID_S_GTHARV    = 1
+   NL%SL_SKID_S_LTHARV    = 0.6
+   NL%SL_FELLING_S_LTHARV = 0.35
+   NL%CL_FSEEDS_HARVEST   = 0.75
+   NL%CL_FSTORAGE_HARVEST = 0.00
+   NL%CL_FLEAF_HARVEST    = 0.00
    !---------------------------------------------------------------------------------------!
 
 

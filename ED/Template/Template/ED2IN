@@ -675,6 +675,12 @@ $ED_NL
    !                      file.  This is used only when IANTH_DISTURB is set to 1 and      !
    !                      the user wants to simulate forest plantations.  Otherwise, leave !
    !                      it empty (PLANTATION_FILE='')                                    !
+   !  SEI_DATABASE     -- Socio-economic data base files, used to drive anthropogenic      !
+   !                      ignitions when using HESFIRE/SPITFIRE model (INCLUDE_FIRE=4).    !
+   !                      Ignored otherwise.                                               !
+   !  FLASH_DATABASE   -- Lightning flash climate data base files, used to drive natural   !
+   !                      ignitions when using HESFIRE/SPITFIRE model (INCLUDE_FIRE=4).    !
+   !                      Ignored otherwise.                                               !
    !  THSUMS_DATABASE  -- input directory with dataset to initialise chilling-degree and   !
    !                      growing-degree days, which is used to drive the cold-deciduous   !
    !                      phenology (you must always provide this, even when your PFTs are !
@@ -694,6 +700,8 @@ $ED_NL
    NL%SLCOL_DATABASE    = 'myinpmain/soil_data/colour/LC2007JGRB/LC2007JGRB_'
    NL%LU_DATABASE       = 'myludatabase'
    NL%PLANTATION_FILE   = ''
+   NL%SEI_DATABASE      = ''
+   NL%FLASH_DATABASE    = ''
    NL%THSUMS_DATABASE   = 'myinpmain/thermal_sums/'
    NL%ED_MET_DRIVER_DB  = 'mymetdriverdb'
    NL%OBSTIME_DB        = '' !Reference file: /ED/run/obstime_template.time

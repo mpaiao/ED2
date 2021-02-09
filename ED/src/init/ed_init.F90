@@ -703,11 +703,16 @@ module ed_init
       end do
 
 
+
+      !------------------------------------------------------------------------------------!
+      !       Generate the look-up table for soil properties.                              !
+      !------------------------------------------------------------------------------------!
+      call ed_gen_soil_table()
+      !------------------------------------------------------------------------------------!
+
+
       !----- Find layer-dependent hydraulic conductivity. ---------------------------------!
       is_hydr_decay = (ipercol == 2) .or. (soil_hydro_scheme == 2)
-      if (is_hydr_decay) then
-      else
-      end if
       do nnn = 1,ed_nstyp
          do k = 0,nzg
             if (is_hydr_decay) then
@@ -792,14 +797,6 @@ module ed_init
          if (slz(k_rh_active) < rh_active_depth) exit k_rh_loop
       end do k_rh_loop
       k_rh_active = k_rh_active + 1
-      !------------------------------------------------------------------------------------!
-
-
-
-      !------------------------------------------------------------------------------------!
-      !       Generate the look-up table for soil properties.                              !
-      !------------------------------------------------------------------------------------!
-      call ed_gen_soil_table()
       !------------------------------------------------------------------------------------!
 
 
