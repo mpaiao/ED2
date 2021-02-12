@@ -2263,165 +2263,182 @@ do
       date=${dateh}
       time=${timeh}
       thissfilin=${fullygrown}
-   elif [[ ${runt} == "RESTORE" ]] && [[ ${initmode} -eq 5 ]]
+   elif [[ ${runt} == "RESTORE" ]]
    then
-      if [[ ! -s ${restart} ]]
-      then
-         echo " Directory restart does not exist!"
-         echo " Change the variable restart at the beginning of the script"
-         exit 44
-      else
-         runt="RESTORE"
-         thissfilin=${restart}
-      fi
-   elif [[ ${runt} == "RESTORE" ]] && [ ${initmode} -eq 6 ]
-   then
-      thissfilin=${fullygrown}
+      case ${initmode} in
+      5|7)
+         #---------------------------------------------------------------------------------#
+         #     Initialise ED2 with hdf5 files, which should be in directory restart.       #
+         #---------------------------------------------------------------------------------#
+         if [[ ! -s ${restart} ]]
+         then
+            echo " Directory restart does not exist!"
+            echo " Change the variable restart at the beginning of the script"
+            exit 44
+         else
+            runt="RESTORE"
+            thissfilin=${restart}
+         fi
+         #---------------------------------------------------------------------------------#
+         ;;
 
-
-
-      #------------------------------------------------------------------------------------#
-      #    Find the biometric files.  This has been checked in spawn_poly.sh so they are   #
-      # correct.  Add a dummy name in case this is not supposed to be a biomass            #
-      # initialisation run.                                                                #
-      #------------------------------------------------------------------------------------#
-      case ${biotype} in
-      0)
-         #----- isizepft controls everything, and iage is ignored. ------------------------#
-         case ${isizepft} in
+      1|2|3|6|8)
+         #---------------------------------------------------------------------------------#
+         #    Find the biometric files.  This has been checked in spawn_poly.sh so they    #
+         # are correct.  Add a dummy name in case this is not supposed to be a biomass     #
+         # initialisation run.                                                             #
+         #---------------------------------------------------------------------------------#
+         case ${biotype} in
          0)
-            #----- Frankeinstein's under storey. ------------------------------------------#
-            thissfilin="${bioinit}/${polyiata}_default."
-            ;;
-         1)
-            #----- No under storey. -------------------------------------------------------#
-            thissfilin="${bioinit}/${polyiata}_nounder."
-            ;;
-         2)
-            #----- ALS initialisation. ----------------------------------------------------#
-            thissfilin="${bioinit}/${polyiata}_alsinit."
-            ;;
-         *)
-            #----- Invalid option. Stop the script. ---------------------------------------#
-            echo " Polygon:  ${polyname}"
-            echo " IATA:     ${polyiata}"
-            echo " ISIZEPFT: ${isizepft}"
-            echo "This IATA cannot be used by biomass initialisation with this ISIZEPFT!"
-            exit 57
-            ;;
-         esac
-         #---------------------------------------------------------------------------------#
-         ;;
-
-      1)
-         #---------------------------------------------------------------------------------#
-         #    'isizepft' controls how many PFTs to use.                                    #
-         #---------------------------------------------------------------------------------#
-         case ${isizepft} in 
-         0|5)
-            pftname="pft05"
-            ;;
-         2)
-            pftname="pft02"
-            ;;
-         esac
-         #---------------------------------------------------------------------------------#
-
-         #---------------------------------------------------------------------------------#
-         #     'iage' controls how many patches to use.                                    #
-         #---------------------------------------------------------------------------------#
-         case ${iage} in
-         1)
-            agename="age01"
-            ;;
-         *)
-            agename="age00"
-            ;;
-         esac
-         #---------------------------------------------------------------------------------#
-
-
-
-
-         #---------------------------------------------------------------------------------#
-         #      Check whether the site has the PFT and age structure.                      #
-         #---------------------------------------------------------------------------------#
-         case ${polyiata} in
-         hvd|s77|fns|cau|and|par|tap|dcm)
-            thissfilin="${bioinit}/${polyiata}_default."
-            ;;
-         cax|s67|s83|m34|gyf|pdg|rja|pnz|ban)
-            thissfilin="${bioinit}/${polyiata}_${pftname}+${agename}."
-            ;;
-         *)
-            echo " Polygon:  ${polyname}"
-            echo " IATA:     ${polyiata}"
-            echo " IAGE:     ${iage}"
-            echo " ISIZEPFT: ${isizepft}"
-            echo "This IATA cannot be used by biomass initialisation with this ISIZEPFT!"
-            exit 59
-            ;;
-         esac
-         #---------------------------------------------------------------------------------#
-         ;;
-      2)
-         #---------------------------------------------------------------------------------#
-         #     ALS initialisation. ISIZEPFT has disturbance history information.           #
-         #---------------------------------------------------------------------------------#
-         case ${polyiata} in
-         l[0-5][0-3])
-            thissfilin="${alsinit}/${polyiata}."
-            ;;
-         *)
-            thissfilin="${alsinit}/${polyiata}_${isizepft}."
-            ;;
-         esac
-         #---------------------------------------------------------------------------------#
-         ;;
-      3)
-         #---------------------------------------------------------------------------------#
-         #     ALS initialisation using intensity. ISIZEPFT has disturbance history        #
-         # information.                                                                    #
-         #---------------------------------------------------------------------------------#
-         thissfilin="${intinit}/${polyiata}_${isizepft}."
-         #---------------------------------------------------------------------------------#
-         ;;
-      4)
-         #---------------------------------------------------------------------------------#
-         #     ALS initialisation using the lookup table. ISIZEPFT has disturbance history #
-         # information.                                                                    #
-         #---------------------------------------------------------------------------------#
-         thissfilin="${lutinit}/${polyiata}_${isizepft}."
-         #---------------------------------------------------------------------------------#
-         ;;
-      5)
-         #----- isizepft controls actual (0) or intact (1) initialisation. ----------------#
-         case ${isizepft} in
-         0)
-            #----- Actual sampling. -------------------------------------------------------#
-            thissfilin="${ebainit}/eba_actual_default."
+            #----- isizepft controls everything, and iage is ignored. ---------------------#
+            case ${isizepft} in
+            0)
+               #----- Frankeinstein's under storey. ---------------------------------------#
+               thissfilin="${bioinit}/${polyiata}_default."
+               ;;
+            1)
+               #----- No under storey. ----------------------------------------------------#
+               thissfilin="${bioinit}/${polyiata}_nounder."
+               ;;
+            2)
+               #----- ALS initialisation. -------------------------------------------------#
+               thissfilin="${bioinit}/${polyiata}_alsinit."
+               ;;
+            *)
+               #----- Invalid option. Stop the script. ------------------------------------#
+               echo " Polygon:  ${polyname}"
+               echo " IATA:     ${polyiata}"
+               echo " ISIZEPFT: ${isizepft}"
+               echo " INITMODE: ${initmode}"
+               echo "This IATA cannot be initiealised with these ISIZEPFT and INITMODE!"
+               exit 57
+               ;;
+            esac
             #------------------------------------------------------------------------------#
             ;;
+
          1)
-            #----- Intact sampling. -------------------------------------------------------#
-            thissfilin="${ebainit}/eba_intact_default."
+            #------------------------------------------------------------------------------#
+            #    'isizepft' controls how many PFTs to use.                                 #
+            #------------------------------------------------------------------------------#
+            case ${isizepft} in 
+            0|5)
+               pftname="pft05"
+               ;;
+            2)
+               pftname="pft02"
+               ;;
+            esac
+            #------------------------------------------------------------------------------#
+
+            #------------------------------------------------------------------------------#
+            #     'iage' controls how many patches to use.                                 #
+            #------------------------------------------------------------------------------#
+            case ${iage} in
+            1)
+               agename="age01"
+               ;;
+            *)
+               agename="age00"
+               ;;
+            esac
+            #------------------------------------------------------------------------------#
+
+
+
+
+            #------------------------------------------------------------------------------#
+            #      Check whether the site has the PFT and age structure.                   #
+            #------------------------------------------------------------------------------#
+            case ${polyiata} in
+            hvd|s77|fns|cau|and|par|tap|dcm)
+               thissfilin="${bioinit}/${polyiata}_default."
+               ;;
+            cax|s67|s83|m34|gyf|pdg|rja|pnz|ban)
+               thissfilin="${bioinit}/${polyiata}_${pftname}+${agename}."
+               ;;
+            *)
+               echo " Polygon:  ${polyname}"
+               echo " IATA:     ${polyiata}"
+               echo " IAGE:     ${iage}"
+               echo " ISIZEPFT: ${isizepft}"
+               echo " INITMODE: ${initmode}"
+               echo "This IATA cannot be initiealised with these settings!"
+               exit 59
+               ;;
+            esac
             #------------------------------------------------------------------------------#
             ;;
-         *)
-            #----- Invalid option. Stop the script. ---------------------------------------#
-            echo " Polygon:  ${polyname}"
-            echo " IATA:     ${polyiata}"
-            echo " ISIZEPFT: ${isizepft}"
-            echo "This IATA cannot be used by biomass initialisation with this ISIZEPFT!"
-            exit 57
+         2)
+            #------------------------------------------------------------------------------#
+            #     ALS initialisation. ISIZEPFT has disturbance history information.        #
+            #------------------------------------------------------------------------------#
+            case ${polyiata} in
+            l[0-5][0-3])
+               thissfilin="${alsinit}/${polyiata}."
+               ;;
+            *)
+               thissfilin="${alsinit}/${polyiata}_${isizepft}."
+               ;;
+            esac
+            #------------------------------------------------------------------------------#
+            ;;
+         3)
+            #------------------------------------------------------------------------------#
+            #     ALS initialisation using intensity. ISIZEPFT has disturbance history     #
+            # information.                                                                 #
+            #------------------------------------------------------------------------------#
+            thissfilin="${intinit}/${polyiata}_${isizepft}."
+            #------------------------------------------------------------------------------#
+            ;;
+         4)
+            #------------------------------------------------------------------------------#
+            #     ALS initialisation using the lookup table. ISIZEPFT has disturbance      #
+            # history information.                                                         #
+            #------------------------------------------------------------------------------#
+            thissfilin="${lutinit}/${polyiata}_${isizepft}."
+            #------------------------------------------------------------------------------#
+            ;;
+         5)
+            #----- isizepft controls actual (0) or intact (1) initialisation. -------------#
+            case ${isizepft} in
+            0)
+               #----- Actual sampling. ----------------------------------------------------#
+               thissfilin="${ebainit}/eba_actual_default."
+               #---------------------------------------------------------------------------#
+               ;;
+            1)
+               #----- Intact sampling. ----------------------------------------------------#
+               thissfilin="${ebainit}/eba_intact_default."
+               #---------------------------------------------------------------------------#
+               ;;
+            *)
+               #----- Invalid option. Stop the script. ------------------------------------#
+               echo " Polygon:  ${polyname}"
+               echo " IATA:     ${polyiata}"
+               echo " ISIZEPFT: ${isizepft}"
+               echo " INITMODE: ${initmode}"
+               echo "This IATA cannot be initiealised with these settings!"
+               exit 57
+               ;;
+            esac
+            #------------------------------------------------------------------------------#
             ;;
          esac
          #---------------------------------------------------------------------------------#
          ;;
+      *)
+         #----- No initial file needed; set the history file. -----------------------------#
+         thissfilin=${here}/${polyname}/histo/${polyname}
+         #---------------------------------------------------------------------------------#
+         ;;
+         #---------------------------------------------------------------------------------#
       esac
       #------------------------------------------------------------------------------------#
    else
+      #----- Set the history file. --------------------------------------------------------#
       thissfilin=${here}/${polyname}/histo/${polyname}
+      #------------------------------------------------------------------------------------#
    fi
    #---------------------------------------------------------------------------------------#
 

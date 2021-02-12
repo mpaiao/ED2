@@ -90,7 +90,7 @@ subroutine ed_model()
                                   , initialize_misc_stepvars    ! ! sub-routine
    use stable_cohorts      , only : flag_stable_cohorts         ! ! sub-routine
    use update_derived_utils, only : update_model_time_dm        ! ! sub-routine
-   use budget_utils        , only : ed_init_budget              ! ! intent(in)
+   use budget_utils        , only : ed_init_budget              ! ! sub-routine
    use vegetation_dynamics , only : veg_dynamics_driver         ! ! sub-routine
    use ed_type_init        , only : ed_init_viable              ! ! sub-routine
    use soil_respiration    , only : zero_litter_inputs          ! ! sub-routine

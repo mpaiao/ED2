@@ -121,9 +121,9 @@ subroutine read_ed22_initial_file
    integer               , dimension(huge_patch)               :: ppatch_id
    integer               , dimension(huge_patch)               :: cohort_count
    integer               , dimension(huge_patch)               :: last_ico
-   integer               , dimension(huge_patch)               :: csite_id
    integer               , dimension(huge_cohort)              :: ipft
    integer               , dimension(huge_cohort)              :: cpatch_id
+   integer               , dimension(huge_cohort)              :: csite_id
    integer                                                     :: year
    integer                                                     :: igr
    integer                                                     :: ipy
@@ -763,7 +763,7 @@ subroutine read_ed22_initial_file
                do gco=aco,ncohorts
                   !----- Flag all cohorts associated with this patch and site. ------------!
                   if ( (trim(cpname(gco)) == trim(pname (gpa))) .and.                      &
-                       (trim(csname(gco)) == trim(psname(gpa))) .and.                     &
+                       (trim(csname(gco)) == trim(psname(gpa))) .and.                      &
                        (trim(csname(gco)) == trim(sname (gsi)))       ) then
                      cpatch_id(gco) = gpa
                      csite_id (gco) = gsi
