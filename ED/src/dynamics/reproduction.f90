@@ -178,6 +178,7 @@ module reproduction
 
          !----- The big loops start here. -------------------------------------------------!
          polyloop: do ipy = 1,cgrid%npolygons
+            cpoly => cgrid%polygon(ipy)
 
             !------------------------------------------------------------------------------!
             !     Check whether this is late spring/early summer.  This is needed for      !
@@ -186,8 +187,14 @@ module reproduction
             !------------------------------------------------------------------------------!
             late_spring = (cgrid%lat(ipy) >= 0.0 .and. month == 6) .or.                    &
                           (cgrid%lat(ipy) < 0.0 .and. month == 12)
+            !------------------------------------------------------------------------------!
 
-            cpoly => cgrid%polygon(ipy)
+
+
+
+            !------------------------------------------------------------------------------!
+            !      Sort cohorts across all sites and patches.                              !
+            !------------------------------------------------------------------------------!
             siteloop_sort: do isi = 1,cpoly%nsites
                csite => cpoly%site(isi)
 
@@ -198,7 +205,11 @@ module reproduction
                   cpatch => csite%patch(ipa)
                   call sort_cohorts(cpatch)
                end do patchloop_sort
+               !---------------------------------------------------------------------------!
             end do siteloop_sort
+            !------------------------------------------------------------------------------!
+
+
 
             !------- Update the repro arrays. ---------------------------------------------!
             call seed_dispersal(cpoly,late_spring)
@@ -932,6 +943,7 @@ module reproduction
                                     , seed_rain             & ! intent(in)
                                     , one_plant_c           & ! intent(in)
                                     , include_pft           & ! intent(in)
+                                    , include_pft_pt        & ! intent(in)
                                     , include_pft_ag        & ! intent(in)
                                     , include_pft_fp        ! ! intent(in)
       use ed_misc_coms       , only : ibigleaf              & ! intent(in)
@@ -1015,9 +1027,9 @@ module reproduction
                   !------------------------------------------------------------------------!
                   select case (csite%dist_type(ipa))
                   case (1)
-                     !----- Agriculture (cropland or pasture). ----------------------------!
+                     !----- Pasture. ------------------------------------------------------!
                      allow_pft =                                                           &
-                        include_pft_ag(ipft)                                      .and.    &
+                        include_pft_pt(ipft)                                      .and.    &
                         cpoly%min_monthly_temp(isi) >= plant_min_temp(ipft) - 5.0 .and.    &
                         repro_scheme                /= 0
                      !---------------------------------------------------------------------!
@@ -1026,6 +1038,14 @@ module reproduction
                      !----- Forest plantation. --------------------------------------------!
                      allow_pft =                                                           &
                         include_pft_fp(ipft)                                      .and.    &
+                        cpoly%min_monthly_temp(isi) >= plant_min_temp(ipft) - 5.0 .and.    &
+                        repro_scheme                /= 0
+                     !---------------------------------------------------------------------!
+
+                  case (8)
+                     !----- Cropland. -----------------------------------------------------!
+                     allow_pft =                                                           &
+                        include_pft_ag(ipft)                                      .and.    &
                         cpoly%min_monthly_temp(isi) >= plant_min_temp(ipft) - 5.0 .and.    &
                         repro_scheme                /= 0
                      !---------------------------------------------------------------------!
@@ -1262,8 +1282,8 @@ module reproduction
                   ! of them will land again in this patch, and we correct for this further !
                   ! down.                                                                  !
                   !------------------------------------------------------------------------!
-                  csite%cbudget_seedrain(donpa) = csite%cbudget_seedrain(donpa)            &
-                                                - bseed_maygo * frqsumi
+                  donsite%cbudget_seedrain(donpa) = donsite%cbudget_seedrain(donpa)        &
+                                                  - bseed_maygo * frqsumi
                   !------------------------------------------------------------------------!
 
 
@@ -1290,7 +1310,7 @@ module reproduction
                   ! (4) RPY = DPA * AD * AR           (1->3)                               !
                   ! (5) RPA = DPA * AD                (4->2, regardless of the patch)      !
                   !------------------------------------------------------------------------!
-                  bseed_xpatch = bseed_maygo * csite%area(donpa) * cpoly%area(donsi)
+                  bseed_xpatch = bseed_maygo * donsite%area(donpa) * cpoly%area(donsi)
                   !------------------------------------------------------------------------!
 
 
@@ -1319,8 +1339,8 @@ module reproduction
                         ! subtracted all the non-local dispersal outside the receptor site !
                         ! loop.                                                            !
                         !------------------------------------------------------------------!
-                        csite%cbudget_seedrain(recpa) = csite%cbudget_seedrain(recpa)      &
-                                                      + bseed_xpatch * frqsumi
+                        recsite%cbudget_seedrain(recpa) = recsite%cbudget_seedrain(recpa)  &
+                                                        + bseed_xpatch * frqsumi
                         !------------------------------------------------------------------!
 
 
