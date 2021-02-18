@@ -70,8 +70,6 @@ on_the_fly=false  # In case submit=true and this is the CANNON cluster, on_the_f
                   #   directories are jobs to be submitted as the directories are ready.
 #----- Settings for this group of polygons. -----------------------------------------------#
 global_queue="shared,huce_intel" # Queue
-sim_memory=0                     # Memory per simulation. Zero uses queue's default
-n_cpt=12                         # Number of cpus per task (Zero uses queue's maximum)
 partial=false                    # Partial submission (false will ignore polya and npartial
                                  #    and send all polygons.
 polya=21                         # First polygon to submit
@@ -79,7 +77,20 @@ npartial=300                     # Maximum number of polygons to include in this
                                  #    (actual number will be adjusted for total number of 
                                  #     polygons if needed be).
 dttask=2                         # Time to wait between task submission
-runtime="00:00:00"               # Requested runtime.  Zero uses the queue's maximum.
+init_only=false                  # Run model initialisation only?
+                                 #    This can be useful when the initialisation step
+                                 #    demands much more memory than the time steps (e.g.,
+                                 #    when using lidar data to initialisate the model).
+if ${init_only}
+then
+   sim_memory=64000              # Memory per simulation. Zero uses queue's default
+   n_cpt=1                       # Number of cpus per task (Zero uses queue's maximum)
+   runtime="01-00:00:00"         # Requested runtime.  Zero uses the queue's maximum.
+else
+   sim_memory=3072               # Memory per simulation. Zero uses queue's default
+   n_cpt=12                      # Number of cpus per task (Zero uses queue's maximum)
+   runtime="07-00:00:00"         # Requested runtime.  Zero uses the queue's maximum.
+fi
 #------------------------------------------------------------------------------------------#
 
 #==========================================================================================#
@@ -873,6 +884,20 @@ do
    skidsmall=$(echo ${oi}    | awk '{print $120}')
    skidlarge=$(echo ${oi}    | awk '{print $121}')
    fellingsmall=$(echo ${oi} | awk '{print $122}')
+   #---------------------------------------------------------------------------------------#
+
+
+
+   #---------------------------------------------------------------------------------------#
+   #      In case this is an "init_only" run, impose final time to be the initial time.    #
+   #---------------------------------------------------------------------------------------#
+   if ${init_only}
+   then
+      yearz=${yeara}
+      monthz=${montha}
+      datez=${datea}
+      timez=${timea}
+   fi
    #---------------------------------------------------------------------------------------#
 
 

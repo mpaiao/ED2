@@ -1691,6 +1691,11 @@ simul.description <<- function(ici,testpoi,iata=TRUE,max.char=66){
          param  = c("lon","lat","include.fire")
          na     = c(   11,   21,            33)
          nz     = c(   16,   26,            34)
+      }else if(lenici == 46 && grepl(pattern="ifire",x=ici)){
+         nparms = 4
+         param  = c("lon","lat","include.fire","sm.fire")
+         na     = c(   11,   21,            33,       42)
+         nz     = c(   16,   26,            34,       46)
       }#end if
    }#end if
    #---------------------------------------------------------------------------------------#
@@ -1778,6 +1783,13 @@ if (file.exists(file.path(srcdir,"amzbr_poi.csv"))){
                        )#end read.csv
    poilist <<- merge(poilist,amzlist,all=TRUE)
 }#end if (file.exists(file.path(srcdir,"amzbr_poi.csv")))
+if (file.exists(file.path(srcdir,"amzif_poi.csv"))){
+   amzlist <<- read.csv( file             = file.path(srcdir,"amzif_poi.csv")
+                       , header           = TRUE
+                       , stringsAsFactors = FALSE
+                       )#end read.csv
+   poilist <<- merge(poilist,amzlist,all=TRUE)
+}#end if (file.exists(file.path(srcdir,"amzif_poi.csv")))
 npoi    <<- nrow(poilist)
 #==========================================================================================#
 #==========================================================================================#

@@ -1639,9 +1639,9 @@ end do
       ifaterr = ifaterr +1
    end if
 
-   if (isoilbc < 0 .or. isoilbc > 3) then
+   if (isoilbc < -1 .or. isoilbc > 3) then
       write (reason,fmt='(a,1x,i4,a)')                                                     &
-        'Invalid ISOILBC, it must be between 0 and 3.  Yours is set to',isoilbc,'...'
+        'Invalid ISOILBC, it must be between -1 and 3.  Yours is set to',isoilbc,'...'
       call opspec_fatal(reason,'opspec_misc')
       ifaterr = ifaterr +1
    else if(isoilbc == 2 .and. (sldrain < 0. .or. sldrain > 90.)) then

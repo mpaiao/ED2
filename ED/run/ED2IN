@@ -745,6 +745,9 @@ $ED_NL
    !---------------------------------------------------------------------------------------!
    ! ISOILBC -- This controls the soil moisture boundary condition at the bottom.  Choose  !
    !            the option according to the site characteristics.                          !
+   !           -1.  Depth-dependent boundary condition.  If soil depth to bedrock is at or !
+   !                below SLZ(1), assume free drainage (see option 1), otherwise assume    !
+   !                flat bedrock (see option 0).                                           !
    !            0.  Flat bedrock.  Flux from the bottom of the bottommost layer is zero.   !
    !            1.  Gravitational flow (free drainage).  The flux from the bottom of the   !
    !                bottommost layer is due to gradient of height only.                    !

@@ -1791,7 +1791,7 @@ module ed_type_init
             !------------------------------------------------------------------------------!
             cpoly%fire_wmass_threshold(isi) = fire_dryness_threshold * wdns
             !------------------------------------------------------------------------------!
-         case (2)
+         case (2,3)
             !------------------------------------------------------------------------------!
             !     Find the minimum amount of water in kg/m2 that the soil must have to     !
             ! avoid fires, using the soil properties and the soil moisture fraction        !

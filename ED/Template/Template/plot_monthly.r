@@ -2715,13 +2715,13 @@ for (place in myplaces){
 
 
          #----- Append the first hour of the day at the end. ------------------------------#
-         ytheme = abind(ytheme,ytheme[,1,],along=2)
+         ytheme = abind(ytheme,ytheme[,1,,drop=FALSE],along=2)
          #---------------------------------------------------------------------------------#
 
 
 
          #------ Find limits. -------------------------------------------------------------#
-         xlimit    = range(thisday)
+         xlimit = range(thisday)
          ylimit = pretty.xylim(u=c(ytheme),fracexp=0.0,is.log=FALSE)
          #---------------------------------------------------------------------------------#
 

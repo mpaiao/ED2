@@ -42,13 +42,20 @@ module plant_hydro
    !>
    !> \author Xiangtao Xu, 30 Jan. 2018
    !---------------------------------------------------------------------------------------!
-   subroutine plant_hydro_driver(csite,ipa,ntext_soil)
+   subroutine plant_hydro_driver(csite,ipa,lsl,ntext_soil,site_isoilbc)
       use ed_state_vars        , only : sitetype               & ! structure
                                       , patchtype              ! ! structure
       use ed_misc_coms         , only : dtlsm                  & ! intent(in)
                                       , dtlsm_o_frqsum         & ! intent(in)
                                       , current_time           ! ! intent(in)
       use soil_coms            , only : soil                   & ! intent(in)
+                                      , slzt                   & ! intent(in)
+                                      , dslz                   & ! intent(in)
+                                      , dslzt                  & ! intent(in)
+                                      , dslzti                 & ! intent(in)
+                                      , dslzi                  & ! intent(in)
+                                      , sin_sldrain            & ! intent(in)
+                                      , slcons1                & ! intent(in)
                                       , matric_potential       & ! function
                                       , hydr_conduct           ! ! function
       use grid_coms            , only : nzg                    ! ! intent(in)
@@ -66,17 +73,23 @@ module plant_hydro
       !----- Arguments --------------------------------------------------------------------!
       type(sitetype)        , target      :: csite
       integer               , intent(in)  :: ipa
+      integer               , intent(in)  :: lsl
       integer,dimension(nzg), intent(in)  :: ntext_soil
+      integer               , intent(in)  :: site_isoilbc
       !----- Local Vars  ------------------------------------------------------------------!
       type(patchtype)       , pointer     :: cpatch      !< patch strcture
       real                                :: swater_min  !< Min. soil moisture for condct.
-      real                                :: swater_max  !< Max. soil moisture for condct.
+      real                                :: swater_try  !< Projected soil water.
       real                                :: swater_use  !< soil moisture
+      real                                :: avg_cond0   !< Interpolated conductance
       integer                             :: nsoil       !< soil type for soil
       integer                             :: k           !< iterator for soil lyr
       integer                             :: ico         !< iterator for cohort
       integer                             :: ipft        !< PFT index
       real ,dimension(nzg)                :: soil_psi    !< soil water potential   [      m]
+      real ,dimension(0:nzg+1)            :: soil_psipz0 !< soil water potential   [      m]
+      real ,dimension(0:nzg+1)            :: soil_cond0  !< soil water conductance [kg/m2/s]
+      real ,dimension(0:nzg+1)            :: wflux0      !< potential water flux   [kg/m2/s]
       real ,dimension(nzg)                :: soil_cond   !< soil water conductance [kg/m2/s]
       real                                :: sap_frac    !< sapwood fraction       [    ---]
       real                                :: sap_area    !< sapwood area           [     m2]
@@ -129,43 +142,107 @@ module plant_hydro
 
          !---------------------------------------------------------------------------------!
          !     Calculate water potential and conductance in each soil layer in preparation
-         ! for later calculations.
+         ! for later calculations.  Soil conductance is only allowed for layers above the
+         ! lowest resolvable soil depth.  We calculate the conductance twice: the first
+         ! time we compute the target conductance, and in the second time we impose bounds
+         ! to avoid soil water to be over-extracted by plants.
          !---------------------------------------------------------------------------------!
-         do k = 1,nzg
+         soil_cond0 (:) = 0.0
+         soil_psipz0(:) = 0.0
+         wflux0     (:) = 0.0
+         !----- First guess. --------------------------------------------------------------!
+         guess_1st_loop: do k = lsl,nzg
             nsoil = ntext_soil(k)
+            soil_cond0 (k) = wdns * hydr_conduct(k,nsoil,csite%soil_water  (k,ipa)         &
+                                                        ,csite%soil_fracliq(k,ipa) )
+            soil_psipz0(k) = csite%soil_mstpot(k,ipa) + slzt(k)
+         end do guess_1st_loop
+         !----- Bottom boundary condition. ------------------------------------------------!
+         select case (site_isoilbc)
+         case (0)
+            !----- Bedrock. ---------------------------------------------------------------!
+            soil_psipz0(lsl-1) = soil_psipz0(lsl)
+            soil_cond0 (lsl-1) = soil_cond0 (lsl)
+            !------------------------------------------------------------------------------!
+         case (1)
+            !----- Free drainage. ---------------------------------------------------------!
+            soil_psipz0(lsl-1) = csite%soil_mstpot(lsl,ipa) + slzt(lsl-1)
+            soil_cond0 (lsl-1) = soil_cond0 (lsl)
+            !------------------------------------------------------------------------------!
+         case (2)
+            !----- Partial drainage. ------------------------------------------------------!
+            soil_psipz0(lsl-1) = csite%soil_mstpot(lsl,ipa)                                     &
+                               + slzt(lsl) - dslzt(lsl) * sin_sldrain
+            soil_cond0 (lsl-1) = soil_cond0 (lsl)
+            !------------------------------------------------------------------------------!
+         case (3)
+            !----- Aquifer. ---------------------------------------------------------------!
+            nsoil              = ntext_soil(lsl)
+            soil_psipz0(lsl-1) = soil(nsoil)%slpots
+            soil_cond0 (lsl-1) = slcons1(lsl-1,nsoil)
+            !------------------------------------------------------------------------------!
+         end select
+         !----- Top boundary condition. ---------------------------------------------------!
+         soil_psipz0(nzg+1) = soil_psipz0(nzg)
+         !----- First guess for water flux. -----------------------------------------------!
+         do k = lsl,nzg
+            nsoil = ntext_soil(k)
+            select case (soil(nsoil)%method)
+            case ('BDRK')
+               !----- Bedrock, soil conductance should be zero. ---------------------------!
+               wflux0(k) = 0.
+               !---------------------------------------------------------------------------!
+            case default
+               !----- Log-linear interpolation of conductivity to layer interface. --------!
+               avg_cond0 = soil_cond0(k-1) *  ( soil_cond0(k) / soil_cond0(k-1) )          &
+                                           ** ( dslz(k-1) / (dslz(k-1) + dslz(k)) )
+               !---------------------------------------------------------------------------!
 
+               !------ Estimate flux at interface. ----------------------------------------!
+               wflux0(k) = - avg_cond0 * ( soil_psipz0(k) - soil_psipz0(k-1) ) * dslzti(k)
+               !---------------------------------------------------------------------------!
+            end select
             !------------------------------------------------------------------------------!
-            !      Get bounded soil moisture.                                              !
-            !  MLO.  The lower bound used to be air-dry soil moisture.  This causes issues !
-            !  in the RK4 integrator if the soil moisture is just slightly above air-dry   !
-            !  and dtlsm is long.  For the time being, I am assuming that soil             !
-            !  conductivity is halted just below the permanent wilting point.  Similarly,  !
-            !  I am assuming that matric potential cannot exceed a value slightly less     !
-            !  than the bubbling point.                                                    !
+         end do
+         !----- Find bounded fluxes. ------------------------------------------------------!
+         soil_cond(:) = 0.
+         do k = lsl,nzg
             !------------------------------------------------------------------------------!
+            !     Quick estimate of soil water for the next step.                          !
+            !------------------------------------------------------------------------------!
+            nsoil = ntext_soil(k)
+            swater_use = csite%soil_water(k,ipa) * csite%soil_fracliq(k,ipa)
             swater_min = mg_safe * soil(nsoil)%soilcp  + om_safe * soil(nsoil)%soilwp
-            swater_max = mg_safe * soil(nsoil)%sfldcap + om_safe * soil(nsoil)%slmsts
-            swater_use = max( swater_min                                                   &
-                            , min(swater_max                                               &
-                                 ,csite%soil_water(k,ipa) * csite%soil_fracliq(k,ipa) ) )
+            swater_try = csite%soil_water(k,ipa)                                           &
+                       + dtlsm * dslzi(k) * ( wflux0(k) - wflux0(k+1))
             !------------------------------------------------------------------------------!
 
-
-            !----- Clapp & Hornberger curves. ---------------------------------------------!
-            soil_psi(k)  = matric_potential(nsoil,swater_use)
             !------------------------------------------------------------------------------!
-
-
+            !      Check whether or not the conductance could drive soil water too low.    !
             !------------------------------------------------------------------------------!
-            !    In the model, soil can't get drier than residual soil moisture.  Ensure   !
-            ! that hydraulic conductivity is effectively zero in case soil moisture        !
-            ! reaches this level or drier.                                                 !
-            !------------------------------------------------------------------------------!
-            if (csite%soil_water(k,ipa) < swater_min) then
+            if ( swater_use < swater_min) then
+               !------ Soil is already very dry (or frozen).  Halt water transport. -------!
+               swater_use   = swater_min
                soil_cond(k) = 0.
+               soil_psi (k) = matric_potential(nsoil,swater_use)
+               !---------------------------------------------------------------------------!
+            else if ( (swater_try < swater_use) .and. (swater_try < swater_min)) then
+               !---------------------------------------------------------------------------!
+               !     Conductance could desiccate soil layer, down-regulate soil            !
+               ! conductance and adjust soil matric potential accordingly.  We also change !
+               ! the units for conductance to kg/m2/s.                                     !
+               !---------------------------------------------------------------------------!
+               soil_cond(k) = wdns * soil_cond0(k) * ( swater_use - swater_min)            &
+                                                   / ( swater_use - swater_try)
+               soil_psi(k)  = matric_potential(nsoil,swater_use)
+               !---------------------------------------------------------------------------!
             else
-               soil_cond(k) = wdns * hydr_conduct(k,nsoil,csite%soil_water(k,ipa)          &
-                                                 ,csite%soil_fracliq(k,ipa))
+               !---------------------------------------------------------------------------!
+               !     Use the actual conductance (just convert it to kg/m2/s).              !
+               !---------------------------------------------------------------------------!
+               soil_cond(k) = wdns * soil_cond0(k)
+               soil_psi (k) = matric_potential(nsoil,swater_use)
+               !---------------------------------------------------------------------------!
             end if
             !------------------------------------------------------------------------------!
          end do
@@ -383,7 +460,7 @@ module plant_hydro
                        ,cpatch%bleaf(ico),bsap,cpatch%broot(ico)         & ! input
                        ,cpatch%hite(ico),cpatch%root_frac(:,ico)         & ! input
                        ,transp,cpatch%leaf_psi(ico),cpatch%wood_psi(ico) & ! input
-                       ,soil_psi,soil_cond,ipa,ico                       & ! input
+                       ,soil_psi,soil_cond,lsl,ipa,ico                   & ! input
                        ,cpatch%wflux_wl(ico),cpatch%wflux_gw(ico)        & ! output
                        ,cpatch%wflux_gw_layer(:,ico))                    ! ! output
                !---------------------------------------------------------------------------!
@@ -489,7 +566,7 @@ module plant_hydro
                ,sap_area,nplant,ipft,is_small,krdepth                   & !plant input
                ,bleaf,bsap,broot,hite,root_frac                         & !plant input
                ,transp,leaf_psi,wood_psi                                & !plant input
-               ,soil_psi,soil_cond                                      & !soil  input
+               ,soil_psi,soil_cond,lsl                                  & !soil  input
                ,ipa,ico                                                 & !debug input
                ,wflux_wl,wflux_gw,wflux_gw_layer)                       ! !flux  output
       use soil_coms       , only : dslz8                ! ! intent(in)
@@ -511,27 +588,28 @@ module plant_hydro
       use ed_misc_coms    , only : current_time         ! ! intent(in)
       implicit none
       !----- Arguments --------------------------------------------------------------------!
-      real   ,                 intent(in)  :: dt             !time step           [      s]
-      real   ,                 intent(in)  :: sap_area       !sapwood_area        [     m2]
-      real   ,                 intent(in)  :: nplant         !plant density       [  pl/m2]
-      integer,                 intent(in)  :: ipft           !plant funct. type   [    ---]
-      integer,                 intent(in)  :: krdepth        !Max. rooting depth  [    ---]
-      logical,                 intent(in)  :: is_small       !Small cohort?       [    T|F]
-      real   ,                 intent(in)  :: bleaf          !leaf biomass        [    kgC]
-      real   ,                 intent(in)  :: bsap           !sapwood biomass     [ kgC/pl]
-      real   ,                 intent(in)  :: broot          !fine root biomass   [ kgC/pl]
-      real   ,                 intent(in)  :: hite           !plant height        [      m]
-      real   , dimension(nzg), intent(in)  :: root_frac      !Root fraction       [      m]
-      real   ,                 intent(in)  :: transp         !transpiration       [   kg/s]
-      real   ,                 intent(in)  :: leaf_psi       !leaf water pot.     [      m]
-      real   ,                 intent(in)  :: wood_psi       !wood water pot.     [      m]
-      real   , dimension(nzg), intent(in)  :: soil_psi       !soil water pot.     [      m]
-      real   , dimension(nzg), intent(in)  :: soil_cond      !soil water cond.    [kg/m2/s]
-      integer,                 intent(in)  :: ipa            !Patch index         [    ---]
-      integer,                 intent(in)  :: ico            !Cohort index        [    ---]
-      real   ,                 intent(out) :: wflux_wl       !wood-leaf flux      [   kg/s]
-      real   ,                 intent(out) :: wflux_gw       !ground-wood flux    [   kg/s]
-      real   , dimension(nzg), intent(out) :: wflux_gw_layer !wflux_gw for each soil layer
+      real   ,                 intent(in)  :: dt            !time step            [      s]
+      real   ,                 intent(in)  :: sap_area      !sapwood_area         [     m2]
+      real   ,                 intent(in)  :: nplant        !plant density        [  pl/m2]
+      integer,                 intent(in)  :: ipft          !plant funct. type    [    ---]
+      integer,                 intent(in)  :: krdepth       !Max. rooting depth   [    ---]
+      logical,                 intent(in)  :: is_small      !Small cohort?        [    T|F]
+      real   ,                 intent(in)  :: bleaf         !leaf biomass         [    kgC]
+      real   ,                 intent(in)  :: bsap          !sapwood biomass      [ kgC/pl]
+      real   ,                 intent(in)  :: broot         !fine root biomass    [ kgC/pl]
+      real   ,                 intent(in)  :: hite          !plant height         [      m]
+      real   , dimension(nzg), intent(in)  :: root_frac     !Root fraction        [      m]
+      real   ,                 intent(in)  :: transp        !transpiration        [   kg/s]
+      real   ,                 intent(in)  :: leaf_psi      !leaf water pot.      [      m]
+      real   ,                 intent(in)  :: wood_psi      !wood water pot.      [      m]
+      real   , dimension(nzg), intent(in)  :: soil_psi      !soil water pot.      [      m]
+      real   , dimension(nzg), intent(in)  :: soil_cond     !soil water cond.     [kg/m2/s]
+      integer,                 intent(in)  :: lsl           !lowest active lyr    [    ---]
+      integer,                 intent(in)  :: ipa           !Patch index          [    ---]
+      integer,                 intent(in)  :: ico           !Cohort index         [    ---]
+      real   ,                 intent(out) :: wflux_wl      !wood-leaf flux       [   kg/s]
+      real   ,                 intent(out) :: wflux_gw      !ground-wood flux     [   kg/s]
+      real   , dimension(nzg), intent(out) :: wflux_gw_layer!wflux_gw for each soil layer
       !----- Temporary double precision variables (input/output). -------------------------!
       real(kind=8)                 :: dt_d
       real(kind=8)                 :: sap_area_d
@@ -1061,7 +1139,8 @@ module plant_hydro
       !     Copy all the results to output variables.
       !------------------------------------------------------------------------------------!
       wflux_wl = sngloff(wflux_wl_d,tiny_offset)
-      do k = 1, nzg
+      wflux_gw_layer(:) = 0.0
+      do k = lsl, nzg
          wflux_gw_layer(k) = sngloff(wflux_gw_layer_d(k),tiny_offset)
       end do
       wflux_gw = sum(wflux_gw_layer)

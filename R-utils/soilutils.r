@@ -122,8 +122,85 @@ nstext.polygon <<- nstext.polygon
 #==========================================================================================#
 #     This function finds the soil parameters.                                             #
 #------------------------------------------------------------------------------------------#
-soil.params <<- function(ntext,isoilflg,slxsand,slxclay,slsoc,slph,slcec,sldbd
-                        ,out.dfr=FALSE){
+soil.params <<- function( ntext    = NA_integer_
+                        , isoilflg = 1
+                        , slxsand  = NA_real_
+                        , slxclay  = NA_real_
+                        , slsoc    = NA_real_
+                        , slph     = NA_real_
+                        , slcec    = NA_real_
+                        , sldbd    = NA_real_
+                        , slhydro  = ifelse( test = ntext %in% c(12,13)
+                                           , yes  = ntext
+                                           , no   = isoil.hydro
+                                           )#end ifelse
+                        , out.dfr  = FALSE
+                        ){
+
+   #----- Decide whether to call function recursively. ------------------------------------#
+   ulen = unique( c(length(ntext),length(isoilflg),length(slxsand),length(slsoc)
+                   ,length(slph),length(slcec),length(sldbd),length(slhydro)
+                   )#end c
+                )#end unique
+   if (any(ulen > 1)){
+      #----- There are vectors. Ensure all data are either scalar or same-sized vector. ---#
+      if (any(! ulen %in% c(1,max(ulen)))){
+         #----- Stop the execution, the data are inconsistent. ----------------------------#
+         cat0("---------------------------------------------------------------------")
+         cat0("   Input data must be either scalars or vectors with the same size.")
+         cat0("---------------------------------------------------------------------")
+         cat0(" Length(ntext)    = ",length(ntext)   ,".")
+         cat0(" Length(isoilflg) = ",length(isoilflg),".")
+         cat0(" Length(slxsand)  = ",length(slxsand) ,".")
+         cat0(" Length(slxclay)  = ",length(slxclay) ,".")
+         cat0(" Length(slsoc)    = ",length(slsoc)   ,".")
+         cat0(" Length(slph)     = ",length(slph)    ,".")
+         cat0(" Length(slcec)    = ",length(slcec)   ,".")
+         cat0(" Length(sldbd)    = ",length(sldbd)   ,".")
+         cat0(" Length(slhydro)  = ",length(slhydro) ,".")
+         cat0("---------------------------------------------------------------------")
+         stop(" Dimension mismatch of input variables.")
+         #---------------------------------------------------------------------------------#
+      }#end if (any(! ulen %in% c(1,max(ulen))))
+      #------------------------------------------------------------------------------------#
+
+
+      #----- At this point we are clear.  Turn data into vectors. -------------------------#
+      mxlen = max(ulen)
+      if (length(ntext   ) %in% c(1)) ntext    = rep(x=ntext   ,times=mxlen)
+      if (length(isoilflg) %in% c(1)) isoilflg = rep(x=isoilflg,times=mxlen)
+      if (length(slxsand ) %in% c(1)) slxsand  = rep(x=slxsand ,times=mxlen)
+      if (length(slxclay ) %in% c(1)) slxclay  = rep(x=slxclay ,times=mxlen)
+      if (length(slsoc   ) %in% c(1)) slsoc    = rep(x=slsoc   ,times=mxlen)
+      if (length(slph    ) %in% c(1)) slph     = rep(x=slph    ,times=mxlen)
+      if (length(slcec   ) %in% c(1)) slcec    = rep(x=slcec   ,times=mxlen)
+      if (length(sldbd   ) %in% c(1)) sldbd    = rep(x=sldbd   ,times=mxlen)
+      if (length(slhydro ) %in% c(1)) slhydro  = rep(x=slhydro ,times=mxlen)
+      #------------------------------------------------------------------------------------#
+
+
+      #----- Use mapply to run the function. ----------------------------------------------#
+      ans = mapply( FUN      = soil.params
+                  , ntext    = as.list(ntext   )
+                  , isoilflg = as.list(isoilflg)
+                  , slxsand  = as.list(slxsand )
+                  , slxclay  = as.list(slxclay )
+                  , slsoc    = as.list(slsoc   )
+                  , slph     = as.list(slph    )
+                  , slcec    = as.list(slcec   )
+                  , sldbd    = as.list(sldbd   )
+                  , slhydro  = as.list(slhydro )
+                  , MoreArgs = list(out.dfr=out.dfr)
+                  , SIMPLIFY = FALSE
+                  )#end mapply
+      if (out.dfr) ans = do.call(what="rbind",args=ans)
+      return(ans)
+      #------------------------------------------------------------------------------------#
+   }#end if (any(ulen > 1))
+   #---------------------------------------------------------------------------------------#
+
+
+
    #----- Define some prescribed fractions. -----------------------------------------------#
    xsand.def = c( 0.920, 0.825, 0.660, 0.200, 0.410, 0.590
                 , 0.100, 0.320, 0.520, 0.060, 0.200, 0.200
@@ -229,7 +306,7 @@ soil.params <<- function(ntext,isoilflg,slxsand,slxclay,slsoc,slph,slcec,sldbd
    #---------------------------------------------------------------------------------------#
    #     Find soil class and sand, silt, and clay fractions.                               #
    #---------------------------------------------------------------------------------------#
-   if (missing(slxsand) || missing(slxclay) || missing(isoilflg)){
+   if (is.na(slxsand) || is.na(slxclay) || is.na(isoilflg)){
       mysoil$ntext = ntext
       mysoil$name  = soil.name[mysoil$ntext]
       mysoil$key   = soil.key [mysoil$ntext]
@@ -237,9 +314,9 @@ soil.params <<- function(ntext,isoilflg,slxsand,slxclay,slsoc,slph,slcec,sldbd
       mysoil$xclay = xclay.def[ntext]
       mysoil$xsilt = 1. - mysoil$xsand - mysoil$xclay
    }else if (isoilflg == 2 & slxsand > 0 & slxclay > 0 & (slxsand + slxclay) < 1 ){
-      mysoil$ntext = sclass(slxsand,slxclay)
-      mysoil$name  = soil.name[mysoil$ntext]
-      mysoil$key   = soil.key [mysoil$ntext]
+      mysoil$ntext = if(is.na(ntext)){sclass(sandfrac=slxsand,clayfrac=slxclay)}else{ntext}
+      mysoil$name  = "User"
+      mysoil$key   = "User"
       mysoil$xsand = slxsand
       mysoil$xclay = slxclay
       mysoil$xsilt = 1. - mysoil$xsand - mysoil$xclay
@@ -256,11 +333,11 @@ soil.params <<- function(ntext,isoilflg,slxsand,slxclay,slsoc,slph,slcec,sldbd
 
 
    #----- Decide which method to use. -----------------------------------------------------#
-   if ( mysoil$ntext %in% 13){
+   if ( slhydro %in% 13){
       mysoil$method = "BDRK"
-   }else if ( (mysoil$ntext %in% c(12)) || isoil.hydro %in% c(0,1)){
+   }else if ( slhydro %in% c(0,1,12)){
       mysoil$method = "BC64"
-   }else if (isoil.hydro %in% 2){
+   }else if (slhydro %in% 2){
       mysoil$method = "vG80"
    }else{
       mysoil$method = "SR06"
@@ -273,7 +350,7 @@ soil.params <<- function(ntext,isoilflg,slxsand,slxclay,slsoc,slph,slcec,sldbd
    #---------------------------------------------------------------------------------------#
    if (mysoil$method %in% "vG80"){
       #----- Make sure all required variables are provided. -------------------------------#
-      fine = ! (missing(slsoc) || missing(slph) || missing(slcec) || missing(sldbd))
+      fine = ! (is.na(slsoc) || is.na(slph) || is.na(slcec) || is.na(sldbd))
       if (fine){
          #----- Copy values from inputs. --------------------------------------------------#
          mysoil$slsoc = slsoc
@@ -285,10 +362,10 @@ soil.params <<- function(ntext,isoilflg,slxsand,slxclay,slsoc,slph,slcec,sldbd
          #----- Missing data, issue an error message. -------------------------------------#
          cat0("---------------------------------------------------------------------------")
          cat0(" Missing parameters for isoil.hydro = 2 (Hodnett and Tomasella 2002)! ")
-         cat0(" Missing \"slsoc\" = ",missing(slsoc),".")
-         cat0(" Missing \"slph\"  = ",missing(slph) ,".")
-         cat0(" Missing \"slcec\" = ",missing(slcec),".")
-         cat0(" Missing \"sldbd\" = ",missing(sldbd),".")
+         cat0(" Missing \"slsoc\" = ",is.na(slsoc),".")
+         cat0(" Missing \"slph\"  = ",is.na(slph) ,".")
+         cat0(" Missing \"slcec\" = ",is.na(slcec),".")
+         cat0(" Missing \"sldbd\" = ",is.na(sldbd),".")
          cat0("---------------------------------------------------------------------------")
          stop(" Invalid settings for soil.params.")
          #---------------------------------------------------------------------------------#
@@ -296,7 +373,7 @@ soil.params <<- function(ntext,isoilflg,slxsand,slxclay,slsoc,slph,slcec,sldbd
       #------------------------------------------------------------------------------------#
    }else if (mysoil$method %in% "SR06"){
       #----- Make sure all required variables are provided. -------------------------------#
-      fine = ! (missing(slsoc) || missing(slph) || missing(slcec) || missing(sldbd))
+      fine = ! is.na(slsoc)
       if (fine){
          #----- Copy values from inputs. --------------------------------------------------#
          mysoil$slsoc = slsoc
@@ -312,16 +389,16 @@ soil.params <<- function(ntext,isoilflg,slxsand,slxclay,slsoc,slph,slcec,sldbd
       #------------------------------------------------------------------------------------#
 
       #----- Variables are dummy but we honour the input variables if provided. -----------#
-      if (! missing(slph )) mysoil$slph  = slph
-      if (! missing(slcec)) mysoil$slcec = slcec
-      if (! missing(sldbd)) mysoil$sldbd = sldbd
+      mysoil$slph  = slph
+      mysoil$slcec = slcec
+      mysoil$sldbd = sldbd
       #------------------------------------------------------------------------------------#
    }else{
       #----- Variables are dummy but we honour the input variables if provided. -----------#
-      if (! missing(slsoc)) mysoil$slsoc = slsoc
-      if (! missing(slph )) mysoil$slph  = slph
-      if (! missing(slcec)) mysoil$slcec = slcec
-      if (! missing(sldbd)) mysoil$sldbd = sldbd
+      mysoil$slsoc = slsoc
+      mysoil$slph  = slph
+      mysoil$slcec = slcec
+      mysoil$sldbd = sldbd
       #------------------------------------------------------------------------------------#
    }#end if (mysoil$method %in% "vG1980")
    #---------------------------------------------------------------------------------------#
@@ -331,11 +408,11 @@ soil.params <<- function(ntext,isoilflg,slxsand,slxclay,slsoc,slph,slcec,sldbd
    #---------------------------------------------------------------------------------------#
    #       Set up primary properties.                                                      #
    #---------------------------------------------------------------------------------------#
-   if (mysoil$ntext == 13){
+   if (slhydro == 13){
       #----- Bedrock.  Most things are zero, because it is an impermeable soil. -----------#
       mysoil$slcpd     =  2130000.
       #------------------------------------------------------------------------------------#
-   }else if (mysoil$ntext == 12){
+   }else if (slhydro == 12){
       #------------------------------------------------------------------------------------#
       #      Peat.  High concentration of organic matter.  Mineral soil equations don't    #
       # apply here.                                                                        #
@@ -359,7 +436,7 @@ soil.params <<- function(ntext,isoilflg,slxsand,slxclay,slsoc,slph,slcec,sldbd
       mysoil$slpotwp = - slpotwp.MPa * 1.e6 / ( grav * wdns )
       mysoil$soilwp  = mpot2smoist(mysoil$slpotwp, mysoil)
       #------------------------------------------------------------------------------------#
-   }else if (isoil.hydro == 0){
+   }else if (slhydro == 0){
       #------------------------------------------------------------------------------------#
       #      Mineral soil.  Use the standard ED-2.2 equations.                             #
       #------------------------------------------------------------------------------------#
@@ -387,7 +464,7 @@ soil.params <<- function(ntext,isoilflg,slxsand,slxclay,slsoc,slph,slcec,sldbd
       mysoil$slpotfc = smoist2mpot(mysoil$sfldcap, mysoil)
       mysoil$slpotwp = - slpotwp.MPa * 1.e6 / ( grav * wdns )
       mysoil$soilwp  = mpot2smoist(mysoil$slpotwp, mysoil)
-   }else if (isoil.hydro == 1){
+   }else if (slhydro == 1){
       #------------------------------------------------------------------------------------#
       #      Use Tomasella and Hodnett (1998).                                             #
       #------------------------------------------------------------------------------------#
@@ -432,7 +509,8 @@ soil.params <<- function(ntext,isoilflg,slxsand,slxclay,slsoc,slph,slcec,sldbd
       mysoil$slpotwp = - slpotwp.MPa * 1.e6 / ( grav * wdns )
       mysoil$soilwp  = mpot2smoist(mysoil$slpotwp, mysoil)
       #------------------------------------------------------------------------------------#
-   }else if (isoil.hydro == 2){
+   }else if (slhydro == 2){
+
       #------------------------------------------------------------------------------------#
       #     Use Hodnett and Tomasella (2002).                                              #
       #------------------------------------------------------------------------------------#
@@ -484,7 +562,7 @@ soil.params <<- function(ntext,isoilflg,slxsand,slxclay,slsoc,slph,slcec,sldbd
       mysoil$slpotwp = - slpotwp.MPa * 1.e6 / ( grav * wdns )
       mysoil$soilwp  = mpot2smoist(mysoil$slpotwp, mysoil)
       #------------------------------------------------------------------------------------#
-   }else if (isoil.hydro == 3){
+   }else if (slhydro == 3){
       #------------------------------------------------------------------------------------#
       #     Use Saxton and Rawls (2006).                                                   #
       #------------------------------------------------------------------------------------#
@@ -543,7 +621,7 @@ soil.params <<- function(ntext,isoilflg,slxsand,slxclay,slsoc,slph,slcec,sldbd
    #---------------------------------------------------------------------------------------#
    #      Calculate the derived properties in case this is not bedrock.                    #
    #---------------------------------------------------------------------------------------#
-   if (mysoil$ntext != 13){
+   if (slhydro != 13){
       mysoil$fhydraul  = 2.0
       if (mysoil$method %in% "vG80"){
          mysoil$slpotcp   = - slpotdg.MPa * 1.e6 / ( wdns * grav )
@@ -598,7 +676,7 @@ soil.params <<- function(ntext,isoilflg,slxsand,slxclay,slsoc,slph,slcec,sldbd
 
 
    #----- Select the output format according to the users' choice. ------------------------#
-   if (out.dfr) mysoil = as.data.frame(mysoil,stringsAsFactors=FALSE)
+   if (out.dfr) mysoil = as.data.table(mysoil,stringsAsFactors=FALSE)
    #---------------------------------------------------------------------------------------#
 
    return(mysoil)
@@ -642,8 +720,9 @@ sclass <<- function(sandfrac,clayfrac){
    #     Here there is not much we can do other than explore where in the triangle space   #
    # we are.                                                                               #
    #---------------------------------------------------------------------------------------#
-
-   if (silt > 100. | silt < 0. | sand > 100. | sand < 0. | clay > 100. | clay < 0. ) {
+   if ( is.na(silt) || is.na(sand) || is.na(clay) ){
+      mysoil = NA_integer_
+   }else if (silt > 100. | silt < 0. | sand > 100. | sand < 0. | clay > 100. | clay < 0. ) {
       print("---------------------------------------------------")
       print(" At least one of your percentages is screwy...")
       print(paste0("SAND = ",sprintf("%.2f",sand),"%"))

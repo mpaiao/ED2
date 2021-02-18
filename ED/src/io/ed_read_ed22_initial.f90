@@ -80,7 +80,8 @@ subroutine read_ed22_initial_file
    use physiology_coms     , only : iddmort_scheme              & ! intent(in)
                                   , trait_plasticity_scheme     ! ! intent(in)
    use update_derived_utils, only : update_cohort_plastic_trait ! ! subroutine
-   use ed_init             , only : soil_default_fill           ! ! sub-routine
+   use ed_init             , only : soil_default_fill           & ! sub-routine
+                                  , sfcdata_ed                  ! ! sub-routine
    use ed_type_init        , only : init_ed_cohort_vars         & ! subroutine
                                   , init_ed_patch_vars          & ! subroutine
                                   , init_ed_site_vars           & ! subroutine
@@ -888,7 +889,7 @@ subroutine read_ed22_initial_file
 
 
             !------ Find the lowest soil level to simulate. -------------------------------!
-            shmask(:)      = ed_slz(:) <= depth(gsi)
+            shmask(:)      = ed_slz(:) <= - abs(depth(gsi))
             cpoly%lsl(isi) = min(max(1,maxloc(ed_slz(:),dim=1,mask=shmask)),nzg-1)
             !------------------------------------------------------------------------------!
 
@@ -1254,6 +1255,17 @@ subroutine read_ed22_initial_file
             call sort_patches(csite)
             !------------------------------------------------------------------------------!
          end do init2_sites
+         !---------------------------------------------------------------------------------!
+
+
+         !---------------------------------------------------------------------------------!
+         !      In case this is a single site simulation, we must update the soil          !
+         ! properties before initialising the site-level variables, because soil           !
+         ! characteristics are read from the site file.                                    !
+         !---------------------------------------------------------------------------------!
+         if (single_poi) then
+            call sfcdata_ed()
+         end if
          !---------------------------------------------------------------------------------!
 
 

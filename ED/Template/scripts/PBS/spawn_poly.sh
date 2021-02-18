@@ -69,8 +69,18 @@ execname="ed_2.2-opt"             # Normal executable, for most queues
 #----- Initialisation scripts. ------------------------------------------------------------#
 initrc="${HOME}/.bashrc"          # Initialisation script for most nodes
 #----- Settings for this group of polygons. -----------------------------------------------#
-global_queue="verylongq"      # Queue
-n_cpt=8                       # Number of cpus per task (it will be limited by maximum)
+init_only=true                   # Run model initialisation only?
+                                 #    This can be useful when the initialisation step
+                                 #    demands much more memory than the time steps (e.g.,
+                                 #    when using lidar data to initialisate the model).
+if ${init_only}
+then
+   global_queue="shortq"         # Queue
+   n_cpt=1                       # Number of cpus per task (it will be limited by maximum)
+else
+   global_queue="verylongq"      # Queue
+   n_cpt=8                       # Number of cpus per task (it will be limited by maximum)
+fi
 #------------------------------------------------------------------------------------------#
 #==========================================================================================#
 #==========================================================================================#
@@ -390,6 +400,20 @@ do
    skidsmall=$(echo ${oi}    | awk '{print $120}')
    skidlarge=$(echo ${oi}    | awk '{print $121}')
    fellingsmall=$(echo ${oi} | awk '{print $122}')
+   #---------------------------------------------------------------------------------------#
+
+
+
+   #---------------------------------------------------------------------------------------#
+   #      In case this is an "init_only" run, impose final time to be the initial time.    #
+   #---------------------------------------------------------------------------------------#
+   if ${init_only}
+   then
+      yearz=${yeara}
+      monthz=${montha}
+      datez=${datea}
+      timez=${timea}
+   fi
    #---------------------------------------------------------------------------------------#
 
 

@@ -1552,6 +1552,9 @@ $MODEL_OPTIONS
       ! ISOILBC -- This controls the soil moisture boundary condition at the bottom.       !
       !            For regional runs, it is wise to use options 1 or 2, especially for     !
       !            long runs.                                                              !
+      !           -1.  Depth-dependent boundary condition.  If soil depth to bedrock is at !
+      !                or below SLZ(1), assume free drainage (see option 1), otherwise     !
+      !                assume flat bedrock (see option 0).                                 !
       !            0.  Flat bedrock.  Flux from the bottom of the bottommost layer is 0.   !
       !            1.  Gravitational flow (free drainage).  The flux from the bottom of    !
       !                the bottommost layer is due to gradient of height only.             !

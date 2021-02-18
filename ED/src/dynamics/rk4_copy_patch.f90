@@ -1249,7 +1249,7 @@ module rk4_copy_patch
       !----- Add soil moisture. -----------------------------------------------------------!
       do k=ka,nzg
          fm_dslz8   = slz8(k+1) - max(fm_depth8,slz8(k))
-         gnd_water  = gnd_water + initp%soil_water(k) * fm_dslz8 * wdns8
+         gnd_water  = gnd_water + wdns8 * initp%soil_water(k) * fm_dslz8
       end do
       !----- Add to the monthly mean. -----------------------------------------------------!
       csite%avg_monthly_gndwater(ipa) = csite%avg_monthly_gndwater(ipa)                    &
