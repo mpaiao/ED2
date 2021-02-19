@@ -60,7 +60,32 @@ module fire
       real                           :: ignition_rate
       real                           :: mean_fire_intensity
       real                           :: sum_accp
+      real                           :: mean_gndwater_si
+      real                           :: mean_fuel_si
       logical                        :: people_around
+      !----- Local parameters. ------------------------------------------------------------!
+      character(len=16) , parameter  :: firefile = 'fire_details.txt'
+      logical           , parameter  :: printout = .true.
+      !----- Locally saved variables. -----------------------------------------------------!
+      logical           , save       :: first_time = .true.
+      !------------------------------------------------------------------------------------!
+
+
+      !----- First time, and the user wants to print the output.  Make a header. ----------!
+      if (first_time) then
+
+         !----- Make the header. ----------------------------------------------------------!
+         if (printout .and. (include_fire > 0 .and. include_fire < 4)) then
+            open (unit=35,file=firefile,status='replace',action='write')
+            write (unit=35,fmt='(10(a,1x))')                                               &
+                     '  YEAR',      ' MONTH',      '   DAY',      '   ISI',      'PEOPLE'  &
+              ,'   INTENSITY','    IGNITION','        FUEL','  SOIL_WATER','SW_THRESHOLD'
+            close (unit=35,status='keep')
+         end if
+         !---------------------------------------------------------------------------------!
+
+         first_time = .false.
+      end if
       !------------------------------------------------------------------------------------!
 
 
@@ -161,6 +186,11 @@ module fire
                !---------------------------------------------------------------------------!
 
 
+               !----- Reset site average gndwater. ----------------------------------------!
+               mean_gndwater_si = 0.0
+               mean_fuel_si     = 0.0
+               !---------------------------------------------------------------------------!
+
 
                !----- Loop over patches. --------------------------------------------------!
                patchloop: do ipa=1,csite%npatches
@@ -177,6 +207,11 @@ module fire
                                                        , csite%avg_monthly_waterdef(ipa) )
                   !------------------------------------------------------------------------!
 
+
+                  !----- Integrate site-level average monthly_gndwater. -------------------!
+                  mean_gndwater_si = mean_gndwater_si                                      &
+                                   + csite%avg_monthly_gndwater(ipa) * csite%area(ipa)
+                  !------------------------------------------------------------------------!
 
 
                   !------------------------------------------------------------------------!
@@ -261,6 +296,11 @@ module fire
                   !------------------------------------------------------------------------!
 
 
+                  !----- Integrate fuels. -------------------------------------------------!
+                  mean_fuel_si = mean_fuel_si + fuel * csite%area(ipa)
+                  !------------------------------------------------------------------------!
+
+
                   !----- Reset the ground water for next month. ---------------------------!
                   csite%avg_monthly_gndwater(ipa) = 0.
                   !------------------------------------------------------------------------!
@@ -285,6 +325,20 @@ module fire
                cpoly%avg_fire_f_bwoody (imo,isi) = f_combusted_struct_c
                cpoly%avg_fire_f_fgc    (imo,isi) = f_combusted_fast_c
                cpoly%avg_fire_f_stgc   (imo,isi) = f_combusted_struct_c
+               !---------------------------------------------------------------------------!
+
+
+               !---------------------------------------------------------------------------!
+               !     Print the output if needed.                                           !
+               !---------------------------------------------------------------------------!
+               if (printout) then
+                  open(unit=35,file=firefile,status='old',position='append',action='write')
+                  write(unit=35,fmt='(4(i6,1x),1(5x,l1,1x),5(f12.6,1x))')                  &
+                             current_time%year,current_time%month,current_time%date,isi    &
+                            ,people_around,mean_fire_intensity,ignition_rate,mean_fuel_si  &
+                            ,mean_gndwater_si,cpoly%fire_wmass_threshold(isi)
+                  close(unit=35,status='keep')
+               end if
                !---------------------------------------------------------------------------!
             end select
             !------------------------------------------------------------------------------!
@@ -368,7 +422,6 @@ module fire
                !---------------------------------------------------------------------------!
             end if
             !------------------------------------------------------------------------------!
-
          end do site_loop
          !---------------------------------------------------------------------------------!
       end do poly_loop

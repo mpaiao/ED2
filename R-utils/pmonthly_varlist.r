@@ -422,6 +422,32 @@ tspftdbh[[n]]     = list( vnam     = "leaf.gsw"
                         , scsout   = TRUE
                         )#end list
 n                 = n + 1
+tspftdbh[[n]]     = list( vnam     = "dmin.leaf.psi"
+                        , desc     = "Midday leaf water potential"
+                        , e.unit   = untab$mpa
+                        , i.unit   = untab$mpa
+                        , plog     = FALSE
+                        , pft      = TRUE
+                        , pftdbh   = TRUE
+                        , sas      = FALSE
+                        , bar.plot = FALSE
+                        , stack    = FALSE
+                        , scsout   = TRUE
+                        )#end list
+n                 = n + 1
+tspftdbh[[n]]     = list( vnam     = "dmax.leaf.psi"
+                        , desc     = "Pre-dawn leaf water potential"
+                        , e.unit   = untab$mpa
+                        , i.unit   = untab$mpa
+                        , plog     = FALSE
+                        , pft      = TRUE
+                        , pftdbh   = TRUE
+                        , sas      = FALSE
+                        , bar.plot = FALSE
+                        , stack    = FALSE
+                        , scsout   = TRUE
+                        )#end list
+n                 = n + 1
 tspftdbh[[n]]     = list( vnam     = "leaf.gbw"
                         , desc     = "Leaf boundary layer conductance"
                         , e.unit   = untab$kgwom2loday
@@ -2010,7 +2036,7 @@ theme[[n]] = list( vnam      = c(        "wflxgc",         "wflxca",        "wfl
                  , ymean     = TRUE
                  , stack     = FALSE
                  , emean.lim = c(NA,NA)
-                 , mmean.lim = c(0,5.0)
+                 , mmean.lim = c(NA,NA)
                  , qmean.lim = c(NA,NA)
                  , ymean.lim = c(NA,NA)
                  )#end list

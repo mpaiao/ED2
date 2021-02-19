@@ -347,6 +347,11 @@ if ( "biomass.harv" %in% names(varrun)){
                )#end redundant
    forbidden = forbidden | redundant
 }#end if ("biomass.harv" %in% names(varrun))
+if ( "ifire" %in% names(varrun)){
+   smf.min   = min(varrun$sm.fire)
+   redundant = joborder$ifire == 0 & joborder$sm.fire != smf.min
+   forbidden = forbidden | redundant
+}#end if ( "ifire" %in% names(varrun))
 joborder     = joborder[! forbidden,]
 myruns       = myruns[! forbidden,]
 nruns        = nrow(myruns)
