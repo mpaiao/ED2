@@ -826,10 +826,11 @@ subroutine init_disturb_params
                            , fire_dryness_threshold    & ! intent(out)
                            , fire_smoist_depth         & ! intent(out)
                            , fuel_height_max           & ! intent(out)
-                           , f_combusted_fast_c        & ! intent(out)
-                           , f_combusted_struct_c      & ! intent(out)
-                           , f_combusted_fast_n        & ! intent(out)
-                           , f_combusted_struct_n      & ! intent(out)
+                           , fe_combusted_fast_c       & ! intent(out)
+                           , fe_combusted_struct_c     & ! intent(out)
+                           , fe_combusted_fast_n       & ! intent(out)
+                           , fe_combusted_struct_n     & ! intent(out)
+                           , fe_anth_ignt_only         & ! intent(out)
                            , n_sbins                   & ! intent(out)
                            , fh_grid                   & ! intent(out)
                            , fh_f0001                  & ! intent(out)
@@ -976,19 +977,29 @@ subroutine init_disturb_params
    fuel_height_max       = 2.0
    !---------------------------------------------------------------------------------------!
 
-   !----- Fraction of biomass and necromass that are combusted and lost to air. -----------!
-   select case (include_fire)
-   case (3,4)
-      f_combusted_fast_c   = 0.8
-      f_combusted_struct_c = 0.5
-      f_combusted_fast_n   = 0.72
-      f_combusted_struct_n = 0.45
-   case default
-      f_combusted_fast_c   = 0.0
-      f_combusted_struct_c = 0.0
-      f_combusted_fast_n   = 0.0
-      f_combusted_struct_n = 0.0
-   end select
+
+
+
+   !---------------------------------------------------------------------------------------!
+   !     Fraction of biomass and necromass that are combusted and lost to air.  This is    !
+   ! used only when running EMBERFIRE (INCLUDE_FIRE = 3), or to get the stoichiometry of   !
+   ! N:C volatilisation when running FIRESTARTER (INCLUDE_FIRE = 4).                       !
+   !---------------------------------------------------------------------------------------!
+   fe_combusted_fast_c   = 0.8
+   fe_combusted_struct_c = 0.5
+   fe_combusted_fast_n   = 0.72
+   fe_combusted_struct_n = 0.45
+   !---------------------------------------------------------------------------------------!
+
+
+
+   !---------------------------------------------------------------------------------------!
+   !       This flag will decide whether fires can occur anywhere or only when there is at !
+   ! least one patch with anthropogenic disturbance.  If you do not want to restrict fires !
+   ! to areas with anthropogenic disturbances, set this flag to .false. -- note, this is   !
+   ! only used when include_fire=3 (EMBERFIRE model).                                      !
+   !---------------------------------------------------------------------------------------!
+   fe_anth_ignt_only = .false.
    !---------------------------------------------------------------------------------------!
 
 
@@ -996,8 +1007,8 @@ subroutine init_disturb_params
 
 
    !---------------------------------------------------------------------------------------!
-   !      Parameters for the new fire model based on HESFIRE (LP15/LP17), with some        !
-   ! elements of SPITFIRE (T10).                                                           !
+   !      Parameters for the new fire model (FIRESTARTER), which is based on HESFIRE       !
+   ! (LP15/LP17) and SPITFIRE (T10).                                                       !
    !                                                                                       !
    ! References:                                                                           !
    !                                                                                       !
@@ -4979,8 +4990,7 @@ subroutine init_pft_mort_params()
                              , twothirds                  ! ! intent(in)
    use ed_misc_coms,    only : ibigleaf                   & ! intent(in)
                              , economics_scheme           ! ! intent(in)
-   use disturb_coms,    only : include_fire               & ! intent(in)
-                             , time2canopy                & ! intent(in)
+   use disturb_coms,    only : time2canopy                & ! intent(in)
                              , sl_skid_s_gtharv           & ! intent(in)
                              , sl_skid_s_ltharv           & ! intent(in)
                              , sl_felling_s_ltharv        & ! intent(in)
@@ -5374,20 +5384,13 @@ subroutine init_pft_mort_params()
 
 
    !---------------------------------------------------------------------------------------!
-   !      Fire survivorship fraction.  These variables will be replaced by bark thickness  !                                                    !
+   !      Fire survivorship fraction.  These variables are only used when running the      !
+   ! EMBERFIRE model (INCLUDE_FIRE=3), to ensure survivorship depends on bark thickness.   !
    !---------------------------------------------------------------------------------------!
-   select case (include_fire)
-   case (3)
-      fire_s_min  (:) = merge(0.1,0.1,is_grass(:))
-      fire_s_max  (:) = merge(0.1,0.9,is_grass(:))
-      fire_s_inter(:) =  1.5
-      fire_s_slope(:) = -1.0
-   case default
-      fire_s_min  (:) =  0.0
-      fire_s_max  (:) =  0.0
-      fire_s_inter(:) =  1.5
-      fire_s_slope(:) = -1.0
-   end select
+   fire_s_min  (:) = merge(0.1,0.1,is_grass(:))
+   fire_s_max  (:) = merge(0.1,0.9,is_grass(:))
+   fire_s_inter(:) =  1.5
+   fire_s_slope(:) = -1.0
    !---------------------------------------------------------------------------------------!
 
 

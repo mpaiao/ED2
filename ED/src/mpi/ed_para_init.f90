@@ -357,8 +357,8 @@ subroutine get_work(ifm,nxp,nyp,is_poi)
    ! glaciers, and urban areas.    Note that the fraction of land that can sustain natural !
    ! vegetation MUST INCLUDE deserts and bare soil.  Polygons will only be excluded based  !
    ! on this fraction when running ED2 in regional mode.  But we keep this information     !
-   ! even for polygon-of-interest runs when running HESFIRE, because this information is   !
-   ! used for fragmentation calculation.                                                   !
+   ! even for polygon-of-interest runs when running FIRESTARTER (INCLUDE_FIRE = 4), be-    !
+   ! cause this information is used for fragmentation calculation.                         !
    !---------------------------------------------------------------------------------------!
    write(unit=*,fmt=*) ' => Read in percentage of land that may sustain natural vegetation.'
    if (is_poi .and. include_fire /= 4) then

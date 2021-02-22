@@ -2252,11 +2252,11 @@ end do
       ifaterr = ifaterr +1
 
       !------------------------------------------------------------------------------------!
-      !   Beginning of the code that must be deleted/commented to run HESFIRE/SPITFIRE.    !
+      !   Beginning of the code that must be deleted/commented to run FIRESTARTER.         !
       !------------------------------------------------------------------------------------!
    else if (include_fire == 4) then
       write(unit=*,fmt='(a)') '------------------------------------------------------------'
-      write(unit=*,fmt='(a)') '              Attempt to run HESFIRE/SPITFIRE!              '
+      write(unit=*,fmt='(a)') ' Attempt to run FIRESTARTER!                                '
       write(unit=*,fmt='(a)') '------------------------------------------------------------'
       write(unit=*,fmt='(a)') '    This module has been placed in the code, however it has'
       write(unit=*,fmt='(a)') ' not been debugged or tested yet.  If you want to try it'
@@ -2270,11 +2270,11 @@ end do
       write(unit=*,fmt='(a)') ' '
       write(unit=*,fmt='(a)') '                                                  Thanks!'
       write(unit=*,fmt='(a)') '------------------------------------------------------------'
-      write (reason,fmt='(a)') ' HESFIRE/SPITFIRE (INCLUDE_FIRE=4) is not active yet.'
+      write(reason,fmt='(a)') ' FIRESTARTER (INCLUDE_FIRE=4) is not active yet.'
       call opspec_fatal(reason,'opspec_misc')
       ifaterr = ifaterr + 1
       !------------------------------------------------------------------------------------!
-      !   End of the code that must be deleted/commented to run HESFIRE/SPITFIRE.          !
+      !   End of the code that must be deleted/commented to run FIRESTARTER.               !
       !------------------------------------------------------------------------------------!
 
    else if (include_fire /= 0) then

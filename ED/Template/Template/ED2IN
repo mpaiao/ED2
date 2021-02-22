@@ -676,10 +676,10 @@ $ED_NL
    !                      the user wants to simulate forest plantations.  Otherwise, leave !
    !                      it empty (PLANTATION_FILE='')                                    !
    !  SEI_DATABASE     -- Socio-economic data base files, used to drive anthropogenic      !
-   !                      ignitions when using HESFIRE/SPITFIRE model (INCLUDE_FIRE=4).    !
+   !                      ignitions when using FIRESTARTER model (INCLUDE_FIRE=4).         !
    !                      Ignored otherwise.                                               !
    !  FLASH_DATABASE   -- Lightning flash climate data base files, used to drive natural   !
-   !                      ignitions when using HESFIRE/SPITFIRE model (INCLUDE_FIRE=4).    !
+   !                      ignitions when using FIRESTARTER model (INCLUDE_FIRE=4).         !
    !                      Ignored otherwise.                                               !
    !  THSUMS_DATABASE  -- input directory with dataset to initialise chilling-degree and   !
    !                      growing-degree days, which is used to drive the cold-deciduous   !
@@ -1498,22 +1498,32 @@ $ED_NL
 
    !---------------------------------------------------------------------------------------!
    !      The following parameters adjust the fire disturbance in the model.               !
-   !                   0.  No fires;                                                       !
-   !                   1.  (deprecated) Fire will be triggered with enough fuel (assumed   !
-   !                       to be total above-ground biomass) and integrated ground water   !
-   !                       depth less than a threshold.  Based on ED-1, the threshold      !
-   !                       assumes that the soil is 1 m, so deeper soils will need to be   !
-   !                       much drier to allow fires to happen.                            !
-   !                   2.  (ED-2.2 default) Fire will be triggered with enough biomass and !
-   !                       the total soil water at the top 50 cm falls below a threshold.  !
-   !                   3.  (Beta) Similar to 2, except that fuel is defined as above-      !
-   !                       ground litter and coarse woody debris, grasses, and trees       !
-   !                       shorter than 2 m.  Ignitions are currently restricted to areas  !
-   !                       with human presence (i.e. any non-natural patch).               !
-   !                   4.  (Under development) Fire model based on HESFIRE (Le Page et     !
-   !                       al. 2015, Biogeosciences), with maximum spread rate based on    !
-   !                       the Rothermel (1972) model, and fire intensity and survivor-    !
-   !                       ship based on SPITFIRE (Thonicke et al. 2010, Biogeosciences).  !
+   ! INCLUDE_FIRE   -- Which fire model to use.                                            !
+   !                   0. (ED-2.2 default) No fires.                                       !
+   !                   1. (deprecated) Fire will be triggered with enough biomass and      !
+   !                      integrated ground water depth less than a threshold.  Based on   !
+   !                      ED-1, the threshold assumes that the soil depth is 1 m, so       !
+   !                      deeper soils must be much drier to allow fires to happen. Kept   !
+   !                      as an option for legacy, but strongly discouraged.               !
+   !                   2. (ED-2.2 default) Fire will be triggered with enough biomass and  !
+   !                      the total soil water at the top 50cm falls below a (relative)    !
+   !                      threshold.                                                       !
+   !                   3. (Beta) The EMBERFire model (Longo et al. in prep).  Empirical    !
+   !                      approach loosely based on option 2, with the following           !
+   !                      differences:                                                     !
+   !                      - Fuel.  Fast/structural carbon + understory (h<2m) biomass.     !
+   !                      - Fire ignition probably based on Nesterov index, similar to     !
+   !                        to SPITFIRE (Thonicke et al. 2010)                             !
+   !                      - Mortality.  Simple sigmoidal function of bark thickness.       !
+   !                        (no account for fire intensity).                               !
+   !                      - Combustion. A fraction of fuels is volatilised during the      !
+   !                        disturbance, and the remainder is accumulated as litter.       !
+   !                   4. (In development) FIRESTARTER model.  This is a more process-     !
+   !                      -based fire model that builds on fire density, ignition and      !
+   !                      termination from HESFIRE (LePage et al. 2015), and fire damage   !
+   !                      and spread rates based on SPITFIRE (Thonicke et al. 2010).       !
+   !                      By default this option is not going to run, as it is still in    !
+   !                      development.                                                     !
    ! FIRE_PARAMETER -- If fire happens, this will control the intensity of the disturbance !
    !                   given the amount of fuel.                                           !
    ! SM_FIRE        -- This is used only when INCLUDE_FIRE = 2 or 3, and it has different  !

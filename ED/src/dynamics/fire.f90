@@ -27,16 +27,15 @@ module fire
       use ed_misc_coms  , only : simtime                & ! intent(in)
                                , current_time           & ! intent(in)
                                , dtlsm                  ! ! intent(in)
-      use pft_coms      , only : is_grass               ! ! intent(in)
       use disturb_coms  , only : include_fire           & ! intent(in)
                                , fire_parameter         & ! intent(in)
-                               , fuel_height_max        & ! intent(in)
-                               , f_combusted_fast_c     & ! intent(in)
-                               , f_combusted_struct_c   ! ! intent(in)
+                               , fe_combusted_fast_c    & ! intent(in)
+                               , fe_combusted_struct_c  ! ! intent(in)
       use consts_coms   , only : wdns                   & ! intent(in)
                                , wdnsi                  & ! intent(in)
                                , day_sec                & ! intent(in)
                                , almost_one             & ! intent(in)
+                               , lnexp_min              & ! intent(in)
                                , lnexp_max              ! ! intent(in)
       implicit none
       !----- Arguments --------------------------------------------------------------------!
@@ -51,10 +50,8 @@ module fire
       integer                        :: ipa
       integer                        :: ico
       integer                        :: imo
-      integer                        :: ipft
       real                           :: ndaysi
       real                           :: normfac
-      real                           :: fire_wmass_threshold
       real                           :: fire_intensity
       real                           :: fuel
       real                           :: ignition_rate
@@ -62,10 +59,10 @@ module fire
       real                           :: sum_accp
       real                           :: mean_gndwater_si
       real                           :: mean_fuel_si
-      logical                        :: people_around
+      real                           :: lnexp
       !----- Local parameters. ------------------------------------------------------------!
-      character(len=16) , parameter  :: firefile = 'fire_details.txt'
-      logical           , parameter  :: printout = .true.
+      character(len=18) , parameter  :: firefile = 'edfire_details.txt'
+      logical           , parameter  :: printout = .false.
       !----- Locally saved variables. -----------------------------------------------------!
       logical           , save       :: first_time = .true.
       !------------------------------------------------------------------------------------!
@@ -77,9 +74,9 @@ module fire
          !----- Make the header. ----------------------------------------------------------!
          if (printout .and. (include_fire > 0 .and. include_fire < 4)) then
             open (unit=35,file=firefile,status='replace',action='write')
-            write (unit=35,fmt='(10(a,1x))')                                               &
-                     '  YEAR',      ' MONTH',      '   DAY',      '   ISI',      'PEOPLE'  &
-              ,'   INTENSITY','    IGNITION','        FUEL','  SOIL_WATER','SW_THRESHOLD'
+            write (unit=35,fmt='(9(a,1x))')                                                &
+                     '  YEAR',      ' MONTH',      '   DAY',      '   ISI','   INTENSITY'  &
+                             ,'    IGNITION','        FUEL','  SOIL_WATER','SW_THRESHOLD'
             close (unit=35,status='keep')
          end if
          !---------------------------------------------------------------------------------!
@@ -119,35 +116,45 @@ module fire
             !      Decide how to compute fire disturbance, based on the method.            !
             !------------------------------------------------------------------------------!
             select case (include_fire)
-            case (4)
+            case (0)
                !---------------------------------------------------------------------------!
-               !     HESFIRE/SPITFIRE:  Fires have already been integrated over the month, !
-               ! calculate disturbance area from burnt area.                               !
+               !    No fire.  Reset all variables and ensure disturbance remains zero.     !
+               !---------------------------------------------------------------------------!
+
+
+               !---------------------------------------------------------------------------!
+               !     Reset the precipitation counter for this month.                       !
+               !---------------------------------------------------------------------------!
+               cpoly%avg_monthly_accp(imo,isi) = 0.
                !---------------------------------------------------------------------------!
 
 
                !----- Loop over patches. --------------------------------------------------!
-               resetloop: do ipa=1,csite%npatches
+               resetloop_0: do ipa=1,csite%npatches
                   !----- Reset the ground water for next month. ---------------------------!
                   csite%avg_monthly_gndwater(ipa) = 0.
                   !------------------------------------------------------------------------!
-               end do resetloop
+               end do resetloop_0
                !---------------------------------------------------------------------------!
 
 
-               !----- Use burnt area to find disturbance rate. ----------------------------!
-               if (cpoly%burnt_area(isi) >= almost_one) then
-                  cpoly%lambda_fire(imo,isi) = lnexp_max
-               else
-                  cpoly%lambda_fire(imo,isi) = log( 1.0 / ( 1.0 - cpoly%burnt_area(isi) ) )
-               end if
+               !----- Reset disturbance rates. --------------------------------------------!
+               cpoly%lambda_fire  (imo,isi) = 0.
+               cpoly%ignition_rate    (isi) = 0.
+               cpoly%burnt_area       (isi) = 0.
                !---------------------------------------------------------------------------!
 
 
+               !----- Set the combusted fraction based on default values. -----------------!
+               cpoly%avg_fire_f_bherb  (imo,isi) = 0.
+               cpoly%avg_fire_f_bwoody (imo,isi) = 0.
+               cpoly%avg_fire_f_fgc    (imo,isi) = 0.
+               cpoly%avg_fire_f_stgc   (imo,isi) = 0.
                !---------------------------------------------------------------------------!
-            case default
+
+            case (1,2)
                !---------------------------------------------------------------------------!
-               !     Other approaches, use monthly time step.                              !
+               !     ED-1/ED-2 approaches, use monthly time step.                          !
                !---------------------------------------------------------------------------!
 
 
@@ -162,33 +169,12 @@ module fire
 
 
                !---------------------------------------------------------------------------!
-               !     Initialize ignition rate and mean fire intensity (site variables).    !
+               !     Initialise variables that must be integrated across patches.          !
                !---------------------------------------------------------------------------!
                ignition_rate       = 0.0
                mean_fire_intensity = 0.0
-               !---------------------------------------------------------------------------!
-
-
-
-               !----- Temporary check for human activities. -------------------------------!
-               people_around = .false.
-               humanloop: do ipa=1,csite%npatches
-                  select case (csite%dist_type(ipa))
-                  case (3)
-                     continue
-                  case default
-                     people_around = .true.
-                     exit humanloop
-                  end select
-               end do humanloop
-               !----- Allow fires to ignite in intact forests. ----------------------------!
-               people_around = .true.
-               !---------------------------------------------------------------------------!
-
-
-               !----- Reset site average gndwater. ----------------------------------------!
-               mean_gndwater_si = 0.0
-               mean_fuel_si     = 0.0
+               mean_gndwater_si    = 0.0
+               mean_fuel_si        = 0.0
                !---------------------------------------------------------------------------!
 
 
@@ -216,74 +202,29 @@ module fire
 
                   !------------------------------------------------------------------------!
                   !     Obtain fuel stocks.  The original fire model would consider all    !
-                  ! above-ground biomass and no litter.  When include_fire is set to 3,    !
-                  ! fuel is the sum of all above-ground fast soil C, and biomass from      !
-                  ! grasses and small individuals (up to fuel_max_height).                 !
+                  ! above-ground biomass and no litter.                                    !
                   !------------------------------------------------------------------------!
-                  select case (include_fire)
-                  case (3)
-                     fuel = csite%fast_grnd_C(ipa) + csite%structural_grnd_C(ipa)
-                     fuelcohloop_3: do ico = 1,cpatch%ncohorts
-                        ipft = cpatch%pft(ico)
-                        if (is_grass(ipft) .or. cpatch%hite(ico) <= fuel_height_max) then
-                           fuel = fuel + cpatch%nplant(ico) * cpatch%agb(ico)
-                        end if
-                     end do fuelcohloop_3
-                  case default
-                     fuel = 0.0
-                     fuelcohloop_d: do ico = 1,cpatch%ncohorts
-                        fuel = fuel + cpatch%nplant(ico) * cpatch%agb(ico)
-                     end do fuelcohloop_d
-                  end select
+                  fuel = 0.0
+                  fuel_cohort_loop: do ico = 1,cpatch%ncohorts
+                     fuel = fuel + cpatch%nplant(ico) * cpatch%agb(ico)
+                  end do fuel_cohort_loop
                   !------------------------------------------------------------------------!
 
 
 
                   !------------------------------------------------------------------------!
                   !     Determine the correct threshold to ignite fires according to the   !
-                  ! fire method.                                                           !
+                  ! fire method.  Fires occur when average soil water goes below the soil  !
+                  ! moisture threshold.                                                    !
                   !------------------------------------------------------------------------!
-                  select case (include_fire)
-                  case (0)
-                     !------ Set fire intensity to zero (fires should not happen). --------!
-                     fire_intensity       = 0.
-                     !---------------------------------------------------------------------!
-
-                  case (1,2)
-                     !---------------------------------------------------------------------!
-                     !    Fires occur when average soil water goes below the soil moisture !
-                     ! threshold.                                                          !
-                     !---------------------------------------------------------------------!
-                     if (csite%avg_monthly_gndwater(ipa)<cpoly%fire_wmass_threshold(isi))  &
-                     then
-                        fire_intensity      = fire_parameter
-                        mean_fire_intensity = mean_fire_intensity                          &
-                                            + fire_intensity * csite%area(ipa)
-                     else
-                        fire_intensity      = 0.0
-                     end if
-                     !---------------------------------------------------------------------!
-
-                  case (3)
-                     !---------------------------------------------------------------------!
-                     !     Set fire intensity the same as method 2, except that we prevent !
-                     ! fires until the site has any anthropogenic disturbance.  This will  !
-                     ! change in the future to allow natural fires.                        !
-                     !---------------------------------------------------------------------!
-                     if (people_around .and.                                               &
-                         csite%avg_monthly_gndwater(ipa)<cpoly%fire_wmass_threshold(isi) ) &
-                     then
-                        fire_intensity      = fire_parameter
-                        mean_fire_intensity = mean_fire_intensity                          &
-                                            + fire_intensity * csite%area(ipa)
-                     else
-                        !------ Set fire intensity to zero, so fires won't happen. --------!
-                        fire_wmass_threshold = huge(1.)
-                        fire_intensity       = 0.
-                        !------------------------------------------------------------------!
-                     end if
-                     !---------------------------------------------------------------------!
-                  end select
+                  if (csite%avg_monthly_gndwater(ipa) < cpoly%fire_wmass_threshold(isi))   &
+                  then
+                     fire_intensity      = fire_parameter
+                     mean_fire_intensity = mean_fire_intensity                             &
+                                         + fire_intensity * csite%area(ipa)
+                  else
+                     fire_intensity      = 0.0
+                  end if
                   !------------------------------------------------------------------------!
 
 
@@ -317,14 +258,17 @@ module fire
                else
                   cpoly%ignition_rate (isi) = 0.0
                end if
+               lnexp                        = max( lnexp_min                               &
+                                                 , min( lnexp_max, - ignition_rate ) )
+               cpoly%burnt_area       (isi) = 1. - exp(lnexp)
                !---------------------------------------------------------------------------!
 
 
                !----- Set the combusted fraction based on default values. -----------------!
-               cpoly%avg_fire_f_bherb  (imo,isi) = f_combusted_fast_c
-               cpoly%avg_fire_f_bwoody (imo,isi) = f_combusted_struct_c
-               cpoly%avg_fire_f_fgc    (imo,isi) = f_combusted_fast_c
-               cpoly%avg_fire_f_stgc   (imo,isi) = f_combusted_struct_c
+               cpoly%avg_fire_f_bherb  (imo,isi) = 0.0
+               cpoly%avg_fire_f_bwoody (imo,isi) = 0.0
+               cpoly%avg_fire_f_fgc    (imo,isi) = 0.0
+               cpoly%avg_fire_f_stgc   (imo,isi) = 0.0
                !---------------------------------------------------------------------------!
 
 
@@ -333,13 +277,93 @@ module fire
                !---------------------------------------------------------------------------!
                if (printout) then
                   open(unit=35,file=firefile,status='old',position='append',action='write')
-                  write(unit=35,fmt='(4(i6,1x),1(5x,l1,1x),5(f12.6,1x))')                  &
+                  write(unit=35,fmt='(4(i6,1x),5(f12.6,1x))')                              &
                              current_time%year,current_time%month,current_time%date,isi    &
-                            ,people_around,mean_fire_intensity,ignition_rate,mean_fuel_si  &
+                            ,mean_fire_intensity,ignition_rate,mean_fuel_si                &
                             ,mean_gndwater_si,cpoly%fire_wmass_threshold(isi)
                   close(unit=35,status='keep')
                end if
                !---------------------------------------------------------------------------!
+
+            case (3)
+               !---------------------------------------------------------------------------!
+               !     EMBERFIRE:  Fires have already been integrated over the month,        !
+               ! calculate disturbance area from average fire intensity.                   !
+               !---------------------------------------------------------------------------!
+
+
+               !---------------------------------------------------------------------------!
+               !     Reset the precipitation counter for this month.                       !
+               !---------------------------------------------------------------------------!
+               cpoly%avg_monthly_accp(imo,isi) = 0.
+               !---------------------------------------------------------------------------!
+
+
+               !----- Loop over patches. --------------------------------------------------!
+               resetloop_3: do ipa=1,csite%npatches
+                  !----- Reset the ground water for next month. ---------------------------!
+                  csite%avg_monthly_gndwater(ipa) = 0.
+                  !------------------------------------------------------------------------!
+               end do resetloop_3
+               !---------------------------------------------------------------------------!
+
+
+               !----- Use burnt area to find disturbance rate. ----------------------------!
+               cpoly%lambda_fire  (imo,isi) = cpoly%avg_fire_intensity(imo,isi)
+               cpoly%ignition_rate    (isi) = cpoly%avg_fire_intensity(imo,isi)            &
+                                            / fire_parameter
+               lnexp                        = max( lnexp_min                               &
+                                                 , min( lnexp_max                          &
+                                                      , - cpoly%lambda_fire(imo,isi) ) )
+               cpoly%burnt_area       (isi) = 1. - exp(lnexp)
+               !---------------------------------------------------------------------------!
+
+
+               !----- Set the combusted fraction based on default values. -----------------!
+               cpoly%avg_fire_f_bherb  (imo,isi) = fe_combusted_fast_c
+               cpoly%avg_fire_f_bwoody (imo,isi) = fe_combusted_struct_c
+               cpoly%avg_fire_f_fgc    (imo,isi) = fe_combusted_fast_c
+               cpoly%avg_fire_f_stgc   (imo,isi) = fe_combusted_struct_c
+               !---------------------------------------------------------------------------!
+
+            case (4)
+               !---------------------------------------------------------------------------!
+               !     FIRESTARTER:  Fires have already been integrated over the month,      !
+               ! calculate disturbance area from burnt area.                               !
+               !---------------------------------------------------------------------------!
+
+
+               !---------------------------------------------------------------------------!
+               !     Reset the precipitation counter for this month.                       !
+               !---------------------------------------------------------------------------!
+               cpoly%avg_monthly_accp(imo,isi) = 0.
+               !---------------------------------------------------------------------------!
+
+
+               !----- Loop over patches. --------------------------------------------------!
+               resetloop_4: do ipa=1,csite%npatches
+                  !----- Reset the ground water for next month. ---------------------------!
+                  csite%avg_monthly_gndwater(ipa) = 0.
+                  !------------------------------------------------------------------------!
+               end do resetloop_4
+               !---------------------------------------------------------------------------!
+
+
+               !----- Use burnt area to find disturbance rate. ----------------------------!
+               if (cpoly%burnt_area(isi) >= almost_one) then
+                  cpoly%lambda_fire(imo,isi) = lnexp_max
+               else
+                  cpoly%lambda_fire(imo,isi) = log( 1.0 / ( 1.0 - cpoly%burnt_area(isi) ) )
+               end if
+               !---------------------------------------------------------------------------!
+
+
+               !---------------------------------------------------------------------------!
+               !     Reset the precipitation counter for this month.                       !
+               !---------------------------------------------------------------------------!
+               cpoly%avg_monthly_accp(imo,isi) = 0.
+               !---------------------------------------------------------------------------!
+
             end select
             !------------------------------------------------------------------------------!
          end do siteloop
@@ -440,45 +464,361 @@ module fire
 
    !=======================================================================================!
    !=======================================================================================!
-   !       Sub-routine that integrates the fire disturbance rate when using (mostly)       !
-   ! HESFIRE, as described in LP15/LP17.  The calculation of maximum rate of spread is     !
-   ! based on R72 model revised by A18 and using the very dry fuel conditions described    !
-   ! in SB05.  The model is complemented by a few additional equations to describe fire    !
-   ! intensity, scorch height, and the impact on survivorship, which are all based on      !
-   ! SPITFIRE (T10).                                                                       !
-   !                                                                                       !
-   ! References:                                                                           !
-   !                                                                                       !
-   ! Andrews PL. 2018. The Rothermel surface fire spread model and associated develop-     !
-   !    ments: A compre- hensive explanation. Gen. Tech. Rep. RMRS-GTR-371, U.S.           !
-   !    Department of Agriculture, Forest Service, Rocky Mountain Research Station, Fort   !
-   !    Collins, CO, U.S.A. https://www.fs.usda.gov/treesearch/pubs/55928 (A18).           !
-   !                                                                                       !
-   ! Le Page Y, Morton D, Bond-Lamberty B, Pereira JMC , Hurtt G. 2015. HESFIRE: a global  !
-   !    fire model to explore the role of anthropogenic and weather drivers. Biogeo-       !
-   !    sciences, 12: 887-903. doi:10.5194/bg-12-887-2015 (LP15).                          !
-   !                                                                                       !
-   ! Le Page Y, Morton D, Hartin C, Bond-Lamberty B, Pereira JMC, Hurtt G , Asrar G. 2017. !
-   !    Synergy between land use and climate change increases future fire risk in Amazon   !
-   !    forests. Earth Syst. Dynam., 8: 1237-1246. doi:10.5194/esd-8-1237-2017 (LP17).     !
-   !                                                                                       !
-   ! Rothermel RC. 1972. A mathematical model for predicting fire spread in wildland       !
-   !    fuels. Res. Pap. INT- 115, U.S. Department of Agriculture, Intermountain Forest    !
-   !    and Range Experiment Station, Ogden, UT, U. S. A.,                                 !
-   !    https://www.fs.usda.gov/treesearch/pubs/32533 (R72).                               !
-   !                                                                                       !
-   ! Scott JH , Burgan RE. 2005. Standard fire behavior fuel models: a comprehensive set   !
-   !    for use with Rothermel's surface fire spread model. Gen. Tech. Rep. RMRS-GTR-153,  !
-   !    U.S. Department of Agriculture, Forest Service, Rocky Mountain Research Station,   !
-   !    Fort Collins, CO, U.S.A. doi:10.2737/RMRS-GTR-153 (SB05).                          !
-   !                                                                                       !
-   ! Thonicke K, Spessa A, Prentice IC, Harrison SP, Dong L, Carmona-Moreno C. 2010. The   !
-   !    influence of vegetation, fire spread and fire behaviour on biomass burning and     !
-   !    trace gas emissions: results from a process-based model. Biogeosciences, 7:        !
-   !    1991-2011. doi:10.5194/bg-7-1991-2010 (T10).                                       !
-   !                                                                                       !
+   ! SUB-ROUTINE INTEG_EMBERFIRE
+   !> This subroutine will integrate the fuel loads and fire intensity for the
+   !> "Empirical Model for Basic Ecosystem Response to FIRE" (EMBERFIRE model).
    !---------------------------------------------------------------------------------------!
-   subroutine integ_hesfire(cgrid,dtfire)
+   subroutine integ_emberfire(cgrid)
+      use ed_state_vars , only : edtype            & ! structure
+                               , polygontype       & ! structure
+                               , sitetype          & ! structure
+                               , patchtype         ! ! structure
+      use ed_misc_coms  , only : simtime           & ! intent(in)
+                               , current_time      ! ! intent(in)
+      use pft_coms      , only : agf_bs            & ! intent(in)
+                               , is_grass          & ! intent(in)
+                               , f_labile_leaf     & ! intent(in)
+                               , f_labile_stem     ! ! intent(in)
+      use disturb_coms  , only : fire_parameter    & ! intent(in)
+                               , fuel_height_max   & ! intent(in)
+                               , fe_anth_ignt_only & ! intent(in)
+                               , fh_f0001          & ! intent(in)
+                               , fh_f0010          & ! intent(in)
+                               , fh_f0100          & ! intent(in)
+                               , fh_f1000          & ! intent(in)
+                               , fx_a0001          & ! intent(in)
+                               , fx_a0010          & ! intent(in)
+                               , fx_a0100          & ! intent(in)
+                               , fr_Mxdead         ! ! intent(in)
+      use consts_coms   , only : day_sec           & ! intent(in)
+                               , t00               & ! intent(in)
+                               , lnexp_min         & ! intent(in)
+                               , lnexp_max         ! ! intent(in)
+      implicit none
+      !----- Arguments --------------------------------------------------------------------!
+      type(edtype)  , target     :: cgrid             ! Current grid              [    ---]
+      !----- Local variables --------------------------------------------------------------!
+      type(polygontype), pointer :: cpoly             ! Current polygon           [    ---]
+      type(sitetype)   , pointer :: csite             ! Current site              [    ---]
+      type(patchtype)  , pointer :: cpatch            ! Current patch             [    ---]
+      type(simtime)              :: hier              ! Yesterdays' date info.    [    ---]
+      integer                    :: ico               ! Cohort index              [    ---]
+      integer                    :: imonth            ! Month matrix index        [    ---]
+      integer                    :: ipa               ! Patch index               [    ---]
+      integer                    :: ipft              ! PFT index                 [    ---]
+      integer                    :: ipy               ! Polygon index             [    ---]
+      integer                    :: isi               ! Site index                [    ---]
+      integer                    :: ndays             ! # days in month           [    ---]
+      logical                    :: people_around     ! Any anth. disturb. type   [    T|F]
+      real                       :: bfuel_d0001_pat   ! Patch 1-hr dead fuels     [ kgC/m2]
+      real                       :: bfuel_d0001_tot   ! Site 1-hr dead fuels      [ kgC/m2]
+      real                       :: bfuel_d0010_pat   ! Patch 10-hr dead fuels    [ kgC/m2]
+      real                       :: bfuel_d0010_tot   ! Site 10-hr dead fuels     [ kgC/m2]
+      real                       :: bfuel_d0100_pat   ! Patch 100-hr dead fuels   [ kgC/m2]
+      real                       :: bfuel_d0100_tot   ! Site 100-hr dead fuels    [ kgC/m2]
+      real                       :: bfuel_d1000_pat   ! Patch 1000-hr dead fuels  [ kgC/m2]
+      real                       :: bfuel_d1000_tot   ! Site 1000-hr dead fuels   [ kgC/m2]
+      real                       :: bfuel_dead_tot    ! Total dead fuels          [ kgC/m2]
+      real                       :: bfuel_live_tot    ! Total live fuels          [ kgC/m2]
+      real                       :: bfuel_hd111_tot_i ! 1./(herb+1+10+100hr fuel) [ m2/kgC]
+      real                       :: bherb             ! Cohort Herbaceous fuels   [ kgC/pl]
+      real                       :: bherb_pat         ! Patch Herbaceous fuels    [ kgC/m2]
+      real                       :: bherb_tot         ! Site Herbaceous fuels     [ kgC/m2]
+      real                       :: bwoody            ! Cohort living woody fuels [ kgC/pl]
+      real                       :: bwoody_pat        ! Patch living woody fuels  [ kgC/m2]
+      real                       :: bwoody_tot        ! Site living woody fuels   [ kgC/m2]
+      real                       :: ignition_rate     ! Ignition probability rate [     --]
+      real                       :: lnexp             ! Aux. var. for safe exp    [    ---]
+      real                       :: moist_bfuel       ! Dead fuel moisture        [    ---]
+      real                       :: ndaysi            ! 1/# days in a month       [  1/day]
+      real                       :: tdmax_can_temp    ! Maximum temperature       [   degC]
+      real                       :: today_can_tdew    ! Dew point temperature     [   degC]
+      real                       :: today_pcpg        ! Daily rainfall            [     mm]
+      !----- Local parameters. ------------------------------------------------------------!
+      character(len=21) , parameter :: firefile = 'emberfire_details.txt'
+      logical           , parameter :: printout = .false.
+      !----- Locally saved variables. -----------------------------------------------------!
+      logical           , save      :: first_time = .true.
+      !------------------------------------------------------------------------------------!
+
+
+      !----- First time, and the user wants to print the output.  Make a header. ----------!
+      if (first_time) then
+
+         !----- Make the header. ----------------------------------------------------------!
+         if (printout) then
+            open (unit=35,file=firefile,status='replace',action='write')
+            write (unit=35,fmt='(15(a,1x))')                                               &
+                     '  YEAR',      ' MONTH',      '   DAY',      '   ISI',      'PEOPLE'  &
+              ,'      PRECIP','CAN_TEMP_MAX','    CAN_TDEW','    NESTEROV','  BFUEL_LIVE'  &
+              ,'  BFUEL_DEAD','  MOIST_FUEL',' MSTEXT_FUEL','    IGNITION','   INTENSITY'
+            close (unit=35,status='keep')
+         end if
+         !---------------------------------------------------------------------------------!
+
+         first_time = .false.
+      end if
+      !------------------------------------------------------------------------------------!
+
+
+
+      !------------------------------------------------------------------------------------!
+      !     Find the number of days of last day so we can normalise the integrated fire    !
+      ! intensity and retrieve lightning and HDI information.                              !
+      !------------------------------------------------------------------------------------!
+      call yesterday_info(current_time,hier,ndays,ndaysi)
+      imonth = hier%month
+      !------------------------------------------------------------------------------------!
+
+
+
+      !----- Loop over polygons and sites. ------------------------------------------------!
+      main_polyloop: do ipy = 1,cgrid%npolygons
+         cpoly => cgrid%polygon(ipy)
+
+         !---------------------------------------------------------------------------------!
+         !     Loop through all sites and patches and check whether or not there are signs !
+         ! of anthropogenic activities (In case the user wants to check this).             !
+         !---------------------------------------------------------------------------------!
+         if (fe_anth_ignt_only) then
+            !------------------------------------------------------------------------------!
+            !     Assume that fires can occur if at least one patch has anthropogenic      !
+            ! disturbance (any disturbance type other than tree fall as of now).           !
+            !------------------------------------------------------------------------------!
+            !------ Assume no people. -----------------------------------------------------!
+            people_around = .false.
+            !----- Loop through sites, leave if we find anthropogenic disturbance. --------!
+            anth_siteloop: do isi = 1,cpoly%nsites
+               csite => cpoly%site(isi)
+               !----- Loop through patches. -----------------------------------------------!
+               anth_patchloop: do ipa=1,csite%npatches
+                  select case (csite%dist_type(ipa))
+                  case (3)
+                     !------ Natural disturbance. -----------------------------------------!
+                     continue
+                     !---------------------------------------------------------------------!
+                  case default
+                     !----- Anthropogenic disturbance, update flag and leave outer loop. --!
+                     people_around = .true.
+                     exit anth_siteloop
+                     !---------------------------------------------------------------------!
+                  end select
+               end do anth_patchloop
+               !---------------------------------------------------------------------------!
+            end do anth_siteloop
+            !------------------------------------------------------------------------------!
+         else
+            !----- Do not check for anthropogenic disturbance, allow fires everywhere. ----!
+            people_around = .true.
+            !------------------------------------------------------------------------------!
+         end if
+         !---------------------------------------------------------------------------------!
+
+
+
+
+         !---------------------------------------------------------------------------------!
+         !     Loop over all sites.                                                        !
+         !---------------------------------------------------------------------------------!
+         main_siteloop: do isi = 1,cpoly%nsites
+            csite => cpoly%site(isi)
+
+            !------ Initialise fuel stocks. -----------------------------------------------!
+            bfuel_d0001_tot = 0.
+            bfuel_d0010_tot = 0.
+            bfuel_d0100_tot = 0.
+            bfuel_d1000_tot = 0.
+            bherb_tot       = 0.
+            bwoody_tot      = 0.
+            !------------------------------------------------------------------------------!
+
+
+            !----- Loop over patches. -----------------------------------------------------!
+            patchloop: do ipa=1,csite%npatches
+               cpatch => csite%patch(ipa)
+
+               !---------------------------------------------------------------------------!
+               !       Allocate fuels.                                                     !
+               !---------------------------------------------------------------------------!
+               bfuel_d0001_pat = csite%fast_grnd_C(ipa)                                    &
+                               + fh_f0001 * csite%structural_grnd_C(ipa)
+               bfuel_d0010_pat = fh_f0010 * csite%structural_grnd_C(ipa)
+               bfuel_d0100_pat = fh_f0100 * csite%structural_grnd_C(ipa)
+               bfuel_d1000_pat = fh_f1000 * csite%structural_grnd_C(ipa)
+               bherb_pat       = 0.
+               bwoody_pat      = 0.
+               cohort_loop: do ico=1,cpatch%ncohorts
+                  ipft = cpatch%pft(ico)
+                  if (is_grass(ipft) .or. cpatch%hite(ico) <= fuel_height_max) then
+                     !------ Herbaceous fuel.  AG labile biomass + AG storage. ------------!
+                     bherb  = f_labile_leaf(ipft) * cpatch%bleaf(ico)                      &
+                            + f_labile_stem(ipft)                                          &
+                            * ( cpatch%bsapwooda(ipft)                                     &
+                              + cpatch%bbarka   (ipft) + cpatch%bdeada(ico) )              &
+                            + agf_bs(ipft) * cpatch%bstorage(ico)
+                     !---------------------------------------------------------------------!
+
+
+
+                     !------ Woody living fuel.  AG lignified biomass. --------------------!
+                     bwoody = (1. - f_labile_leaf(ipft)) * cpatch%bleaf(ico)               &
+                            + (1. - f_labile_stem(ipft))                                   &
+                            * ( cpatch%bsapwooda(ipft)                                     &
+                              + cpatch%bbarka   (ipft) + cpatch%bdeada(ico) )
+                     !---------------------------------------------------------------------!
+
+
+                     !------ Accumulate fuels to the patch level. -------------------------!
+                     bherb_pat  = bherb_pat  + cpatch%nplant(ico) * bherb
+                     bwoody_pat = bwoody_pat + cpatch%nplant(ico) * bwoody
+                     !---------------------------------------------------------------------!
+                  end if
+               end do cohort_loop
+               !----- Integrate fuel. -----------------------------------------------------!
+               bfuel_d0001_tot = bfuel_d0001_tot + bfuel_d0001_pat * csite%area(ipa)
+               bfuel_d0010_tot = bfuel_d0010_tot + bfuel_d0010_pat * csite%area(ipa)
+               bfuel_d0100_tot = bfuel_d0100_tot + bfuel_d0100_pat * csite%area(ipa)
+               bfuel_d1000_tot = bfuel_d1000_tot + bfuel_d1000_pat * csite%area(ipa)
+               bherb_tot       = bherb_tot       + bherb_pat       * csite%area(ipa)
+               bwoody_tot      = bwoody_tot      + bwoody_pat      * csite%area(ipa)
+               !---------------------------------------------------------------------------!
+            end do patchloop
+            !------------------------------------------------------------------------------!
+
+
+            !----- Total live/dead fuel loads. --------------------------------------------!
+            bfuel_live_tot = bherb_tot + bwoody_tot
+            bfuel_dead_tot = bfuel_d0001_tot + bfuel_d0010_tot                             &
+                           + bfuel_d0100_tot + bfuel_d1000_tot
+            !------------------------------------------------------------------------------!
+
+
+
+
+            !------------------------------------------------------------------------------!
+            !       Compute fuel moisture, based on SPITFIRE (T10).                        !
+            !------------------------------------------------------------------------------!
+            bfuel_hd111_tot_i = 1.                                                         &
+                              / ( bherb_tot       + bfuel_d0100_tot                        &
+                                + bfuel_d0010_tot + bfuel_d0001_tot )
+            lnexp             = - ( fx_a0001 * bherb_tot                                   &
+                                  + fx_a0001 * bfuel_d0001_tot                             &
+                                  + fx_a0010 * bfuel_d0010_tot                             &
+                                  + fx_a0100 * bfuel_d0100_tot ) * bfuel_hd111_tot_i       &
+                              * cpoly%nesterov_index(isi)
+            moist_bfuel       = exp(max(lnexp_min,min(lnexp_max,lnexp)))
+            !------------------------------------------------------------------------------!
+
+
+
+            !------------------------------------------------------------------------------!
+            !       Use T10's spread probability as a proxy for the probability that       !
+            ! fire ignitions could turn into spreading fire.  Depending on the user        !
+            ! settings,we assume no ignitions in case the polygon does not have any        !
+            ! existing signs of land use.                                                  !
+            !------------------------------------------------------------------------------!
+            if (people_around) then
+               ignition_rate          = max(0.,1. - moist_bfuel / fr_Mxdead )
+            else
+               ignition_rate          = 0.
+            end if
+            !------------------------------------------------------------------------------!
+
+
+            !----- Compute fire intensity. ------------------------------------------------!
+            cpoly%fire_intensity(isi) = fire_parameter * ignition_rate                     &
+                                      * ( bfuel_live_tot  + bfuel_dead_tot )
+            !------------------------------------------------------------------------------!
+
+
+
+            !------------------------------------------------------------------------------!
+            !       Update the average fire intensity.                                     !
+            !------------------------------------------------------------------------------!
+            cpoly%avg_fire_intensity(imonth,isi) = cpoly%avg_fire_intensity(imonth,isi)    &
+                                                 + cpoly%fire_intensity           (isi)    &
+                                                 * ndaysi
+            !------------------------------------------------------------------------------!
+
+
+            !------------------------------------------------------------------------------!
+            !     Print the output if needed.                                              !
+            !------------------------------------------------------------------------------!
+            if (printout) then
+               !------ Convert units for output. ------------------------------------------!
+               today_pcpg     = cpoly%today_pcpg(isi) * day_sec
+               tdmax_can_temp = csite%tdmax_can_temp(ipa) - t00
+               today_can_tdew = csite%today_can_tdew(ipa) - t00
+               !---------------------------------------------------------------------------!
+
+
+               open(unit=35,file=firefile,status='old',position='append',action='write')
+               write(unit=35,fmt='(4(i6,1x),1(5x,l1,1x),10(f12.6,1x))')                    &
+                          current_time%year,current_time%month,current_time%date,isi       &
+                         ,people_around,today_pcpg,tdmax_can_temp,today_can_tdew           &
+                         ,cpoly%nesterov_index(isi),bfuel_live_tot,bfuel_dead_tot          &
+                         ,moist_bfuel,fr_Mxdead,ignition_rate,cpoly%fire_intensity(isi)
+               close(unit=35,status='keep')
+            end if
+            !------------------------------------------------------------------------------!
+         end do main_siteloop
+         !---------------------------------------------------------------------------------!
+      end do main_polyloop
+      !------------------------------------------------------------------------------------!
+
+      return
+   end subroutine integ_emberfire
+   !=======================================================================================!
+   !=======================================================================================!
+
+
+
+
+
+
+   !=======================================================================================!
+   !=======================================================================================!
+   ! SUB-ROUTINE INTEG_FIRESTARTER
+   !> This sub-routine that integrates the fire disturbance rate when using the 
+   !! "Fire Ignition, Rate of Elliptical Spread, and Termination Approaches to Represent
+   !! the Terrestrial Ecosystem Responses (to fires)" (FIRESTARTER) model.  The 
+   !! FIRESTARTER model builds on the HESFIRE model (LP15/LP17) for ignitions and 
+   !! termination, and the SPITFIRE (T10) for ecosystem response to fires.  The 
+   !! calculation of maximum rate of spread is based on R72 model revised by A18 and 
+   !! using the very dry fuel conditions described in SB05.
+   !!
+   !> References:
+   !!
+   !!  Andrews PL. 2018. The Rothermel surface fire spread model and associated
+   !!     developments: A compre- hensive explanation. Gen. Tech. Rep. RMRS-GTR-371, U.S.
+   !!     Department of Agriculture, Forest Service, Rocky Mountain Research Station, Fort
+   !!    Collins, CO, U.S.A. https://www.fs.usda.gov/treesearch/pubs/55928 (A18).
+   !!
+   !! Le Page Y, Morton D, Bond-Lamberty B, Pereira JMC , Hurtt G. 2015. HESFIRE: a global
+   !!    fire model to explore the role of anthropogenic and weather drivers.
+   !!    Biogeosciences, 12: 887-903. doi:10.5194/bg-12-887-2015 (LP15).
+   !!
+   !! Le Page Y, Morton D, Hartin C, Bond-Lamberty B, Pereira JMC, Hurtt G , Asrar G. 2017.
+   !!    Synergy between land use and climate change increases future fire risk in Amazon
+   !!    forests. Earth Syst. Dynam., 8: 1237-1246. doi:10.5194/esd-8-1237-2017 (LP17).
+   !!
+   !! Rothermel RC. 1972. A mathematical model for predicting fire spread in wildland
+   !!    fuels. Res. Pap. INT- 115, U.S. Department of Agriculture, Intermountain Forest
+   !!    and Range Experiment Station, Ogden, UT, U. S. A.,
+   !!    https://www.fs.usda.gov/treesearch/pubs/32533 (R72).
+   !!
+   !! Scott JH , Burgan RE. 2005. Standard fire behavior fuel models: a comprehensive set
+   !!    for use with Rothermel's surface fire spread model. Gen. Tech. Rep. RMRS-GTR-153,
+   !!    U.S. Department of Agriculture, Forest Service, Rocky Mountain Research Station,
+   !!    Fort Collins, CO, U.S.A. doi:10.2737/RMRS-GTR-153 (SB05).
+   !!
+   !! Thonicke K, Spessa A, Prentice IC, Harrison SP, Dong L, Carmona-Moreno C. 2010. The
+   !!    influence of vegetation, fire spread and fire behaviour on biomass burning and
+   !!    trace gas emissions: results from a process-based model. Biogeosciences, 7:
+   !!    1991-2011. doi:10.5194/bg-7-1991-2010 (T10).
+   !!
+   !---------------------------------------------------------------------------------------!
+   subroutine integ_firestarter(cgrid,dtfire)
       use ed_state_vars , only : edtype                 & ! structure
                                , polygontype            & ! structure
                                , sitetype               & ! structure
@@ -526,7 +866,6 @@ module fire
                                , fx_a0100               & ! intent(in)
                                , fx_rmfac               & ! intent(in)
                                , fx_tlh_slope           & ! intent(in)
-                               , include_fire           & ! intent(in)
                                , n_fst                  ! ! strcuture
       use pft_coms      , only : agf_bs                 & ! intent(in)
                                , C2B                    & ! intent(in)
@@ -643,22 +982,6 @@ module fire
       real                       :: total_ignition    ! Number of ignitions       [   1/m2]
       !------ External functions. ---------------------------------------------------------!
       real, external                :: solid_area     ! Solid-angle area          [     m2]
-      !------------------------------------------------------------------------------------!
-
-
-      !------------------------------------------------------------------------------------!
-      !      Run this subroutine only if using HESFIRE/SPITFIRE.                           !
-      !------------------------------------------------------------------------------------!
-      select case (include_fire)
-      case (4)
-         !------ Run the routine. ---------------------------------------------------------!
-         continue
-         !---------------------------------------------------------------------------------!
-      case default
-         !------ Skip the routine. --------------------------------------------------------!
-         return
-         !---------------------------------------------------------------------------------!
-      end select
       !------------------------------------------------------------------------------------!
 
 
@@ -1081,9 +1404,9 @@ module fire
                   ! soil.                                                                  !
                   !------------------------------------------------------------------------!
                   moist_bherb  = moist_bherb  + csite%today_sfc_wetness(ipa)               &
-                                              * bherb  * csite%area(ipa)
+                                              * bherb_pat  * csite%area(ipa)
                   moist_bwoody = moist_bwoody + csite%today_sfc_wetness(ipa)               &
-                                              * bwoody * csite%area(ipa)
+                                              * bwoody_pat * csite%area(ipa)
                   !------------------------------------------------------------------------!
 
 
@@ -1362,7 +1685,7 @@ module fire
 
 
       return
-   end subroutine integ_hesfire
+   end subroutine integ_firestarter
    !=======================================================================================!
    !=======================================================================================!
 
@@ -1373,15 +1696,15 @@ module fire
 
    !=======================================================================================!
    !=======================================================================================!
-   !       Sub-routine that resets the fire-related variables when using HESFIRE.  This    !
-   ! subroutine is needed because HESFIRE timestep is daily (actually 12 hr).               
+   !       Sub-routine that resets the fire-related variables when using fire models that  !
+   ! require daily or sub-daily integration.  Currently this applies to INCLUDE_FIRE = 3   !
+   ! (EMBERFIRE) or INCLUDE_FIRE = 4 (FIRESTARTER).                                        !
    !---------------------------------------------------------------------------------------!
-   subroutine reset_hesfire(cgrid)
+   subroutine reset_daily_fire(cgrid)
       use ed_state_vars , only : edtype                 & ! structure
                                , polygontype            & ! structure
                                , sitetype               ! ! structure
       use ed_misc_coms  , only : current_time           ! ! intent(in)
-      use disturb_coms  , only : include_fire           ! ! intent(in)
       implicit none
       !----- Arguments --------------------------------------------------------------------!
       type(edtype)      , target     :: cgrid
@@ -1392,22 +1715,6 @@ module fire
       integer                        :: isi
       integer                        :: ipa
       integer                        :: imo
-      !------------------------------------------------------------------------------------!
-
-
-      !------------------------------------------------------------------------------------!
-      !      Run this subroutine only if using HESFIRE/SPITFIRE.                           !
-      !------------------------------------------------------------------------------------!
-      select case (include_fire)
-      case (4);
-         !------ Run the routine. ---------------------------------------------------------!
-         continue
-         !---------------------------------------------------------------------------------!
-      case default
-         !------ Skip the routine. --------------------------------------------------------!
-         return
-         !---------------------------------------------------------------------------------!
-      end select
       !------------------------------------------------------------------------------------!
 
 
@@ -1458,7 +1765,7 @@ module fire
 
 
       return
-   end subroutine reset_hesfire
+   end subroutine reset_daily_fire
    !=======================================================================================!
    !=======================================================================================!
 

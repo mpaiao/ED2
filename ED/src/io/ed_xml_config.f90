@@ -1450,16 +1450,18 @@ recursive subroutine read_ed_xml_config(filename)
         if(texist) fire_smoist_depth = sngloff(rval,tiny_offset)
         call getConfigREAL  ('fuel_height_max','disturbance',i,rval,texist)
         if(texist) fuel_height_max = sngloff(rval,tiny_offset)
-        call getConfigREAL  ('f_combusted_fast_c','disturbance',i,rval,texist)
-        if(texist) f_combusted_fast_c = sngloff(rval,tiny_offset)
-        call getConfigREAL  ('f_combusted_struct_c','disturbance',i,rval,texist)
-        if(texist) f_combusted_struct_c = sngloff(rval,tiny_offset)
-        call getConfigREAL  ('f_combusted_fast_n','disturbance',i,rval,texist)
-        if(texist) f_combusted_fast_n = sngloff(rval,tiny_offset)
-        call getConfigREAL  ('f_combusted_struct_n','disturbance',i,rval,texist)
-        if(texist) f_combusted_struct_n = sngloff(rval,tiny_offset)
+        call getConfigREAL  ('fe_combusted_fast_c','disturbance',i,rval,texist)
+        if(texist) fe_combusted_fast_c = sngloff(rval,tiny_offset)
+        call getConfigREAL  ('fe_combusted_struct_c','disturbance',i,rval,texist)
+        if(texist) fe_combusted_struct_c = sngloff(rval,tiny_offset)
+        call getConfigREAL  ('fe_combusted_fast_n','disturbance',i,rval,texist)
+        if(texist) fe_combusted_fast_n = sngloff(rval,tiny_offset)
+        call getConfigREAL  ('fe_combusted_struct_n','disturbance',i,rval,texist)
+        if(texist) fe_combusted_struct_n = sngloff(rval,tiny_offset)
+        call getConfigINT  ('fe_anth_ignt_only','disturbance',i,ival,texist)
+        if(texist) fe_anth_ignt_only = ival == 1
 
-        !! HESFIRE - Global
+        !! FIRESTARTER - Global
         call getConfigREAL  ('fh_grid'     ,'disturbance',i,rval,texist)
         if(texist) fh_grid      = sngloff(rval,tiny_offset)
         call getConfigREAL  ('fh_f0001'    ,'disturbance',i,rval,texist)
@@ -1472,7 +1474,7 @@ recursive subroutine read_ed_xml_config(filename)
         if(texist) fh_pcpg_ni0   = sngloff(rval,tiny_offset)
 
 
-        !! HESFIRE - Ignitions
+        !! FIRESTARTER - Ignitions
         call getConfigREAL  ('fi_cg_ignp'  ,'disturbance',i,rval,texist)
         if(texist) fi_cg_ignp   = sngloff(rval,tiny_offset)
         call getConfigREAL  ('fi_lu_ignd'  ,'disturbance',i,rval,texist)
@@ -1488,7 +1490,7 @@ recursive subroutine read_ed_xml_config(filename)
         call getConfigREAL  ('fi_hdi_upr'  ,'disturbance',i,rval,texist)
         if(texist) fi_hdi_upr   = sngloff(rval,tiny_offset)
 
-        !! HESFIRE - Spread parameters
+        !! FIRESTARTER - Spread parameters
         call getConfigREAL  ('fs_ba_frag'  ,'disturbance',i,rval,texist)
         if(texist) fs_ba_frag   = sngloff(rval,tiny_offset)
         call getConfigREAL  ('fs_rhv_lwr'  ,'disturbance',i,rval,texist)
@@ -1564,7 +1566,7 @@ recursive subroutine read_ed_xml_config(filename)
         call getConfigREAL  ('fx_c1000_ms' ,'disturbance',i,rval,texist)
         if(texist) fx_c1000_ms  = sngloff(rval,tiny_offset)
 
-        !! HESFIRE - Termination parameters
+        !! FIRESTARTER - Termination parameters
         call getConfigREAL  ('ft_fint_lwr' ,'disturbance',i,rval,texist)
         if(texist) ft_fint_lwr  = sngloff(rval,tiny_offset)
         call getConfigREAL  ('ft_fint_upr' ,'disturbance',i,rval,texist)
@@ -1582,7 +1584,7 @@ recursive subroutine read_ed_xml_config(filename)
         call getConfigREAL  ('ft_hdi_exp'  ,'disturbance',i,rval,texist)
         if(texist) ft_hdi_exp   = sngloff(rval,tiny_offset)
 
-        !! HESFIRE - Rothermel (1972) model for maximum rate of spread
+        !! FIRESTARTER - Rothermel (1972) model for maximum rate of spread
         !! MLO. I have not added these parameters because many of them
         !!      are matrices and I am not sure what is the best way to
         !!      set them in XML.  Suggestions are welcome, and if you 
@@ -2565,17 +2567,23 @@ subroutine write_ed_xml_config
      call putConfigREAL("fire_parameter"        ,fire_parameter        )
      call putConfigREAL("fire_smoist_depth"     ,fire_smoist_depth     )
      call putConfigREAL("fuel_height_max"       ,fuel_height_max       )
-     call putConfigREAL("f_combusted_fast_c"    ,f_combusted_fast_c    )
-     call putConfigREAL("f_combusted_struct_c"  ,f_combusted_struct_c  )
-     call putConfigREAL("f_combusted_fast_n"    ,f_combusted_fast_n    )
-     call putConfigREAL("f_combusted_struct_n"  ,f_combusted_struct_n  )
-     ! --- HESFIRE: Global
+     call putConfigREAL("fe_combusted_fast_c"   ,fe_combusted_fast_c   )
+     call putConfigREAL("fe_combusted_struct_c" ,fe_combusted_struct_c )
+     call putConfigREAL("fe_combusted_fast_n"   ,fe_combusted_fast_n   )
+     call putConfigREAL("fe_combusted_struct_n" ,fe_combusted_struct_n )
+     if (fe_anth_ignt_only) then
+        ival = 1
+     else
+        ival = 0
+     end if
+     call putConfigINT ("fe_anth_ignt_only"     ,ival                  )
+     ! --- FIRESTARTER: Global
      call putConfigREAL("fh_grid"               ,fh_grid               )
      call putConfigREAL("fh_f0001"              ,fh_f0001              )
      call putConfigREAL("fh_f0010"              ,fh_f0010              )
      call putConfigREAL("fh_f0100"              ,fh_f0100              )
      call putConfigREAL("fh_pcpg_ni0"           ,fh_pcpg_ni0           )
-     ! --- HESFIRE: Ignitions
+     ! --- FIRESTARTER: Ignitions
      call putConfigREAL("fi_cg_ignp"            ,fi_cg_ignp            )
      call putConfigREAL("fi_lu_ignd"            ,fi_lu_ignd            )
      call putConfigREAL("fi_sf_maxage"          ,fi_sf_maxage          )
@@ -2583,7 +2591,7 @@ subroutine write_ed_xml_config
      call putConfigREAL("fi_lu_upr"             ,fi_lu_upr             )
      call putConfigREAL("fi_hdi_exp"            ,fi_hdi_exp            )
      call putConfigREAL("fi_hdi_upr"            ,fi_hdi_upr            )
-     ! --- HESFIRE: Spread
+     ! --- FIRESTARTER: Spread
      call putConfigREAL("fs_ba_frag"            ,fs_ba_frag            )
      call putConfigREAL("fs_rhv_lwr"            ,fs_rhv_lwr            )
      call putConfigREAL("fs_rhv_upr"            ,fs_rhv_upr            )
@@ -2621,7 +2629,7 @@ subroutine write_ed_xml_config
      call putConfigReal("fx_c1000_ds"           ,fx_c1000_ds           )
      call putConfigReal("fx_c1000_mi"           ,fx_c1000_mi           )
      call putConfigReal("fx_c1000_ms"           ,fx_c1000_ms           )
-     ! --- HESFIRE: Termination
+     ! --- FIRESTARTER: Termination
      call putConfigREAL("ft_fint_lwr"           ,ft_fint_lwr           )
      call putConfigREAL("ft_fint_upr"           ,ft_fint_upr           )
      call putConfigREAL("ft_fint_exp"           ,ft_fint_exp           )
@@ -2631,7 +2639,7 @@ subroutine write_ed_xml_config
      call putConfigREAL("ft_hdi_upr"            ,ft_hdi_upr            )
      call putConfigREAL("ft_hdi_exp"            ,ft_hdi_exp            )
 
-     !! HESFIRE - Rothermel (1972) model for maximum rate of spread
+     !! FIRESTARTER - Rothermel (1972) model for maximum rate of spread
      !! MLO. I have not added these parameters because many of them
      !!      are matrices and I am not sure what is the best way to
      !!      set them in XML.  Suggestions are welcome, and if you 

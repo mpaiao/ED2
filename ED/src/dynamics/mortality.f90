@@ -324,8 +324,9 @@ module mortality
          select case (include_fire)
          case (4)
             !------------------------------------------------------------------------------!
-            !      SPITFIRE-based approach.  We calculate the average mortality of each    !
-            ! month, based on the average fire intensity and scorch height.                !
+            !    FIRESTARTER.  We use the SPITFIRE-based approach.  We calculate the       !
+            ! average mortality of each month, based on the average fire intensity and     !
+            ! scorch height.                                                               !
             !------------------------------------------------------------------------------!
 
             !------ Average scorch height [m]. --------------------------------------------!
@@ -379,18 +380,22 @@ module mortality
             survivorship     = sum(1. - avg_mortality(:)) * onetwelfth
             !------------------------------------------------------------------------------!
 
-         case default
+         case (3)
             !------------------------------------------------------------------------------!
-            !     Old fire approach.  Fire survival rates are not dependent upon fire      !
-            ! intensity or flame height.  Survival rates are a function of bark thickness  !
-            ! (and size as BT depends on DBH and height).   The original scheme kills all  !
-            ! individuals and this is maintained by setting both fire_s_min and fire_s_max !
-            ! to 0.                                                                        !
+            !     EMBERFIRE.  Fire survival rates are not dependent upon fire intensity or !
+            ! flame height, but they are modulated by bark thickness (and size as BT       !
+            ! depends on DBH and height).                                                  !
             !------------------------------------------------------------------------------!
             lnexp        = fire_s_inter(ipft) + fire_s_slope(ipft) * cpatch%thbark(ico)
             lnexp        = max(lnexp_min,min(lnexp_max,lnexp))
             survivorship = fire_s_min(ipft)                                                &
                          + (fire_s_max(ipft) - fire_s_min(ipft)) / (1. + exp(lnexp))
+            !------------------------------------------------------------------------------!
+         case default
+            !------------------------------------------------------------------------------!
+            !      The original ED-1/ED-2 schemes  kill all individuals.                   !
+            !------------------------------------------------------------------------------!
+            survivorship = 0.0
             !------------------------------------------------------------------------------!
          end select
          !---------------------------------------------------------------------------------!

@@ -3514,10 +3514,10 @@ module disturbance
       use disturb_coms , only : include_fire          & ! intent(in)
                               , cl_fleaf_harvest      & ! intent(in)
                               , cl_fstorage_harvest   & ! intent(in)
-                              , f_combusted_fast_c    & ! intent(in)
-                              , f_combusted_struct_c  & ! intent(in)
-                              , f_combusted_fast_n    & ! intent(in)
-                              , f_combusted_struct_n  ! ! intent(in)
+                              , fe_combusted_fast_c   & ! intent(in)
+                              , fe_combusted_struct_c & ! intent(in)
+                              , fe_combusted_fast_n   & ! intent(in)
+                              , fe_combusted_struct_n ! ! intent(in)
       use ed_max_dims  , only : n_pft                 ! ! intent(in)
       use pft_coms     , only : c2n_storage           & ! intent(in)
                               , c2n_leaf              & ! intent(in)
@@ -3629,7 +3629,7 @@ module disturbance
       !------------------------------------------------------------------------------------!
       select case (include_fire)
       case (4)
-         !----- SPITFIRE/HESFIRE, use dynamic combustion factors. -------------------------!
+         !----- FIRESTARTER, use dynamic combustion factors. ------------------------------!
          avg_fcomb_bherb_c  = onetwelfth * sum(cpoly%avg_fire_f_bherb (:,isi))
          avg_fcomb_bwoody_c = onetwelfth * sum(cpoly%avg_fire_f_bwoody(:,isi))
          avg_fcomb_fast_c   = onetwelfth * sum(cpoly%avg_fire_f_fgc   (:,isi))
@@ -3638,49 +3638,65 @@ module disturbance
 
 
          !---------------------------------------------------------------------------------!
-         !     For nitrogen, use the default ratio.  This requires f_combusted_fast_c      !
-         ! and f_combusted_struct_c to be non-zero.  In case they are zero, assume the     !
+         !     For nitrogen, use the default ratio.  This requires fe_combusted_fast_c     !
+         ! and fe_combusted_struct_c to be non-zero.  In case they are zero, assume the    !
          ! same factors for nitrogen.                                                      !
          !---------------------------------------------------------------------------------!
          !----- Fast fuels. ---------------------------------------------------------------!
-         if (f_combusted_fast_c > tiny_num) then
+         if (fe_combusted_fast_c > tiny_num) then
             !----- Use default parameters to scale N combustion. --------------------------!
             avg_fcomb_bherb_n  = avg_fcomb_bherb_c                                         &
-                               * f_combusted_fast_n   / f_combusted_fast_c
+                               * fe_combusted_fast_n   / fe_combusted_fast_c
             avg_fcomb_fast_n   = avg_fcomb_fast_c                                          &
-                               * f_combusted_fast_n   / f_combusted_fast_c
+                               * fe_combusted_fast_n   / fe_combusted_fast_c
             !------------------------------------------------------------------------------!
          else
             !----- Default parameters are zero.  Assume equivalent N:C combustion. --------!
             avg_fcomb_bherb_n  = avg_fcomb_bherb_c
-            avg_fcomb_fast_n     = avg_fcomb_fast_c
+            avg_fcomb_fast_n   = avg_fcomb_fast_c
             !------------------------------------------------------------------------------!
          end if
          !----- Structural fuels. ---------------------------------------------------------!
-         if (f_combusted_struct_c > tiny_num) then
+         if (fe_combusted_struct_c > tiny_num) then
             !----- Use default parameters to scale N combustion. --------------------------!
             avg_fcomb_bwoody_n = avg_fcomb_bwoody_c                                        &
-                               * f_combusted_struct_n / f_combusted_struct_c
+                               * fe_combusted_struct_n / fe_combusted_struct_c
             avg_fcomb_struct_n = avg_fcomb_struct_c                                        &
-                               * f_combusted_struct_n / f_combusted_struct_c
+                               * fe_combusted_struct_n / fe_combusted_struct_c
             !------------------------------------------------------------------------------!
          else
             !----- Default parameters are zero.  Assume equivalent N:C combustion. --------!
             avg_fcomb_bwoody_n = avg_fcomb_bwoody_c
-            avg_fcomb_struct_n   = avg_fcomb_struct_c
+            avg_fcomb_struct_n = avg_fcomb_struct_c
             !------------------------------------------------------------------------------!
          end if
          !---------------------------------------------------------------------------------!
+      case (3)
+         !---------------------------------------------------------------------------------!
+         !   Simple fire model (EMBERFIRE), assume constant emission factors.              !
+         !---------------------------------------------------------------------------------!
+         avg_fcomb_bherb_c  = fe_combusted_fast_c
+         avg_fcomb_bwoody_c = fe_combusted_struct_c
+         avg_fcomb_fast_c   = fe_combusted_fast_c
+         avg_fcomb_struct_c = fe_combusted_struct_c
+         avg_fcomb_bherb_n  = fe_combusted_fast_n
+         avg_fcomb_bwoody_n = fe_combusted_struct_n
+         avg_fcomb_fast_n   = fe_combusted_fast_n
+         avg_fcomb_struct_n = fe_combusted_struct_n
+         !---------------------------------------------------------------------------------!
       case default
-         !----- Simple fire model (or no fire).  Use constants. ---------------------------!
-         avg_fcomb_bherb_c  = f_combusted_fast_c
-         avg_fcomb_bwoody_c = f_combusted_struct_c
-         avg_fcomb_fast_c   = f_combusted_fast_c
-         avg_fcomb_struct_c = f_combusted_struct_c
-         avg_fcomb_bherb_n  = f_combusted_fast_n
-         avg_fcomb_bwoody_n = f_combusted_struct_n
-         avg_fcomb_fast_n   = f_combusted_fast_n
-         avg_fcomb_struct_n = f_combusted_struct_n
+         !---------------------------------------------------------------------------------!
+         !   Original ED1/ED2.0/ED2.1 fire models.  Ignore volatilisation of fuels and     !
+         ! assume everything goes to the litter pools.                                     !
+         !---------------------------------------------------------------------------------!
+         avg_fcomb_bherb_c  = 0.0
+         avg_fcomb_bwoody_c = 0.0
+         avg_fcomb_fast_c   = 0.0
+         avg_fcomb_struct_c = 0.0
+         avg_fcomb_bherb_n  = 0.0
+         avg_fcomb_bwoody_n = 0.0
+         avg_fcomb_fast_n   = 0.0
+         avg_fcomb_struct_n = 0.0
          !---------------------------------------------------------------------------------!
       end select
       !------------------------------------------------------------------------------------!

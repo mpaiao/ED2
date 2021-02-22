@@ -45,20 +45,31 @@ module disturb_coms
 
    !---------------------------------------------------------------------------------------!
    !     Fire model.  Possible values are:                                                 !
-   ! 0. No fires;                                                                          !
-   ! 1. (deprecated) Fire will be triggered with enough biomass and integrated ground      !
-   !    water depth less than a threshold.  Based on ED-1, the threshold assumes that the  !
-   !    soil is 1 m, so deeper soils will need to be much drier to allow fires to happen   !
-   !    and often will never allow fires because the threshold may be below the minimum    !
-   !    possible soil moisture.                                                            !
-   ! 2. Fire will be triggered with enough biomass and the total soil water at the top     !
-   !    soil layer falls below a (relative) threshold.                                     !
-   ! 3. Similar to 2, but fuel load only accounts for near-ground carbon (as opposed to    !
-   !    the entire AGB), and fire survivorship is a simple function of height (higher      !
-   !    mortality for small trees). Also, part of the fuels are volatilised and lost to    !
-   !    the atmosphere (older ED options do not actually burn the fuels...).               !
-   ! 4. HESFIRE model (LePage et al. 2015, Biogeosciences), with a few additions for       !
-   !    survivorship based on SPITFIRE (Thonicke et al. 2010).                             !
+   !                   0. (ED-2.2 default) No fires.                                       !
+   !                   1. (deprecated) Fire will be triggered with enough biomass and      !
+   !                      integrated ground water depth less than a threshold.  Based on   !
+   !                      ED-1, the threshold assumes that the soil depth is 1 m, so       !
+   !                      deeper soils must be much drier to allow fires to happen. Kept   !
+   !                      as an option for legacy, but strongly discouraged.               !
+   !                   2. (ED-2.2 default) Fire will be triggered with enough biomass and  !
+   !                      the total soil water at the top 50cm falls below a (relative)    !
+   !                      threshold.                                                       !
+   !                   3. (Beta) The EMBERFire model (Longo et al. in prep).  Empirical    !
+   !                      approach loosely based on option 2, with the following           !
+   !                      differences:                                                     !
+   !                      - Fuel.  Fast/structural carbon + understory (h<2m) biomass.     !
+   !                      - Fire ignition probably based on Nesterov index, similar to     !
+   !                        to SPITFIRE (Thonicke et al. 2010)                             !
+   !                      - Mortality.  Simple sigmoidal function of bark thickness.       !
+   !                        (no account for fire intensity).                               !
+   !                      - Combustion. A fraction of fuels is volatilised during the      !
+   !                        disturbance, and the remainder is accumulated as litter.       !
+   !                   4. (In development) FIRESTARTER model.  This is a more process-     !
+   !                      -based fire model that builds on fire density, ignition and      !
+   !                      termination from HESFIRE (LePage et al. 2015), and fire damage   !
+   !                      and spread rates based on SPITFIRE (Thonicke et al. 2010).       !
+   !                      By default this option is not going to run, as it is still in    !
+   !                      development.                                                     !
    !---------------------------------------------------------------------------------------!
    integer :: include_fire
    !---------------------------------------------------------------------------------------!
@@ -69,12 +80,14 @@ module disturb_coms
    real :: fire_parameter
    
    !----- Fractions of fast and structural carbon and nitrogen lost through combustion. ---!
-   real :: f_combusted_fast_c
-   real :: f_combusted_struct_c
-   real :: f_combusted_fast_n
-   real :: f_combusted_struct_n
+   real :: fe_combusted_fast_c
+   real :: fe_combusted_struct_c
+   real :: fe_combusted_fast_n
+   real :: fe_combusted_struct_n
    !---- Maximum height for non-grass cohort to be considered part of fuel. ---------------!
    real :: fuel_height_max
+   !---- Flag: only allow burning in polygons with some anthropogenic activity? (T|F) -----!
+   logical :: fe_anth_ignt_only
 
    !---------------------------------------------------------------------------------------!
    !     Anthropogenic disturbance.  1 means that anthropogenic disturbances will be       !
@@ -282,7 +295,7 @@ module disturb_coms
 
    !=======================================================================================!
    !=======================================================================================!
-   !      Parameters for the new fire model based on HESFIRE/SPITFIRE.                     !
+   !      Parameters for the FIRESTARTER model.                                            !
    !                                                                                       !
    ! Lower bound: minimum value for the variable in the model, even if the actual value    !
    !              falls below this limit.                                                  !

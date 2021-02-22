@@ -2365,6 +2365,14 @@ pft$kplastic.ltor = -1 * with(pft,kplastic.vm0*eplastic.vm0+kplastic.sla*eplasti
 
 
 
+#------ Fire survivorship parameters for when using the old models. -----------------------#
+pft$fire.s.inter =  1.5
+pft$fire.s.slope = -1.0
+pft$fire.s.min   = ifelse(test = pft$grass,yes = 0.1, no = 0.1)
+pft$fire.s.max   = ifelse(test = pft$grass,yes = 0.1, no = 0.9)
+#------------------------------------------------------------------------------------------#
+
+
 #----- Make it global. --------------------------------------------------------------------#
 pft <<- pft
 #------------------------------------------------------------------------------------------#

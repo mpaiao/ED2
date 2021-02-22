@@ -99,7 +99,8 @@ module ed_init
             !     Set the fraction of the land that can sustain natural vegetation (i.e.,  !
             ! fraction of the total area after excluding oceans, inland water, glaciers,   !
             ! and urban areas).  Note that the fraction of land that can sustain natural   !
-            ! vegetation INCLUDES deserts and bare soil.  This is only used for HESFIRE.   !
+            ! vegetation INCLUDES deserts and bare soil.  This is only used for the        !
+            ! FIRESTARTER model (INCLUDE_FIRE=4).                                          !
             !------------------------------------------------------------------------------!
             cgrid%landfrac(ipy) = work_v(ifm)%landfrac(ipy)
             !------------------------------------------------------------------------------!

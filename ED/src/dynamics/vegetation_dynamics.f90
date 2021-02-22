@@ -33,6 +33,7 @@ module vegetation_dynamics
       use consts_coms          , only : day_sec                       & ! intent(in)
                                       , yr_day                        ! ! intent(in)
       use mem_polygons         , only : maxpatch                      ! ! intent(in)
+      use disturb_coms         , only : include_fire                  ! ! intent(in)
       use average_utils        , only : normalize_ed_today_vars       & ! sub-routine
                                       , normalize_ed_todaynpp_vars    & ! sub-routine
                                       , zero_ed_today_vars            ! ! sub-routine
@@ -49,8 +50,9 @@ module vegetation_dynamics
       use fusion_fission_coms  , only : ifusion                       ! ! intent(in)
       use fire                 , only : fire_frequency                & ! sub-routine
                                       , integ_nesterov                & ! sub-routine
-                                      , integ_hesfire                 & ! sub-routine
-                                      , reset_hesfire                 ! ! sub-routine
+                                      , integ_emberfire               & ! sub-routine
+                                      , integ_firestarter             & ! sub-routine
+                                      , reset_daily_fire              ! ! sub-routine
       use budget_utils         , only : ed_init_budget                ! ! sub-routine
       implicit none
       !----- Arguments. -------------------------------------------------------------------!
@@ -104,9 +106,19 @@ module vegetation_dynamics
          !----- Update phenology and growth of live tissues. ------------------------------!
          call phenology_driver(cgrid,doy,current_time%month, dtlsm_o_day,veget_dyn_on)
          call dbalive_dt(cgrid,gr_tfact0,year_o_day,veget_dyn_on)
-         !----- Integrate fire-related variables (in case needed). ------------------------!
+         !----- Integrate Nesterov index (used by some fire models). ----------------------!
          call integ_nesterov(cgrid)
-         call integ_hesfire (cgrid,day_sec)
+         !----- Depending on the fire model, we must integrate fire disturbances daily. ---!
+         select case (include_fire)
+         case (3)
+            !------ EMBERFIRE model. ------------------------------------------------------!
+            call integ_emberfire(cgrid)
+            !------------------------------------------------------------------------------!
+         case (4)
+            !------ FIRESTARTER model. ----------------------------------------------------!
+            call integ_firestarter(cgrid,day_sec)
+            !------------------------------------------------------------------------------!
+         end select
          !---------------------------------------------------------------------------------!
 
 
@@ -116,21 +128,33 @@ module vegetation_dynamics
          if (new_month) then
             !----- Update patch ages. -----------------------------------------------------!
             call update_patch_ages(cgrid)
+            !------------------------------------------------------------------------------!
 
             !----- Update the mean workload counter. --------------------------------------!
             call update_workload(cgrid)
+            !------------------------------------------------------------------------------!
 
             !----- Update the growth of the structural biomass. ---------------------------!
             call dbstruct_dt(cgrid,veget_dyn_on,new_year)
+            !------------------------------------------------------------------------------!
 
             !----- Solve the reproduction rates. ------------------------------------------!
             call reproduction_driver(cgrid,current_time%month,veget_dyn_on)
+            !------------------------------------------------------------------------------!
 
             !----- Update the fire disturbance rates. -------------------------------------!
             call fire_frequency(cgrid)
+            !------------------------------------------------------------------------------!
 
-            !----- Reset fire data for current month (only if running HESFIRE/SPITFIRE). --!
-            call reset_hesfire (cgrid)
+            !------------------------------------------------------------------------------!
+            !     Reset fire data for current month (only if running EMBERFIRE or          !
+            ! FIRESTARTER).                                                                !
+            !------------------------------------------------------------------------------!
+            select case (include_fire)
+            case (3,4)
+               call reset_daily_fire(cgrid)
+            end select
+            !------------------------------------------------------------------------------!
          end if
          !---------------------------------------------------------------------------------!
 
