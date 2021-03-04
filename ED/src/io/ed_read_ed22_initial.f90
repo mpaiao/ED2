@@ -519,7 +519,7 @@ subroutine read_ed22_initial_file
                                            ,age(gpa),darea,fgc(gpa),fsc(gpa),stgc(gpa)     &
                                            ,stgl(gpa),stsc(gpa),stsl(gpa),msc(gpa)         &
                                            ,ssc(gpa),psc(gpa),fsn(gpa),msn(gpa)            &
-                                           ,dummy,dummy,dummy
+                                           ,dummy,dummy,dummy,dummy
             if (ierr /= 0) exit read_patches
             !------------------------------------------------------------------------------!
 

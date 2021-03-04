@@ -273,6 +273,18 @@ module rk4_coms
 
 
 
+
+      !----- State variables that are averaged over the time step. -----------------------!
+      real(kind=8) :: rmean_can_temp
+      real(kind=8) :: rmean_can_tdew
+      real(kind=8) :: rmean_can_rhv
+      real(kind=8) :: rmean_can_ekin
+      real(kind=8) :: rmean_gnd_water
+      real(kind=8) :: rmean_gnd_mstpot
+      real(kind=8) :: rmean_gnd_wetness
+      !-----------------------------------------------------------------------------------!
+
+
       !------------------------------------------------------------------------------------!
       !     Fast time flux diagnostic variables.  These variables may be turned off under  !
       ! different conditions.                                                              !
@@ -1133,6 +1145,14 @@ module rk4_coms
       y%avg_tstar                      = 0.d0
       y%avg_qstar                      = 0.d0
       y%avg_cstar                      = 0.d0
+
+      y%rmean_can_temp                 = 0.d0
+      y%rmean_can_tdew                 = 0.d0
+      y%rmean_can_ekin                 = 0.d0
+      y%rmean_can_rhv                  = 0.d0
+      y%rmean_gnd_water                = 0.d0
+      y%rmean_gnd_mstpot               = 0.d0
+      y%rmean_gnd_wetness              = 0.d0
 
       y%avg_carbon_ac                  = 0.d0
       y%avg_carbon_st                  = 0.d0

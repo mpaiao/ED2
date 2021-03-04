@@ -849,6 +849,176 @@ module rk4_misc
 
    !=======================================================================================!
    !=======================================================================================!
+   !      This subroutine updates state variables that must be averaged during the time    !
+   ! step.  Eventually every state variable should be here.                                !
+   !---------------------------------------------------------------------------------------!
+   subroutine update_rmean_vars(initp,hdid,csite,ipa,ibuff)
+      use rk4_coms             , only : rk4aux               & ! intent(in)
+                                      , rk4site              & ! intent(in)
+                                      , rk4patchtype         ! ! structure
+      use ed_state_vars        , only : sitetype             & ! structure
+                                      , patchtype            ! ! structure
+      use grid_coms            , only : nzg                  ! ! intent(in)
+      use ed_misc_coms         , only : dtlsmi8              ! ! intent(in)
+      use soil_coms            , only : soil8                & ! intent(in)
+                                      , slz8                 & ! intent(in)
+                                      , matric_potential8    ! ! function
+      use therm_lib8           , only : eslif8               & ! function
+                                      , tslif8               ! ! function
+      use disturb_coms         , only : include_fire         & ! intent(in)
+                                      , k_fire_first         & ! intent(in)
+                                      , fire_smoist_depth    ! ! intent(in)
+      use consts_coms          , only : wdns8                ! ! intent(in)
+      implicit none
+      !----- Arguments --------------------------------------------------------------------!
+      type(rk4patchtype), target      :: initp
+      type(sitetype)    , target      :: csite
+      integer           , intent(in)  :: ipa
+      real(kind=8)      , intent(in)  :: hdid
+      integer           , intent(in)  :: ibuff
+      !----- Local variables. -------------------------------------------------------------!
+      type(patchtype)   , pointer     :: cpatch
+      integer                         :: ico
+      real(kind=8)                    :: tfact
+      real(kind=8)                    :: can_pvap
+      real(kind=8)                    :: can_tdew
+      real(kind=8)                    :: fm_depth8
+      real(kind=8)                    :: fm_depthi8
+      real(kind=8)                    :: fm_dslz8
+      real(kind=8)                    :: gnd_water
+      real(kind=8)                    :: gnd_wetness
+      real(kind=8)                    :: gnd_mstpot
+      real(kind=8)                    :: lyr_wetness
+      integer                         :: k
+      integer                         :: ksn
+      integer                         :: ka
+      integer                         :: nsoil
+      !------------------------------------------------------------------------------------!
+
+
+      !----- Time factor for time step. ---------------------------------------------------!
+      tfact = hdid * dtlsmi8
+      !------------------------------------------------------------------------------------!
+
+
+      !----- Alias for the cohorts. -------------------------------------------------------!
+      cpatch => csite%patch(ipa)
+      !------------------------------------------------------------------------------------!
+
+
+
+      !----- Alias for temporary surface water layers. ------------------------------------!
+      ksn = initp%nlev_sfcwater
+      !------------------------------------------------------------------------------------!
+
+
+
+      !------------------------------------------------------------------------------------!
+      !     This variable is the monthly mean ground water that will be used to control    !
+      ! fire disturbance (except for the new fire module, see below).                      !
+      !------------------------------------------------------------------------------------!
+      gnd_water = 0.d0
+      !----- Add temporary surface water. -------------------------------------------------!
+      do k=1,ksn
+         gnd_water = gnd_water + initp%sfcwater_mass(k)
+      end do
+      !----- Find the bottommost layer to consider. ---------------------------------------!
+      select case(include_fire)
+      case (1)
+         ka         = rk4site%lsl
+         fm_depth8  = slz8(ka)
+      case default
+         ka         = k_fire_first
+         fm_depth8  = dble(fire_smoist_depth)
+      end select
+      !----- Find inverse of the bottom layer (absolute value, used for weighting). -------!
+      fm_depthi8    = 1.d0 / abs(fm_depth8)
+      !----- Add soil moisture. -----------------------------------------------------------!
+      do k=ka,nzg
+         fm_dslz8   = slz8(k+1) - max(fm_depth8,slz8(k))
+         gnd_water  = gnd_water + wdns8 * initp%soil_water(k) * fm_dslz8
+      end do
+      !----- Add to the time-step mean. ---------------------------------------------------!
+      initp%rmean_gnd_water = initp%rmean_gnd_water + gnd_water * tfact
+      !------------------------------------------------------------------------------------!
+
+
+
+      !------------------------------------------------------------------------------------!
+      !       Update variables used for the new fire model.                                !
+      !------------------------------------------------------------------------------------!
+      !----- Canopy air space temperature. ------------------------------------------------!
+      initp%rmean_can_temp      = initp%rmean_can_temp + initp%can_temp * tfact
+      !----- Canopy air space relative humidity. ------------------------------------------!
+      initp%rmean_can_rhv       = initp%rmean_can_rhv  + initp%can_rhv  * tfact
+      !----- Canopy air space dewpoint temperature. ---------------------------------------!
+      can_pvap                  = initp%can_rhv * eslif8(initp%can_temp)
+      can_tdew                  = tslif8(can_pvap)
+      initp%rmean_can_tdew      = initp%rmean_can_tdew + can_tdew       * tfact
+      !----- Average wind speed.  Integrate kinetic energy to get average wind. -----------!
+      if (rk4aux(ibuff)%any_resolvable) then
+         !----- At least one resolvable cohort. Set canopy wind based on the tallest one. -!
+         windloop: do ico = 1, cpatch%ncohorts
+            !----- Stop loop at the first resolvable cohort. ------------------------------!
+            if (initp%veg_resolvable(ico)) then
+               initp%rmean_can_ekin = initp%rmean_can_ekin                                 &
+                                    + initp%veg_wind(ico) * initp%veg_wind(ico) * tfact
+
+               exit windloop
+            end if
+            !------------------------------------------------------------------------------!
+         end do windloop
+         !---------------------------------------------------------------------------------!
+      else
+         !----- None of the cohorts are resolved.  Use met driver wind instead. -----------!
+         initp%rmean_can_ekin = initp%rmean_can_ekin + initp%vels * initp%vels * tfact
+         !---------------------------------------------------------------------------------!
+      end if
+      !------------------------------------------------------------------------------------!
+      !      Daily average relative soil moisture and soil matric potential.  If temporary !
+      ! surface water exists, assume maximum moisture and zero water potential, which      !
+      ! should effectively suppress or terminate fires if sustained.                       !
+      !------------------------------------------------------------------------------------!
+      if (initp%nlev_sfcwater > 0) then
+         !------ Assume relative moisture to be 1, as there is surface water/snow. --------!
+         initp%rmean_gnd_wetness = initp%rmean_gnd_wetness + 1. * tfact
+         !initp%rmean_gnd_mstpot =  initp%rmean_gnd_mstpot + 0. * tfact
+         !---------------------------------------------------------------------------------!
+      else
+         !------ Weighted average. --------------------------------------------------------!
+         gnd_wetness = 0.d0
+         gnd_mstpot  = 0.d0
+         do k=ka,nzg
+            nsoil       = rk4site%ntext_soil(k)
+            fm_dslz8    = slz8(k+1) - max(fm_depth8,slz8(k))
+            lyr_wetness = ( initp%soil_water (k) - soil8(nsoil)%soilcp )                   &
+                        / ( soil8(nsoil)%slmsts  - soil8(nsoil)%soilcp )
+            lyr_wetness = max(0.d0,min(1.d0,lyr_wetness))
+            gnd_wetness = gnd_wetness  + lyr_wetness          * fm_dslz8 * fm_depthi8
+            gnd_mstpot  = gnd_mstpot   + initp%soil_mstpot(k) * fm_dslz8 * fm_depthi8
+         end do
+         !---------------------------------------------------------------------------------!
+
+
+         !------ Integrate average surface moisture. --------------------------------------!
+         initp%rmean_gnd_wetness = initp%rmean_gnd_wetness + gnd_wetness * tfact
+         initp%rmean_gnd_mstpot  = initp%rmean_gnd_mstpot  + gnd_mstpot  * tfact
+         !---------------------------------------------------------------------------------!
+      end if
+      !------------------------------------------------------------------------------------!
+
+      return
+   end subroutine update_rmean_vars 
+   !=======================================================================================!
+   !=======================================================================================!
+
+
+
+
+
+
+   !=======================================================================================!
+   !=======================================================================================!
    !    This subroutine performs the following tasks:                                      !
    ! 1. Check how many layers of temporary water or snow we have, and include the virtual  !
    !    pools at the topmost if needed;                                                    !
@@ -3707,8 +3877,8 @@ module rk4_misc
 
       write(unit=*,fmt='(80a)') ('-',k=1,80)
 
-      write (unit=*,fmt='(a,1x,2(i2.2,a),i4.4,1x,3(i2.2,a))')                              &
-            'Time:',current_time%month,'/',current_time%date,'/',current_time%year         &
+      write (unit=*,fmt='(a,1x,i4.4,2(a,i2.2),1x,3(i2.2,a))')                              &
+            'Time:',current_time%year,'-',current_time%month,'-',current_time%date         &
                    ,current_time%hour,':',current_time%min,':',current_time%sec,' UTC'
       write(unit=*,fmt='(a,1x,es12.4)') 'Attempted step size:',csite%htry(ipa)
       write (unit=*,fmt='(a,1x,i6)')    'Ncohorts: ',cpatch%ncohorts

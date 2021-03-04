@@ -200,7 +200,7 @@ default = list( run           = "unnamed"
               , imort.scheme  = 1
               , ddmort.const  = 0.8
               , cbr.scheme    = 0
-              , isfclyrm      = 4
+              , isfclyrm      = 3
               , icanturb      = 0
               , ubmin         = 1.00
               , ugbmin        = 0.40
@@ -347,7 +347,7 @@ if ( "biomass.harv" %in% names(varrun)){
                )#end redundant
    forbidden = forbidden | redundant
 }#end if ("biomass.harv" %in% names(varrun))
-if ( "ifire" %in% names(varrun)){
+if ( all(c("ifire","sm.fire") %in% names(varrun))){
    smf.min   = min(varrun$sm.fire)
    redundant = joborder$ifire == 0 & joborder$sm.fire != smf.min
    forbidden = forbidden | redundant

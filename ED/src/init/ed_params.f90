@@ -1048,7 +1048,7 @@ subroutine init_disturb_params
    !------ Cloud-to-ground ignition probability        [       ---] -----------------------!
    fi_cg_ignp    = 0.068
    !------ Land use ignition density                   [    1/m2/s] -----------------------!
-   fi_lu_ignd    = 2.66e-14
+   fi_lu_ignd    = 2.0e-11
    !------ Max. age for "secondary" forests to be LU   [        yr] -----------------------!
    fi_sf_maxage  = 2.
    !------ Land use exponent                           [       ---] -----------------------!
@@ -1071,9 +1071,9 @@ subroutine init_disturb_params
    !------  Exponent for relative humidity              [       ---] ----------------------!
    fs_rhv_exp    = 1.18
    !------  Lower bound for soil matric potential       [         m] ----------------------!
-   fs_smpot_lwr  = -120.
+   fs_smpot_lwr  = -100.
    !------  Upper bound for soil matric potential       [         m] ----------------------!
-   fs_smpot_upr  =   -1.
+   fs_smpot_upr  =  -10.
    !------  Exponent for soil matric potential          [       ---] ----------------------!
    fs_smpot_exp  = 0.20
    !------  Lower bound for temperature                 [         K] ----------------------!

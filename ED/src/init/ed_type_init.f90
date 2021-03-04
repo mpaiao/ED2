@@ -1548,7 +1548,8 @@ module ed_type_init
                                , writing_eorq           & ! intent(in)
                                , writing_dcyc           & ! intent(in)
                                , economics_scheme       ! ! intent(in)
-      use consts_coms   , only : wdns                   ! ! intent(in)
+      use consts_coms   , only : wdns                   & ! intent(in)
+                               , huge_num               ! ! intent(in)
       use disturb_coms  , only : include_fire           & ! intent(in)
                                , fire_dryness_threshold & ! intent(in)
                                , k_fire_first           & ! intent(in)
@@ -1711,7 +1712,7 @@ module ed_type_init
       !      Initialise the minimum monthly temperature with a very large value, this is   !
       ! going to be reduced as the canopy temperature is updated.                          !
       !------------------------------------------------------------------------------------!
-      cpoly%min_monthly_temp(:) = huge(1.)
+      cpoly%min_monthly_temp(:) = huge_num
       !------------------------------------------------------------------------------------!
 
 
@@ -1723,9 +1724,13 @@ module ed_type_init
 
 
       !------------------------------------------------------------------------------------!
-      !      Initialise daily rainfall rate.                                               !
+      !      Initialise daily meteorological summaries.  For minimum and maximum           !
+      ! temperatures, we should set values that would be discarded at the first step.      !
       !------------------------------------------------------------------------------------!
-      cpoly%today_pcpg(:) = 0.
+      cpoly%today_pcpg    (:) = 0.
+      cpoly%tdmax_atm_temp(:) = -huge_num
+      cpoly%tdmin_atm_temp(:) =  huge_num
+      cpoly%today_atm_tdew(:) = 0.
       !------------------------------------------------------------------------------------!
 
 

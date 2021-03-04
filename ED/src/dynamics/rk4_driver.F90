@@ -24,8 +24,7 @@ module rk4_driver
       use met_driver_coms        , only : met_driv_state             ! ! structure
       use grid_coms              , only : nzg                        ! ! intent(in)
       use ed_misc_coms           , only : current_time               & ! intent(in)
-                                        , dtlsm                      & ! intent(in)
-                                        , dtlsm_o_day_sec            ! ! intent(in)
+                                        , dtlsm                      ! ! intent(in)
       use soil_coms              , only : isoilbc                    ! ! intent(in)
       use budget_utils           , only : update_cbudget_committed   & ! function
                                         , compute_budget             ! ! function
@@ -34,7 +33,8 @@ module rk4_driver
       use photosyn_driv          , only : canopy_photosynthesis      ! ! sub-routine
       use rk4_misc               , only : sanity_check_veg_energy    ! ! sub-routine
       use rk4_copy_patch         , only : copy_rk4patch_init         ! ! sub-routine
-      use rk4_integ_utils        , only : copy_met_2_rk4site         ! ! sub-routine
+      use rk4_integ_utils        , only : update_today_met_summ      & ! subroutine
+                                        , copy_met_2_rk4site         ! ! sub-routine
       use update_derived_utils   , only : update_patch_derived_props ! ! sub-routine
       use plant_hydro            , only : plant_hydro_driver         ! ! sub-routine
       use therm_lib              , only : tq2enthalpy                ! ! function
@@ -147,9 +147,9 @@ module rk4_driver
 
 
             !------------------------------------------------------------------------------!
-            !     Update today's average rainfall rate.                                    !
+            !     Update met driver summary variables.                                     !
             !------------------------------------------------------------------------------!
-            cpoly%today_pcpg(isi) = cpoly%today_pcpg(isi) + cmet%pcpg * dtlsm_o_day_sec
+            call update_today_met_summ(cpoly,isi)
             !------------------------------------------------------------------------------!
 
 
@@ -472,7 +472,7 @@ module rk4_driver
       !------------------------------------------------------------------------------------!
       ! Move the state variables from the integrated patch to the model patch.             !
       !------------------------------------------------------------------------------------!
-      call initp2modelp(tend-tbeg,initp,csite,ipa,ibuff,nighttime,wcurr_loss2atm           &
+      call initp2modelp(tend-tbeg,initp,csite,ipa,nighttime,wcurr_loss2atm                 &
                        ,ecurr_netrad,ecurr_loss2atm,co2curr_loss2atm,wcurr_loss2drainage   &
                        ,ecurr_loss2drainage,wcurr_loss2runoff,ecurr_loss2runoff            &
                        ,co2curr_denseffect,ecurr_denseffect,wcurr_denseffect)

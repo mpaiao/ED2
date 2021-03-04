@@ -21,8 +21,7 @@ module heun_driver
       use met_driver_coms        , only : met_driv_state             ! ! structure
       use grid_coms              , only : nzg                        ! ! intent(in)
       use ed_misc_coms           , only : current_time               & ! intent(in)
-                                        , dtlsm                      & ! intent(in)
-                                        , dtlsm_o_day_sec            ! ! intent(in)
+                                        , dtlsm                      ! ! intent(in)
       use soil_coms              , only : isoilbc                    ! ! intent(in)
       use ed_max_dims            , only : n_dbh                      ! ! intent(in)
       use budget_utils           , only : update_cbudget_committed   & ! function
@@ -31,7 +30,8 @@ module heun_driver
       use stem_resp_driv         , only : stem_respiration           ! ! function
       use photosyn_driv          , only : canopy_photosynthesis      ! ! function
       use update_derived_utils   , only : update_patch_derived_props ! ! subroutine
-      use rk4_integ_utils        , only : copy_met_2_rk4site         ! ! subroutine
+      use rk4_integ_utils        , only : update_today_met_summ      & ! subroutine
+                                        , copy_met_2_rk4site         ! ! subroutine
       use rk4_misc               , only : sanity_check_veg_energy    ! ! sub-routine
       use rk4_copy_patch         , only : copy_rk4patch_init         ! ! sub-routine
       use plant_hydro            , only : plant_hydro_driver         ! ! subroutine
@@ -132,9 +132,9 @@ module heun_driver
 
 
             !------------------------------------------------------------------------------!
-            !     Update today's average rainfall rate.                                    !
+            !     Update met driver summary variables.                                     !
             !------------------------------------------------------------------------------!
-            cpoly%today_pcpg(isi) = cpoly%today_pcpg(isi) + cmet%pcpg * dtlsm_o_day_sec
+            call update_today_met_summ(cpoly,isi)
             !------------------------------------------------------------------------------!
 
             !------------------------------------------------------------------------------!
@@ -452,7 +452,7 @@ module heun_driver
       !------------------------------------------------------------------------------------!
       ! Move the state variables from the integrated patch to the model patch.             !
       !------------------------------------------------------------------------------------!
-      call initp2modelp(tend-tbeg,integration_buff(ibuff)%initp,csite,ipa,ibuff,nighttime  &
+      call initp2modelp(tend-tbeg,integration_buff(ibuff)%initp,csite,ipa,nighttime        &
                        ,wcurr_loss2atm,ecurr_netrad,ecurr_loss2atm,co2curr_loss2atm        &
                        ,wcurr_loss2drainage,ecurr_loss2drainage,wcurr_loss2runoff          &
                        ,ecurr_loss2runoff,co2curr_denseffect,ecurr_denseffect              &
@@ -516,6 +516,7 @@ module heun_driver
                                 , adjust_sfcw_properties    & ! sub-routine
                                 , update_diagnostic_vars    & ! sub-routine
                                 , update_density_vars       & ! sub-routine
+                                , update_rmean_vars         & ! sub-routine
                                 , print_rk4_state           ! ! sub-routine
       use ed_misc_coms   , only : fast_diagnostics          & ! intent(in)
                                 , dtlsm                     ! ! intent(in)
@@ -755,6 +756,8 @@ module heun_driver
                !----- v.  Update the density variables. -----------------------------------!
                call update_density_vars(integration_buff(ibuff)%ytemp                      &
                                        ,integration_buff(ibuff)%y     )
+               !----- vi. Update time-step averages. --------------------------------------!
+               call update_rmean_vars(integration_buff(ibuff)%ytemp,h,csite,ipa,ibuff)
                !---------------------------------------------------------------------------!
 
 

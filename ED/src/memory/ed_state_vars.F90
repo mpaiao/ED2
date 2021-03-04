@@ -2507,8 +2507,16 @@ module ed_state_vars
       !<Nesterov index
 
       real,pointer,dimension(:) :: today_pcpg
-      !<total fuel in the dry patches
+      !<Daily average precipitation rate of day (internal use only)
 
+      real,pointer,dimension(:) :: today_atm_tdew
+      !<Daily average dew point temperature (internal use only)
+
+      real,pointer,dimension(:) :: tdmin_atm_temp
+      !<Daily minimum temperature (internal use only)
+
+      real,pointer,dimension(:) :: tdmax_atm_temp
+      !<Daily maximum temperature (internal use only)
 
       real,pointer, dimension(:,:) :: lambda_fire
       !<  initialized in create_site !(12,nsites)
@@ -4920,6 +4928,9 @@ module ed_state_vars
       allocate(cpoly%fire_f_stgc                   (                          nsites))
       allocate(cpoly%nesterov_index                (                          nsites))
       allocate(cpoly%today_pcpg                    (                          nsites))
+      allocate(cpoly%today_atm_tdew                (                          nsites))
+      allocate(cpoly%tdmin_atm_temp                (                          nsites))
+      allocate(cpoly%tdmax_atm_temp                (                          nsites))
       allocate(cpoly%lambda_fire                   (                       12,nsites))
       allocate(cpoly%avg_fire_intensity            (                       12,nsites))
       allocate(cpoly%avg_fire_tlethal              (                       12,nsites))
@@ -7244,6 +7255,9 @@ module ed_state_vars
       nullify(cpoly%fire_f_stgc                )
       nullify(cpoly%nesterov_index             )
       nullify(cpoly%today_pcpg                 )
+      nullify(cpoly%today_atm_tdew             )
+      nullify(cpoly%tdmin_atm_temp             )
+      nullify(cpoly%tdmax_atm_temp             )
       nullify(cpoly%avg_fire_intensity         )
       nullify(cpoly%avg_fire_tlethal           )
       nullify(cpoly%avg_monthly_accp           )
@@ -22284,6 +22298,36 @@ module ed_state_vars
          call vtable_edio_r(npts,cpoly%today_pcpg                                          &
                            ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
                            ,'TODAY_PCPG :21:hist') 
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Internal variable, do not use it for analysis'                &
+                           ,'[--]','(isite)') 
+      end if
+
+      if (associated(cpoly%today_atm_tdew)) then
+         nvar=nvar+1
+         call vtable_edio_r(npts,cpoly%today_atm_tdew                                      &
+                           ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'TODAY_ATM_TDEW :21:hist') 
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Internal variable, do not use it for analysis'                &
+                           ,'[--]','(isite)') 
+      end if
+
+      if (associated(cpoly%tdmin_atm_temp)) then
+         nvar=nvar+1
+         call vtable_edio_r(npts,cpoly%tdmin_atm_temp                                      &
+                           ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'TDMIN_ATM_TEMP :21:hist') 
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Internal variable, do not use it for analysis'                &
+                           ,'[--]','(isite)') 
+      end if
+
+      if (associated(cpoly%tdmax_atm_temp)) then
+         nvar=nvar+1
+         call vtable_edio_r(npts,cpoly%tdmax_atm_temp                                      &
+                           ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'TDMAX_ATM_TEMP :21:hist') 
          call metadata_edio(nvar,igr                                                       &
                            ,'Internal variable, do not use it for analysis'                &
                            ,'[--]','(isite)') 

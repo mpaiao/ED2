@@ -226,6 +226,13 @@ module fire_init
                !---------------------------------------------------------------------------!
                if (inside) then
 
+
+                  !----- First, copy the file information to the first site. --------------!
+                  isi = 1
+                  csite => cpoly%site(isi)
+                  !------------------------------------------------------------------------!
+
+
                   !----- Define the first and last year to be read. -----------------------!
                   yfirst = min(yd_1st ,iyeara)
                   ylast  = max(yd_last,iyearz)
@@ -242,12 +249,6 @@ module fire_init
 
                   !----- Allocate the number of simulation years. -------------------------!
                   allocate(cpoly%seitimes(cpoly%num_sei_times(isi),cpoly%nsites))
-                  !------------------------------------------------------------------------!
-
-
-                  !----- Copy the file information to the first site. ---------------------!
-                  isi = 1
-                  csite => cpoly%site(isi)
                   !------------------------------------------------------------------------!
 
 
@@ -425,7 +426,7 @@ module fire_init
 
             !------ Extract lightning file list information. ------------------------------!
             call ed_filelist(full_list,flash_database(igr),nflist)
-            call ed1_fileinfo('.sei',nflist,full_list,nflfire,fire_list,llon_list,llat_list)
+            call ed1_fileinfo('.frd',nflist,full_list,nflfire,fire_list,llon_list,llat_list)
             !------------------------------------------------------------------------------!
 
 
@@ -515,6 +516,14 @@ module fire_init
                !---------------------------------------------------------------------------!
                if (inside) then
 
+
+                  !----- First, copy the file information to the first site. --------------!
+                  isi = 1
+                  csite => cpoly%site(isi)
+                  !------------------------------------------------------------------------!
+
+
+
                   !----- Define the first and last year to be read. -----------------------!
                   yfirst = min(yd_1st ,iyeara)
                   ylast  = max(yd_last,iyearz)
@@ -532,13 +541,6 @@ module fire_init
                   !----- Allocate the number of simulation years. -------------------------!
                   allocate(cpoly%flashtimes(cpoly%num_flash_times(isi),cpoly%nsites))
                   !------------------------------------------------------------------------!
-
-
-                  !----- Copy the file information to the first site. ---------------------!
-                  isi = 1
-                  csite => cpoly%site(isi)
-                  !------------------------------------------------------------------------!
-
 
 
 

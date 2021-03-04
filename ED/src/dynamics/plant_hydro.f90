@@ -669,6 +669,7 @@ module plant_hydro
       logical           , parameter         :: debug_flag = .false.
       !----- External function ------------------------------------------------------------!
       real(kind=4)      , external          :: sngloff       ! Safe dble 2 single precision
+      logical           , external          :: isnan_dble    ! Check for NaN 
       !------------------------------------------------------------------------------------!
 
 
@@ -1039,7 +1040,7 @@ module plant_hydro
       !------------------------------------------------------------------------------------!
       if (c_leaf > 0.d0) then
          !------ Check for errors in both wood and leaf. ----------------------------------!
-         error_flag(1) = isnan(wflux_wl_d)              .or. isnan(wflux_gw_d)
+         error_flag(1) = isnan_dble(wflux_wl_d)         .or. isnan_dble(wflux_gw_d)
          error_flag(2) = proj_leaf_psi > 0.d0           .or. proj_wood_psi > 0.d0
          error_flag(3) = leaf_psi_d    > 0.d0           .or. wood_psi_d    > 0.d0
          error_flag(4) = proj_leaf_psi < leaf_psi_min_d .or. proj_wood_psi < wood_psi_min_d
@@ -1050,7 +1051,7 @@ module plant_hydro
          !     Check for errors in wood only, as plant has no leaves.  The only exception  !
          ! is the flux from wood to leaf, which should never be NaN, so we still check it. !
          !---------------------------------------------------------------------------------!
-         error_flag(1) = isnan(wflux_wl_d)              .or. isnan(wflux_gw_d)
+         error_flag(1) = isnan_dble(wflux_wl_d)         .or. isnan_dble(wflux_gw_d)
          error_flag(2) = proj_wood_psi > 0.d0
          error_flag(3) = wood_psi_d    > 0.d0
          error_flag(4) = proj_wood_psi < wood_psi_min_d

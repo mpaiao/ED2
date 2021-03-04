@@ -2244,40 +2244,13 @@ end do
       ifaterr = ifaterr +1
    end if
 
-   if (include_fire < 0 .or. include_fire > 4) then
-      write (reason,fmt='(a,1x,i4,a)')                                                     &
-                    'Invalid INCLUDE_FIRE, it must be between 0 and 3. Yours is set to'    &
-                    ,include_fire,'...'
-      call opspec_fatal(reason,'opspec_misc')
-      ifaterr = ifaterr +1
-
+   select case (include_fire)
+   case (0)
+      !----- Fire is off, no further checks needed. ---------------------------------------!
+      continue
       !------------------------------------------------------------------------------------!
-      !   Beginning of the code that must be deleted/commented to run FIRESTARTER.         !
-      !------------------------------------------------------------------------------------!
-   else if (include_fire == 4) then
-      write(unit=*,fmt='(a)') '------------------------------------------------------------'
-      write(unit=*,fmt='(a)') ' Attempt to run FIRESTARTER!                                '
-      write(unit=*,fmt='(a)') '------------------------------------------------------------'
-      write(unit=*,fmt='(a)') '    This module has been placed in the code, however it has'
-      write(unit=*,fmt='(a)') ' not been debugged or tested yet.  If you want to try it'
-      write(unit=*,fmt='(a)') ' anyway, go to ed_opspec.F90 and remove/comment this ''if'''
-      write(unit=*,fmt='(a)') ' statement and message.  Beware that you may need to debug'
-      write(unit=*,fmt='(a)') ' the code and optimise parameters.  If you do so, and debug'
-      write(unit=*,fmt='(a)') ' or improve the existing fire code, please submit your '
-      write(unit=*,fmt='(a)') ' developments as a pull request on GitHub.  ED2 is a'
-      write(unit=*,fmt='(a)') ' collaborative effort and every contribution is very'
-      write(unit=*,fmt='(a)') ' helpful!'
-      write(unit=*,fmt='(a)') ' '
-      write(unit=*,fmt='(a)') '                                                  Thanks!'
-      write(unit=*,fmt='(a)') '------------------------------------------------------------'
-      write(reason,fmt='(a)') ' FIRESTARTER (INCLUDE_FIRE=4) is not active yet.'
-      call opspec_fatal(reason,'opspec_misc')
-      ifaterr = ifaterr + 1
-      !------------------------------------------------------------------------------------!
-      !   End of the code that must be deleted/commented to run FIRESTARTER.               !
-      !------------------------------------------------------------------------------------!
-
-   else if (include_fire /= 0) then
+   case (1,2)
+      !------ Check fire parameter and sm_fire. -------------------------------------------!
       if (fire_parameter < 0.0 .or. fire_parameter > 100.) then
          write (reason,fmt='(a,1x,es12.5,a)')                                              &
                'Invalid FIRE_PARAMETER, it must be between 0 and 100.. Yours is set to'    &
@@ -2294,7 +2267,30 @@ end do
          call opspec_fatal(reason,'opspec_misc')
          ifaterr = ifaterr +1
       end if
-   end if
+      !------------------------------------------------------------------------------------!
+   case (3)
+      !------ EMBERFIRE.  Check fire parameter only. --------------------------------------!
+      if (fire_parameter < 0.0 .or. fire_parameter > 100.) then
+         write (reason,fmt='(a,1x,es12.5,a)')                                              &
+               'Invalid FIRE_PARAMETER, it must be between 0 and 100.. Yours is set to'    &
+             , fire_parameter,'...'
+         call opspec_fatal(reason,'opspec_misc')
+         ifaterr = ifaterr +1
+      end if
+      !------------------------------------------------------------------------------------!
+   case (4)
+      !------ FIRESTARTER.  No additional checks needed in the namelist. ------------------!
+      continue
+      !------------------------------------------------------------------------------------!
+   case default
+      !----- Invalid INLCUDE_FIRE. --------------------------------------------------------!
+      write (reason,fmt='(a,1x,i4,a)')                                                     &
+                    'Invalid INCLUDE_FIRE, it must be between 0 and 4. Yours is set to'    &
+                    ,include_fire,'...'
+      call opspec_fatal(reason,'opspec_misc')
+      ifaterr = ifaterr +1
+      !------------------------------------------------------------------------------------!
+   end select
 
    if (ianth_disturb < 0 .or. ianth_disturb > 2) then
       write (reason,fmt='(a,1x,i4,a)')                                                     &

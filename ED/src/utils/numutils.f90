@@ -906,3 +906,42 @@ end function fquant_mask
 !==========================================================================================!
 !==========================================================================================!
 
+
+
+
+!==========================================================================================!
+!==========================================================================================!
+! FUNCTION bpow01
+!\brief Safe power estimate to avoid floating point exceptions
+!\author Marcos Longo 3 March 2021
+!\details This function to calculate power functions for numbers bounded between 0 and 1
+!!        safely.  It uses that y = x ** a = exp(a * ln(x)), and use the safe log limits
+!!        to avoid FPE errors.  IMPORTANT: To reduce computational burden, this function
+!!        does not check that x is bounded between 0. and 1. This function should never be
+!!        called for numbers outside this range.
+!------------------------------------------------------------------------------------------!
+real(kind=4) function bpow01(x,a)
+   use consts_coms, only : lnexp_min & ! intent(in)
+                         , lnexp_max ! ! intent(in)
+   implicit none
+   !----- Arguments. ----------------------------------------------------------------------!
+   real(kind=4), intent(in) :: x
+   real(kind=4), intent(in) :: a
+   !----- Internal variables. -------------------------------------------------------------!
+   real(kind=4)             :: lnexp
+   !---------------------------------------------------------------------------------------!
+
+
+   !----- Find the bounded term inside the exponential. -----------------------------------!
+   lnexp = max(lnexp_min,min(lnexp_max,a * log(x)))
+   !---------------------------------------------------------------------------------------!
+
+
+   !----- Report result. ------------------------------------------------------------------!
+   bpow01 = exp(lnexp)
+   !---------------------------------------------------------------------------------------!
+
+   return
+end function bpow01
+!==========================================================================================!
+!==========================================================================================!

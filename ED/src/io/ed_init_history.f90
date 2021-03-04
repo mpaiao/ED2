@@ -3264,6 +3264,12 @@ module ed_init_history
                      ,'NESTEROV_INDEX               ',dsetrank,iparallel,.true. ,foundvar)
       call hdf_getslab_r(cpoly%today_pcpg                                                  &
                      ,'TODAY_PCPG                   ',dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_r(cpoly%today_atm_tdew                                              &
+                     ,'TODAY_ATM_TDEW               ',dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_r(cpoly%tdmin_atm_temp                                              &
+                     ,'TDMIN_ATM_TEMP               ',dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_r(cpoly%tdmax_atm_temp                                              &
+                     ,'TDMAX_ATM_TEMP               ',dsetrank,iparallel,.true. ,foundvar)
       !------ Daily means. ----------------------------------------------------------------!
       if (writing_long) then
          call hdf_getslab_r(cpoly%dmean_atm_theiv                                          &

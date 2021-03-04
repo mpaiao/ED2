@@ -3443,7 +3443,10 @@ module average_utils
             csite => cpoly%site(isi)
 
             !----- Reset variables stored in polygontype. ---------------------------------!
-            cpoly%today_pcpg(isi) = 0.0
+            cpoly%today_pcpg    (isi) =  0.0
+            cpoly%today_atm_tdew(isi) =  0.0
+            cpoly%tdmin_atm_temp(isi) =  huge_num
+            cpoly%tdmax_atm_temp(isi) = -huge_num
             !------------------------------------------------------------------------------!
 
 

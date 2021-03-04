@@ -2973,8 +2973,9 @@ $ED2_INFO
    !                      -based fire model that builds on fire density, ignition and      !
    !                      termination from HESFIRE (LePage et al. 2015), and fire damage   !
    !                      and spread rates based on SPITFIRE (Thonicke et al. 2010).       !
-   !                      By default this option is not going to run, as it is still in    !
-   !                      development.                                                     !
+   !                      This module is still under development and may change.  Feel     !
+   !                      free to try it, but mind that you may need to optimise           !
+   !                      parameters and likely do some debugging.                         !
    ! FIRE_PARAMETER -- If fire happens, this will control the intensity of the disturbance !
    !                   given the amount of fuel.                                           !
    ! SM_FIRE        -- This is used only when INCLUDE_FIRE = 2 or 3, and it has different  !

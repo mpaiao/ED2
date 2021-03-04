@@ -700,8 +700,8 @@ $ED_NL
    NL%SLCOL_DATABASE    = 'myinpmain/soil_data/colour/LC2007JGRB/LC2007JGRB_'
    NL%LU_DATABASE       = 'myludatabase'
    NL%PLANTATION_FILE   = ''
-   NL%SEI_DATABASE      = ''
-   NL%FLASH_DATABASE    = ''
+   NL%SEI_DATABASE      = 'myinpmain/ignition_data/sei_kummu2018/kummu_'
+   NL%FLASH_DATABASE    = 'myinpmain/ignition_data/frd_albrecht2016/albrecht_'
    NL%THSUMS_DATABASE   = 'myinpmain/thermal_sums/'
    NL%ED_MET_DRIVER_DB  = 'mymetdriverdb'
    NL%OBSTIME_DB        = '' !Reference file: /ED/run/obstime_template.time
@@ -1522,8 +1522,9 @@ $ED_NL
    !                      -based fire model that builds on fire density, ignition and      !
    !                      termination from HESFIRE (LePage et al. 2015), and fire damage   !
    !                      and spread rates based on SPITFIRE (Thonicke et al. 2010).       !
-   !                      By default this option is not going to run, as it is still in    !
-   !                      development.                                                     !
+   !                      This module is still under development and may change.  Feel     !
+   !                      free to try it, but mind that you may need to optimise           !
+   !                      parameters and likely do some debugging.                         !
    ! FIRE_PARAMETER -- If fire happens, this will control the intensity of the disturbance !
    !                   given the amount of fuel.                                           !
    ! SM_FIRE        -- This is used only when INCLUDE_FIRE = 2 or 3, and it has different  !

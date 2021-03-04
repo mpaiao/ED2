@@ -2455,6 +2455,11 @@ do
                thissfilin="${ebainit}/eba_intact_default."
                #---------------------------------------------------------------------------#
                ;;
+            2)
+               #----- Actual sampling + land use (pasture/cropland/plantation). -----------#
+               thissfilin="${ebainit}/eba_landuse_default."
+               #---------------------------------------------------------------------------#
+               ;;
             *)
                #----- Invalid option. Stop the script. ------------------------------------#
                echo " Polygon:  ${polyname}"

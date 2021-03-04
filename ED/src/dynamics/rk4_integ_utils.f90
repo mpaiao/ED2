@@ -248,6 +248,73 @@ module rk4_integ_utils
 
    !=======================================================================================!
    !=======================================================================================!
+   ! SUBROUTINE update_today_met_summ
+   !> \brief This subroutine updates the summaries for met drivers.
+   !> \details This subroutine integrates precipitation, dew point temperature, and updates
+   !!          the minimum and maximum air temperature.  These variables may be useful for
+   !!          the fire model, or for other parametrisations.
+   !> \author  Marcos Longo 24 Feb 2021.
+   !---------------------------------------------------------------------------------------!
+   subroutine update_today_met_summ(cpoly,isi)
+      use ed_state_vars  , only : polygontype     ! ! structure
+      use met_driver_coms, only : met_driv_state  ! ! structure
+      use therm_lib      , only : tslif           ! ! function
+      use ed_misc_coms   , only : dtlsm_o_day_sec ! ! intent(in)
+      use consts_coms    , only : ep              ! ! intent(in)
+      implicit none
+      !----- Arguments. -------------------------------------------------------------------!
+      type(polygontype)        , target       :: cpoly
+      integer                  , intent(in)   :: isi
+      !----- Local variables --------------------------------------------------------------!
+      type(met_driv_state)     , pointer      :: cmet
+      real                                    :: atm_pvap
+      real                                    :: atm_tdew
+      !------------------------------------------------------------------------------------!
+
+
+      !----- Handy alias. -----------------------------------------------------------------!
+      cmet  => cpoly%met(isi)
+      !------------------------------------------------------------------------------------!
+
+
+      !------------------------------------------------------------------------------------!
+      !     Update today's average rainfall rate.                                          !
+      !------------------------------------------------------------------------------------!
+      cpoly%today_pcpg(isi) = cpoly%today_pcpg(isi) + cmet%pcpg * dtlsm_o_day_sec
+      !------------------------------------------------------------------------------------!
+
+
+      !------------------------------------------------------------------------------------!
+      !     Minimum and maximum temperature.                                               !
+      !------------------------------------------------------------------------------------!
+      cpoly%tdmin_atm_temp(isi) = min(cpoly%tdmin_atm_temp(isi),cmet%atm_tmp)
+      cpoly%tdmax_atm_temp(isi) = max(cpoly%tdmax_atm_temp(isi),cmet%atm_tmp)
+      !------------------------------------------------------------------------------------!
+
+
+      !------------------------------------------------------------------------------------!
+      !     Find the vapour pressure and dew point temperature.                            !
+      !------------------------------------------------------------------------------------!
+      atm_pvap                  = cmet%prss * cmet%atm_shv / (ep + (1.-ep) * cmet%atm_shv)
+      atm_tdew                  = tslif(atm_pvap)
+      cpoly%today_atm_tdew(isi) = cpoly%today_atm_tdew(isi) + atm_tdew * dtlsm_o_day_sec
+      !------------------------------------------------------------------------------------!
+
+
+
+
+      return
+   end subroutine update_today_met_summ
+   !=======================================================================================!
+   !=======================================================================================!
+
+
+
+
+
+
+   !=======================================================================================!
+   !=======================================================================================!
    !    This subroutine copies the meteorological variables to the Runge-Kutta buffer.     !
    ! This is to ensure all variables are in double precision, so consistent with the       !
    ! buffer variables.                                                                     !
@@ -1844,6 +1911,7 @@ module rk4_integ_utils
                                , adjust_sfcw_properties    & ! sub-routine
                                , update_diagnostic_vars    & ! sub-routine
                                , update_density_vars       & ! sub-routine
+                               , update_rmean_vars         & ! sub-routine
                                , print_rk4_state           ! ! sub-routine
       use ed_state_vars , only : sitetype                  & ! structure
                                , patchtype                 ! ! structure
@@ -2022,6 +2090,8 @@ module rk4_integ_utils
             !----- v.  Update density. ----------------------------------------------------!
             call update_density_vars(integration_buff(ibuff)%ytemp                         &
                                     ,integration_buff(ibuff)%y    )
+            !----- vi. Update time-step averages. -----------------------------------------!
+            call update_rmean_vars(integration_buff(ibuff)%ytemp,h,csite,ipa,ibuff)
             !------------------------------------------------------------------------------!
 
             !------------------------------------------------------------------------------!

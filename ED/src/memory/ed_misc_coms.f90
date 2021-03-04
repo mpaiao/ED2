@@ -311,25 +311,29 @@ module ed_misc_coms
 
    !---------------------------------------------------------------------------------------!
    !     Some useful conversion factors.                                                   !
-   ! 1. FRQSUMI         -- inverse of the elapsed time between two analyses (or one day).  !
+   ! 1. DTLSMI          -- inverse of the RK4 time step.  These are useful for averaging   !
+   !                       data during one RK4 time step.                                  !
+   ! 2. FRQSUMI         -- inverse of the elapsed time between two analyses (or one day).  !
    !                       This should be used by variables that are fluxes and are solved !
    !                       by RK4, they are holding the integral over the past frqsum      !
    !                       seconds.                                                        !
-   ! 2. DTLSM_O_FRQSUM  -- inverse of the number of the main time steps (DTLSM) since      !
+   ! 3. DTLSM_O_FRQSUM  -- inverse of the number of the main time steps (DTLSM) since      !
    !                       previous analysis.  Only photosynthesis- and decomposition-     !
    !                       related variables, or STATE VARIABLES should use this factor.   !
    !                       Do not use this for energy and water fluxes, CO2 eddy flux, and !
    !                       CO2 storage.                                                    !
-   ! 3. RADFRQ_O_FRQSUM -- inverse of the number of radiation time steps since the         !
+   ! 4. RADFRQ_O_FRQSUM -- inverse of the number of radiation time steps since the         !
    !                       previous analysis.  Only radiation-related variables should use !
    !                       this factor.                                                    !
-   ! 4. DTLSM_O_DAY_SEC -- inverse of the number of main time steps within a day.  These   !
+   ! 5. DTLSM_O_DAY_SEC -- inverse of the number of main time steps within a day.  These   !
    !                       are used for the new fire model.                                !
    !---------------------------------------------------------------------------------------!
-   real :: frqsumi
-   real :: dtlsm_o_frqsum
-   real :: radfrq_o_frqsum
-   real :: dtlsm_o_day_sec
+   real(kind=4) :: dtlsmi
+   real(kind=8) :: dtlsmi8
+   real(kind=4) :: frqsumi
+   real(kind=4) :: dtlsm_o_frqsum
+   real(kind=4) :: radfrq_o_frqsum
+   real(kind=4) :: dtlsm_o_day_sec
    !---------------------------------------------------------------------------------------!
 
 

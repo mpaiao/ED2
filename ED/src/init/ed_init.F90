@@ -3,8 +3,8 @@ module ed_init
 
    !=======================================================================================!
    !=======================================================================================!
-   !    This subroutine will assign the longitude, latitude, and soil class for all non-   !
-   ! empty polygons.                                                                       !
+   !    This subroutine will assign the longitude, latitude, and a few other initial       !
+   ! conditions for non-empty polygons.                                                    !
    !---------------------------------------------------------------------------------------!
    subroutine set_polygon_coordinates()
       use grid_coms     , only : ngrids    ! ! intent(in)
@@ -34,6 +34,26 @@ module ed_init
             cgrid%lat (ipy) = work_v(ifm)%glat   (ipy)
             cgrid%xatm(ipy) = work_v(ifm)%xid    (ipy)
             cgrid%yatm(ipy) = work_v(ifm)%yid    (ipy)
+
+
+
+            !------------------------------------------------------------------------------!
+            !     Set the fraction of the land that can sustain natural vegetation (i.e.,  !
+            ! fraction of the total area after excluding oceans, inland water, glaciers,   !
+            ! and urban areas).  Note that the fraction of land that can sustain natural   !
+            ! vegetation INCLUDES deserts and bare soil.  This is only used for the        !
+            ! FIRESTARTER model (INCLUDE_FIRE=4).                                          !
+            !------------------------------------------------------------------------------!
+            cgrid%landfrac(ipy) = work_v(ifm)%landfrac(ipy)
+            !------------------------------------------------------------------------------!
+
+
+
+            !----- Initialise load adjacency with dummy value. ----------------------------!
+            cgrid%load_adjacency(ipy) = 0
+            !------------------------------------------------------------------------------!
+
+
          end do polyloop
          !---------------------------------------------------------------------------------!
       end do gridloop
@@ -94,22 +114,6 @@ module ed_init
          cgrid => edgrid_g(ifm)
 
          polyloop: do ipy=1,cgrid%npolygons
-
-            !------------------------------------------------------------------------------!
-            !     Set the fraction of the land that can sustain natural vegetation (i.e.,  !
-            ! fraction of the total area after excluding oceans, inland water, glaciers,   !
-            ! and urban areas).  Note that the fraction of land that can sustain natural   !
-            ! vegetation INCLUDES deserts and bare soil.  This is only used for the        !
-            ! FIRESTARTER model (INCLUDE_FIRE=4).                                          !
-            !------------------------------------------------------------------------------!
-            cgrid%landfrac(ipy) = work_v(ifm)%landfrac(ipy)
-            !------------------------------------------------------------------------------!
-
-
-
-            !----- Initialise load adjacency with dummy value. ----------------------------!
-            cgrid%load_adjacency(ipy) = 0
-            !------------------------------------------------------------------------------!
 
 
 
