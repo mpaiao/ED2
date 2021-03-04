@@ -8,16 +8,12 @@ MAKE=/usr/bin/make
 BASE=$(ED_ROOT)/build/
 
 # HDF 5  Libraries
-USE_HDF5=1
 HDF5_INCS=-I/usr/include/hdf5/serial
 HDF5_LIBS=-L/usr/lib/x86_64-linux-gnu/hdf5/serial -lz -lhdf5_fortran -lhdf5 -lhdf5_hl
 #HDF5_INCS=-I/usr/include
 #HDF5_LIBS=-lz -lhdf5_fortran -lhdf5 -lhdf5_hl
 USE_COLLECTIVE_MPIO=0
 
-# netCDF libraries
-USENC=0
-NC_LIBS=-L/dev/null
 
 # interface
 USE_INTERF=1
@@ -28,9 +24,9 @@ USE_MPIWTIME=1
 # gfortran
 CMACH=PC_LINUX1
 F_COMP=mpif90
-F_OPTS=-O3 -ffree-line-length-none  -fno-whole-file
+F_OPTS=-O3 -ffree-line-length-none  -fno-whole-file -frecursive
 C_COMP=mpicc
-C_OPTS=-O3
+C_OPTS=-O3 -DLITTLE
 LOADER=mpif90
 LOADER_OPTS=${F_OPTS}
 C_LOADER=mpicc
