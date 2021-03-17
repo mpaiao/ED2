@@ -7007,6 +7007,12 @@ module fuse_fiss_utils
       csite%mineralized_soil_N(recp) = csite%mineralized_soil_N(donp) * dawgt              &
                                      + csite%mineralized_soil_N(recp) * rawgt
 
+      csite%nesterov_index(recp)     = csite%nesterov_index    (donp) * dawgt              &
+                                     + csite%nesterov_index    (recp) * rawgt
+
+      csite%fdivpd_index(recp)       = csite%fdivpd_index      (donp) * dawgt              &
+                                     + csite%fdivpd_index      (recp) * rawgt
+
       csite%sum_dgd(recp)            = csite%sum_dgd(donp)            * dawgt              &
                                      + csite%sum_dgd(recp)            * rawgt
 
@@ -7584,6 +7590,8 @@ module fuse_fiss_utils
                                        * csite%fmean_sfcw_mass         (recp) * rawgt
          csite%fmean_sfcw_mass  (recp) = csite%fmean_sfcw_mass         (donp) * dawgt      &
                                        + csite%fmean_sfcw_mass         (recp) * rawgt
+         csite%fmean_snowfac    (recp) = csite%fmean_snowfac           (donp) * dawgt      &
+                                       + csite%fmean_snowfac           (recp) * rawgt
          !----- Check whether there is enough surface water. ------------------------------!
          if (csite%fmean_sfcw_mass(recp) > tiny_sfcwater_mass) then
             csite%fmean_sfcw_energy       (recp) =   csite%fmean_sfcw_energy       (recp)  &
@@ -7781,6 +7789,8 @@ module fuse_fiss_utils
                                           * csite%dmean_sfcw_mass  (recp) * rawgt
             csite%dmean_sfcw_mass  (recp) = csite%dmean_sfcw_mass  (donp) * dawgt          &
                                           + csite%dmean_sfcw_mass  (recp) * rawgt
+            csite%dmean_snowfac    (recp) = csite%dmean_snowfac    (donp) * dawgt          &
+                                          + csite%dmean_snowfac    (recp) * rawgt
             !----- Check whether there is enough surface water. ---------------------------!
             if (csite%dmean_sfcw_mass(recp) > tiny_sfcwater_mass) then
                csite%dmean_sfcw_energy     (recp) =   csite%dmean_sfcw_energy     (recp)   &
@@ -8175,6 +8185,8 @@ module fuse_fiss_utils
                                           * csite%mmean_sfcw_mass  (recp) * rawgt
             csite%mmean_sfcw_mass  (recp) = csite%mmean_sfcw_mass  (donp) * dawgt          &
                                           + csite%mmean_sfcw_mass  (recp) * rawgt
+            csite%mmean_snowfac    (recp) = csite%mmean_snowfac    (donp) * dawgt          &
+                                          + csite%mmean_snowfac    (recp) * rawgt
             !----- Check whether there is enough surface water. ---------------------------!
             if (csite%mmean_sfcw_mass(recp) > tiny_sfcwater_mass) then
                csite%mmean_sfcw_energy     (recp) =   csite%mmean_sfcw_energy     (recp)   &
@@ -8526,6 +8538,8 @@ module fuse_fiss_utils
                                                * csite%qmean_sfcw_mass  (t,recp) * rawgt
                csite%qmean_sfcw_mass  (t,recp) = csite%qmean_sfcw_mass  (t,donp) * dawgt   &
                                                + csite%qmean_sfcw_mass  (t,recp) * rawgt
+               csite%qmean_snowfac    (t,recp) = csite%qmean_snowfac    (t,donp) * dawgt   &
+                                               + csite%qmean_snowfac    (t,recp) * rawgt
                !----- Check whether there is enough surface water. ------------------------!
                if (csite%qmean_sfcw_mass(t,recp) > tiny_sfcwater_mass) then
                   csite%qmean_sfcw_energy   (t,recp) =   csite%qmean_sfcw_energy(t,recp)   &

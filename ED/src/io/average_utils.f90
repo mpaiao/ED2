@@ -493,6 +493,9 @@ module average_utils
                cgrid%fmean_sfcw_mass      (ipy) = cgrid%fmean_sfcw_mass      (ipy)         &
                                                 + csite%fmean_sfcw_mass      (ipa)         &
                                                 * patch_wgt
+               cgrid%fmean_snowfac        (ipy) = cgrid%fmean_snowfac        (ipy)         &
+                                                + csite%fmean_snowfac        (ipa)         &
+                                                * patch_wgt
                cgrid%fmean_rshort_gnd     (ipy) = cgrid%fmean_rshort_gnd     (ipy)         &
                                                 + csite%fmean_rshort_gnd     (ipa)         &
                                                 * patch_wgt
@@ -1425,6 +1428,7 @@ module average_utils
          cgrid%fmean_sfcw_mass         (  ipy) = 0.0
          cgrid%fmean_sfcw_temp         (  ipy) = 0.0
          cgrid%fmean_sfcw_fliq         (  ipy) = 0.0
+         cgrid%fmean_snowfac           (  ipy) = 0.0
          cgrid%fmean_soil_energy       (:,ipy) = 0.0
          cgrid%fmean_soil_mstpot       (:,ipy) = 0.0
          cgrid%fmean_soil_water        (:,ipy) = 0.0
@@ -1574,6 +1578,7 @@ module average_utils
                csite%fmean_sfcw_mass      (  ipa) = 0.0
                csite%fmean_sfcw_temp      (  ipa) = 0.0
                csite%fmean_sfcw_fliq      (  ipa) = 0.0
+               csite%fmean_snowfac        (  ipa) = 0.0
                csite%fmean_soil_energy    (:,ipa) = 0.0
                csite%fmean_soil_mstpot    (:,ipa) = 0.0
                csite%fmean_soil_water     (:,ipa) = 0.0
@@ -2059,6 +2064,9 @@ module average_utils
          cgrid%dmean_sfcw_mass      (ipy) = cgrid%dmean_sfcw_mass      (ipy)               &
                                           + cgrid%fmean_sfcw_mass      (ipy)               &
                                           * frqsum_o_daysec
+         cgrid%dmean_snowfac        (ipy) = cgrid%dmean_snowfac        (ipy)               &
+                                          + cgrid%fmean_snowfac        (ipy)               &
+                                          * frqsum_o_daysec
          cgrid%dmean_rshort_gnd     (ipy) = cgrid%dmean_rshort_gnd     (ipy)               &
                                           + cgrid%fmean_rshort_gnd     (ipy)               &
                                           * frqsum_o_daysec
@@ -2362,6 +2370,9 @@ module average_utils
                                                    * frqsum_o_daysec
                csite%dmean_sfcw_mass         (ipa) = csite%dmean_sfcw_mass         (ipa)   &
                                                    + csite%fmean_sfcw_mass         (ipa)   &
+                                                   * frqsum_o_daysec
+               csite%dmean_snowfac           (ipa) = csite%dmean_snowfac           (ipa)   &
+                                                   + csite%fmean_snowfac           (ipa)   &
                                                    * frqsum_o_daysec
                csite%dmean_rshort_gnd        (ipa) = csite%dmean_rshort_gnd        (ipa)   &
                                                    + csite%fmean_rshort_gnd        (ipa)   &
@@ -2823,68 +2834,146 @@ module average_utils
 
    !=======================================================================================!
    !=======================================================================================!
-   !  SUBROUTINE: NORMALIZE_ED_TODAYNPP_VARS
-   !> \brief This subroutine will scale the daily NPP allocation terms
+   !  SUBROUTINE: COPY_TODAY_TO_DMEAN_VARS
+   !> \brief This subroutine scales the daily NPP allocation terms and transfer today 
+   !! variables to dmean.
    !---------------------------------------------------------------------------------------!
-   subroutine normalize_ed_todayNPP_vars(cgrid)
+   subroutine copy_today_to_dmean_vars(cgrid)
       use ed_state_vars , only : edtype        & ! structure
                                , polygontype   & ! structure
                                , sitetype      & ! structure
                                , patchtype     ! ! structure
       use ed_misc_coms  , only : writing_long  ! ! intent(in)
-      use consts_coms   , only : yr_day ! ! intent(in)
+      use consts_coms   , only : yr_day        & ! intent(in)
+                               , day_sec       & ! intent(in)
+                               , tiny_num      & ! intent(in)
+                               , lnexp_min     & ! intent(in)
+                               , lnexp_max     ! ! intent(in)
       implicit none
       !----- Arguments. -------------------------------------------------------------------!
-      type(edtype)                                  , target     :: cgrid
+      type(edtype)     , target   :: cgrid
       !----- Local variables. -------------------------------------------------------------!
-      type(polygontype)                             , pointer    :: cpoly
-      type(sitetype)                                , pointer    :: csite
-      type(patchtype)                               , pointer    :: cpatch
-      integer                                                    :: ipy
-      integer                                                    :: isi
-      integer                                                    :: ipa
-      integer                                                    :: ico
+      type(polygontype), pointer  :: cpoly
+      type(sitetype)   , pointer  :: csite
+      type(patchtype)  , pointer  :: cpatch
+      integer                     :: ipy
+      integer                     :: isi
+      integer                     :: ipa
+      integer                     :: ico
+      real                        :: lnexp
+      real                        :: pmean_fire_density
+      !------------------------------------------------------------------------------------!
 
+
+      !------ Skip sub-routine and do nothing in case we are not writing daily averages. --!
+      if (.not. writing_long) return
+      !------------------------------------------------------------------------------------!
+
+
+      !------------------------------------------------------------------------------------!
+      !     Loop through polygons.                                                         !
+      !------------------------------------------------------------------------------------!
       polyloop: do ipy=1,cgrid%npolygons
          cpoly => cgrid%polygon(ipy)
+
+         !----- Initialise fire density (current and previous day, for extinction rate). --!
+         pmean_fire_density            = 0.0
+         cgrid%dmean_fire_density(ipy) = 0.0
+         !---------------------------------------------------------------------------------!
+
+         !---------------------------------------------------------------------------------!
+         !     Loop through sites.                                                         !
+         !---------------------------------------------------------------------------------!
          siteloop: do isi=1,cpoly%nsites
             csite => cpoly%site(isi)
-            patchloop: do ipa=1,csite%npatches
 
+
+            !------------------------------------------------------------------------------!
+            !     Copy the fire density and the extinction rate.  Convert extinction rate  !
+            ! to 1/day.                                                                    !
+            !------------------------------------------------------------------------------!
+            cpoly%dmean_fire_density   (isi) = cpoly%today_fire_density   (isi)
+            cpoly%dmean_fire_extinction(isi) = cpoly%today_fire_extinction(isi)            &
+                                             * day_sec
+            !------------------------------------------------------------------------------!
+
+
+            !------- Integrate the polygon average. ---------------------------------------!
+            cgrid%dmean_fire_density   (ipy) = cgrid%dmean_fire_density   (ipy)            &
+                                             + cpoly%dmean_fire_density   (isi)            &
+                                             * cpoly%area                 (isi)
+            !------------------------------------------------------------------------------!
+
+
+            !------------------------------------------------------------------------------!
+            !     Find "yesterday's" polygon average.                                      !
+            !------------------------------------------------------------------------------!
+            lnexp              = max( lnexp_min                                            &
+                                    , min( lnexp_max, cpoly%dmean_fire_extinction(isi) ) )
+            pmean_fire_density = pmean_fire_density                                        &
+                               + cpoly%dmean_fire_density(isi) * exp(lnexp)                &
+                               * cpoly%area              (isi)
+            !------------------------------------------------------------------------------!
+
+
+
+            !------------------------------------------------------------------------------!
+            !     Loop through patches.                                                    !
+            !------------------------------------------------------------------------------!
+            patchloop: do ipa=1,csite%npatches
                cpatch => csite%patch(ipa)
-               
-               !----- Included a loop so it won't crash with empty cohorts... -------------!
+
+               !---------------------------------------------------------------------------!
+               !     Loop through cohorts. This must be a loop, so it won't crash with     !
+               ! empty patches.                                                            !
+               !---------------------------------------------------------------------------!
                cohortloop: do ico=1,cpatch%ncohorts
 
                   !------------------------------------------------------------------------!
                   !    We now update the daily means of NPP allocation terms               !
                   ! and we convert them to kgC/plant/yr                                    !
                   !------------------------------------------------------------------------!
-                  if (writing_long) then
-                     cpatch%dmean_nppleaf   (ico) = cpatch%today_nppleaf   (ico)           &
-                                                  * yr_day / cpatch%nplant (ico)
-                     cpatch%dmean_nppfroot  (ico) = cpatch%today_nppfroot  (ico)           &
-                                                  * yr_day / cpatch%nplant (ico)
-                     cpatch%dmean_nppsapwood(ico) = cpatch%today_nppsapwood(ico)           &
-                                                  * yr_day / cpatch%nplant (ico)
-                     cpatch%dmean_nppbark   (ico) = cpatch%today_nppbark   (ico)           &
-                                                  * yr_day / cpatch%nplant (ico)
-                     cpatch%dmean_nppcroot  (ico) = cpatch%today_nppcroot  (ico)           &
-                                                  * yr_day / cpatch%nplant (ico)
-                     cpatch%dmean_nppseeds  (ico) = cpatch%today_nppseeds  (ico)           &
-                                                  * yr_day / cpatch%nplant (ico)
-                     cpatch%dmean_nppwood   (ico) = cpatch%today_nppwood   (ico)           &
-                                                  * yr_day / cpatch%nplant (ico)
-                     cpatch%dmean_nppdaily  (ico) = cpatch%today_nppdaily  (ico)           &
-                                                  * yr_day / cpatch%nplant (ico)
-                  end if
+                  cpatch%dmean_nppleaf   (ico) = cpatch%today_nppleaf   (ico)              &
+                                               * yr_day / cpatch%nplant (ico)
+                  cpatch%dmean_nppfroot  (ico) = cpatch%today_nppfroot  (ico)              &
+                                               * yr_day / cpatch%nplant (ico)
+                  cpatch%dmean_nppsapwood(ico) = cpatch%today_nppsapwood(ico)              &
+                                               * yr_day / cpatch%nplant (ico)
+                  cpatch%dmean_nppbark   (ico) = cpatch%today_nppbark   (ico)              &
+                                               * yr_day / cpatch%nplant (ico)
+                  cpatch%dmean_nppcroot  (ico) = cpatch%today_nppcroot  (ico)              &
+                                               * yr_day / cpatch%nplant (ico)
+                  cpatch%dmean_nppseeds  (ico) = cpatch%today_nppseeds  (ico)              &
+                                               * yr_day / cpatch%nplant (ico)
+                  cpatch%dmean_nppwood   (ico) = cpatch%today_nppwood   (ico)              &
+                                               * yr_day / cpatch%nplant (ico)
+                  cpatch%dmean_nppdaily  (ico) = cpatch%today_nppdaily  (ico)              &
+                                               * yr_day / cpatch%nplant (ico)
+                  !------------------------------------------------------------------------!
                end do cohortloop
+               !---------------------------------------------------------------------------!
             end do patchloop
+            !------------------------------------------------------------------------------!
          end do siteloop
+         !---------------------------------------------------------------------------------!
+
+
+         !---------------------------------------------------------------------------------!
+         !       Find average fire extinction rate.                                        !
+         !---------------------------------------------------------------------------------!
+         if ( cgrid%dmean_fire_density(ipy) > tiny_num .and.                               &
+              pmean_fire_density            > tiny_num       ) then
+            cgrid%dmean_fire_extinction(ipy) = log( pmean_fire_density                     &
+                                                  / cgrid%dmean_fire_density(ipy) )
+         else
+            cgrid%dmean_fire_extinction(ipy) = 0.0
+         end if
+         !---------------------------------------------------------------------------------!
       end do polyloop
+      !------------------------------------------------------------------------------------!
 
       return
-   end subroutine normalize_ed_todayNPP_vars
+   end subroutine copy_today_to_dmean_vars
    !=======================================================================================!
    !=======================================================================================!
 
@@ -3443,10 +3532,13 @@ module average_utils
             csite => cpoly%site(isi)
 
             !----- Reset variables stored in polygontype. ---------------------------------!
-            cpoly%today_pcpg    (isi) =  0.0
-            cpoly%today_atm_tdew(isi) =  0.0
-            cpoly%tdmin_atm_temp(isi) =  huge_num
-            cpoly%tdmax_atm_temp(isi) = -huge_num
+            cpoly%today_pcpg           (isi) =  0.0
+            cpoly%today_atm_tdew       (isi) =  0.0
+            cpoly%today_atm_vpdef      (isi) =  0.0
+            cpoly%tdmin_atm_temp       (isi) =  huge_num
+            cpoly%tdmax_atm_temp       (isi) = -huge_num
+            cpoly%today_fire_density   (isi) = 0.0
+            cpoly%today_fire_extinction(isi) = 0.0
             !------------------------------------------------------------------------------!
 
 
@@ -3488,6 +3580,7 @@ module average_utils
                csite%today_sfc_mstpot (ipa) =       0.0
                csite%today_can_vels   (ipa) =       0.0
                csite%today_can_tdew   (ipa) =       0.0
+               csite%today_can_vpdef  (ipa) =       0.0
                !---------------------------------------------------------------------------!
 
 
@@ -3738,6 +3831,7 @@ module average_utils
          cgrid%dmean_sfcw_mass          (ipy) = 0.0
          cgrid%dmean_sfcw_temp          (ipy) = 0.0
          cgrid%dmean_sfcw_fliq          (ipy) = 0.0
+         cgrid%dmean_snowfac            (ipy) = 0.0
          cgrid%dmean_soil_energy      (:,ipy) = 0.0
          cgrid%dmean_soil_mstpot      (:,ipy) = 0.0
          cgrid%dmean_soil_water       (:,ipy) = 0.0
@@ -3791,6 +3885,8 @@ module average_utils
          cgrid%dmean_pcpg               (ipy) = 0.0
          cgrid%dmean_qpcpg              (ipy) = 0.0
          cgrid%dmean_dpcpg              (ipy) = 0.0
+         cgrid%dmean_fire_density       (ipy) = 0.0
+         cgrid%dmean_fire_extinction    (ipy) = 0.0
 
          !---------------------------------------------------------------------------------!
          !       Loop over sites.                                                          !
@@ -3816,6 +3912,8 @@ module average_utils
             cpoly%dmean_pcpg           (isi) = 0.0
             cpoly%dmean_qpcpg          (isi) = 0.0
             cpoly%dmean_dpcpg          (isi) = 0.0
+            cpoly%dmean_fire_density   (isi) = 0.0
+            cpoly%dmean_fire_extinction(isi) = 0.0
 
             !------------------------------------------------------------------------------!
             !       Loop over sites.                                                       !
@@ -3860,6 +3958,7 @@ module average_utils
                csite%dmean_sfcw_mass        (ipa) = 0.0
                csite%dmean_sfcw_temp        (ipa) = 0.0
                csite%dmean_sfcw_fliq        (ipa) = 0.0
+               csite%dmean_snowfac          (ipa) = 0.0
                csite%dmean_soil_energy    (:,ipa) = 0.0
                csite%dmean_soil_mstpot    (:,ipa) = 0.0
                csite%dmean_soil_water     (:,ipa) = 0.0
@@ -4462,6 +4561,9 @@ module average_utils
          cgrid%mmean_sfcw_mass        (ipy) = cgrid%mmean_sfcw_mass        (ipy)           &
                                             + cgrid%dmean_sfcw_mass        (ipy)           &
                                             * ndaysi
+         cgrid%mmean_snowfac          (ipy) = cgrid%mmean_snowfac          (ipy)           &
+                                            + cgrid%dmean_snowfac          (ipy)           &
+                                            * ndaysi
          cgrid%mmean_soil_energy    (:,ipy) = cgrid%mmean_soil_energy    (:,ipy)           &
                                             + cgrid%dmean_soil_energy    (:,ipy)           &
                                             * ndaysi
@@ -4654,6 +4756,12 @@ module average_utils
          cgrid%mmean_dpcpg            (ipy) = cgrid%mmean_dpcpg            (ipy)           &
                                             + cgrid%dmean_dpcpg            (ipy)           &
                                             * ndaysi
+         cgrid%mmean_fire_density     (ipy) = cgrid%mmean_fire_density     (ipy)           &
+                                            + cgrid%dmean_fire_density     (ipy)           &
+                                            * ndaysi
+         cgrid%mmean_fire_extinction  (ipy) = cgrid%mmean_fire_extinction  (ipy)           &
+                                            + cgrid%dmean_fire_extinction  (ipy)           &
+                                            * ndaysi
          !---------------------------------------------------------------------------------!
 
 
@@ -4824,7 +4932,10 @@ module average_utils
 
             !----- Variables whose instantaneous counterparts are updated daily. ----------!
             cpoly%mmean_fire_density   (isi) = cpoly%mmean_fire_density   (isi)            &
-                                             + cpoly%fire_density         (isi)            &
+                                             + cpoly%dmean_fire_density   (isi)            &
+                                             * ndaysi
+            cpoly%mmean_fire_extinction(isi) = cpoly%mmean_fire_extinction(isi)            &
+                                             + cpoly%dmean_fire_extinction(isi)            &
                                              * ndaysi
             cpoly%mmean_fire_intensity (isi) = cpoly%mmean_fire_intensity (isi)            &
                                              + cpoly%fire_intensity       (isi)            &
@@ -5023,6 +5134,9 @@ module average_utils
                                                   * ndaysi
                csite%mmean_sfcw_mass        (ipa) = csite%mmean_sfcw_mass        (ipa)     &
                                                   + csite%dmean_sfcw_mass        (ipa)     &
+                                                  * ndaysi
+               csite%mmean_snowfac          (ipa) = csite%mmean_snowfac          (ipa)     &
+                                                  + csite%dmean_snowfac          (ipa)     &
                                                   * ndaysi
                csite%mmean_soil_energy    (:,ipa) = csite%mmean_soil_energy    (:,ipa)     &
                                                   + csite%dmean_soil_energy    (:,ipa)     &
@@ -5876,33 +5990,30 @@ module average_utils
             !------------------------------------------------------------------------------!
             !      For the following variables, we use the site-level averages.            !
             !------------------------------------------------------------------------------!
-            cgrid%mmean_fire_density  (ipy) = cgrid%mmean_fire_density  (ipy)              &
-                                            + cpoly%mmean_fire_density  (isi)              &
-                                            * site_wgt
-            cgrid%mmean_fire_intensity(ipy) = cgrid%mmean_fire_intensity(ipy)              &
-                                            + cpoly%mmean_fire_intensity(isi)              &
-                                            * site_wgt
-            cgrid%mmean_fire_tlethal  (ipy) = cgrid%mmean_fire_tlethal  (ipy)              &
-                                            + cpoly%mmean_fire_tlethal  (isi)              &
-                                            * site_wgt
-            cgrid%mmean_fire_spread   (ipy) = cgrid%mmean_fire_spread   (ipy)              &
-                                            + cpoly%mmean_fire_spread   (isi)              &
-                                            * site_wgt
-            cgrid%mmean_ignition_rate (ipy) = cgrid%mmean_ignition_rate (ipy)              &
-                                            + cpoly%mmean_ignition_rate (isi)              &
-                                            * site_wgt
-            cgrid%mmean_fire_f_bherb  (ipy) = cgrid%mmean_fire_f_bherb  (ipy)              &
-                                            + cpoly%mmean_fire_f_bherb  (isi)              &
-                                            * site_wgt
-            cgrid%mmean_fire_f_bwoody (ipy) = cgrid%mmean_fire_f_bwoody (ipy)              &
-                                            + cpoly%mmean_fire_f_bwoody (isi)              &
-                                            * site_wgt
-            cgrid%mmean_fire_f_fgc    (ipy) = cgrid%mmean_fire_f_fgc    (ipy)              &
-                                            + cpoly%mmean_fire_f_fgc    (isi)              &
-                                            * site_wgt
-            cgrid%mmean_fire_f_stgc   (ipy) = cgrid%mmean_fire_f_stgc   (ipy)              &
-                                            + cpoly%mmean_fire_f_stgc   (isi)              &
-                                            * site_wgt
+            cgrid%mmean_fire_intensity (ipy) = cgrid%mmean_fire_intensity (ipy)            &
+                                             + cpoly%mmean_fire_intensity (isi)            &
+                                             * site_wgt
+            cgrid%mmean_fire_tlethal   (ipy) = cgrid%mmean_fire_tlethal   (ipy)            &
+                                             + cpoly%mmean_fire_tlethal   (isi)            &
+                                             * site_wgt
+            cgrid%mmean_fire_spread    (ipy) = cgrid%mmean_fire_spread    (ipy)            &
+                                             + cpoly%mmean_fire_spread    (isi)            &
+                                             * site_wgt
+            cgrid%mmean_ignition_rate  (ipy) = cgrid%mmean_ignition_rate  (ipy)            &
+                                             + cpoly%mmean_ignition_rate  (isi)            &
+                                             * site_wgt
+            cgrid%mmean_fire_f_bherb   (ipy) = cgrid%mmean_fire_f_bherb   (ipy)            &
+                                             + cpoly%mmean_fire_f_bherb   (isi)            &
+                                             * site_wgt
+            cgrid%mmean_fire_f_bwoody  (ipy) = cgrid%mmean_fire_f_bwoody  (ipy)            &
+                                             + cpoly%mmean_fire_f_bwoody  (isi)            &
+                                             * site_wgt
+            cgrid%mmean_fire_f_fgc     (ipy) = cgrid%mmean_fire_f_fgc     (ipy)            &
+                                             + cpoly%mmean_fire_f_fgc     (isi)            &
+                                             * site_wgt
+            cgrid%mmean_fire_f_stgc    (ipy) = cgrid%mmean_fire_f_stgc    (ipy)            &
+                                             + cpoly%mmean_fire_f_stgc    (isi)            &
+                                             * site_wgt
             !------------------------------------------------------------------------------!
          end do siteloop
          !---------------------------------------------------------------------------------!
@@ -6194,6 +6305,7 @@ module average_utils
          cgrid%mmean_sfcw_mass            (ipy) = 0.0
          cgrid%mmean_sfcw_temp            (ipy) = 0.0
          cgrid%mmean_sfcw_fliq            (ipy) = 0.0
+         cgrid%mmean_snowfac              (ipy) = 0.0
          cgrid%mmean_soil_energy        (:,ipy) = 0.0
          cgrid%mmean_soil_mstpot        (:,ipy) = 0.0
          cgrid%mmean_soil_water         (:,ipy) = 0.0
@@ -6263,6 +6375,7 @@ module average_utils
          cgrid%mmean_qpcpg                (ipy) = 0.0
          cgrid%mmean_dpcpg                (ipy) = 0.0
          cgrid%mmean_fire_density         (ipy) = 0.0
+         cgrid%mmean_fire_extinction      (ipy) = 0.0
          cgrid%mmean_fire_intensity       (ipy) = 0.0
          cgrid%mmean_fire_tlethal         (ipy) = 0.0
          cgrid%mmean_fire_spread          (ipy) = 0.0
@@ -6329,14 +6442,15 @@ module average_utils
             cpoly%mmean_qpcpg          (isi) = 0.0
             cpoly%mmean_dpcpg          (isi) = 0.0
             cpoly%mmean_fire_density   (isi) = 0.0
+            cpoly%mmean_fire_extinction(isi) = 0.0
             cpoly%mmean_fire_intensity (isi) = 0.0
             cpoly%mmean_fire_tlethal   (isi) = 0.0
             cpoly%mmean_fire_spread    (isi) = 0.0
             cpoly%mmean_ignition_rate  (isi) = 0.0
-           cpoly%mmean_fire_f_bherb    (isi) = 0.0
-           cpoly%mmean_fire_f_bwoody   (isi) = 0.0
-           cpoly%mmean_fire_f_fgc      (isi) = 0.0
-           cpoly%mmean_fire_f_stgc     (isi) = 0.0
+            cpoly%mmean_fire_f_bherb   (isi) = 0.0
+            cpoly%mmean_fire_f_bwoody  (isi) = 0.0
+            cpoly%mmean_fire_f_fgc     (isi) = 0.0
+            cpoly%mmean_fire_f_stgc    (isi) = 0.0
 
 
             !------------------------------------------------------------------------------!
@@ -6400,6 +6514,7 @@ module average_utils
                csite%mmean_sfcw_mass        (ipa) = 0.0
                csite%mmean_sfcw_temp        (ipa) = 0.0
                csite%mmean_sfcw_fliq        (ipa) = 0.0
+               csite%mmean_snowfac          (ipa) = 0.0
                csite%mmean_soil_energy    (:,ipa) = 0.0
                csite%mmean_soil_mstpot    (:,ipa) = 0.0
                csite%mmean_soil_water     (:,ipa) = 0.0
@@ -6964,6 +7079,9 @@ module average_utils
          cgrid%qmean_sfcw_mass        (t,ipy) = cgrid%qmean_sfcw_mass        (t,ipy)       &
                                               + cgrid%fmean_sfcw_mass          (ipy)       &
                                               * ndaysi
+         cgrid%qmean_snowfac          (t,ipy) = cgrid%qmean_snowfac          (t,ipy)       &
+                                              + cgrid%fmean_snowfac            (ipy)       &
+                                              * ndaysi
          cgrid%qmean_soil_energy    (:,t,ipy) = cgrid%qmean_soil_energy    (:,t,ipy)       &
                                               + cgrid%fmean_soil_energy      (:,ipy)       &
                                               * ndaysi
@@ -7355,6 +7473,9 @@ module average_utils
                                                     * ndaysi
                csite%qmean_sfcw_mass        (t,ipa) = csite%qmean_sfcw_mass        (t,ipa) &
                                                     + csite%fmean_sfcw_mass          (ipa) &
+                                                    * ndaysi
+               csite%qmean_snowfac          (t,ipa) = csite%qmean_snowfac          (t,ipa) &
+                                                    + csite%fmean_snowfac            (ipa) &
                                                     * ndaysi
                csite%qmean_soil_energy    (:,t,ipa) = csite%qmean_soil_energy    (:,t,ipa) &
                                                     + csite%fmean_soil_energy      (:,ipa) &
@@ -8308,6 +8429,7 @@ module average_utils
          cgrid%qmean_sfcw_mass          (:,ipy) = 0.0
          cgrid%qmean_sfcw_temp          (:,ipy) = 0.0
          cgrid%qmean_sfcw_fliq          (:,ipy) = 0.0
+         cgrid%qmean_snowfac            (:,ipy) = 0.0
          cgrid%qmean_soil_energy      (:,:,ipy) = 0.0
          cgrid%qmean_soil_mstpot      (:,:,ipy) = 0.0
          cgrid%qmean_soil_water       (:,:,ipy) = 0.0
@@ -8454,6 +8576,7 @@ module average_utils
                csite%qmean_sfcw_mass              (:,ipa) = 0.0
                csite%qmean_sfcw_temp              (:,ipa) = 0.0
                csite%qmean_sfcw_fliq              (:,ipa) = 0.0
+               csite%qmean_snowfac                (:,ipa) = 0.0
                csite%qmean_soil_energy          (:,:,ipa) = 0.0
                csite%qmean_soil_mstpot          (:,:,ipa) = 0.0
                csite%qmean_soil_water           (:,:,ipa) = 0.0

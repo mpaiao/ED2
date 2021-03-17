@@ -68,33 +68,36 @@ sim_memory=0                  # Memory per simulation.  If zero, then it will be
 #------------------------------------------------------------------------------------------#
 #     Which scripts to run.                                                                #
 #                                                                                          #
-#   - read_monthly.r - This reads the monthly mean files (results can then be used for     #
-#                      plot_monthly.r, plot_yearly.r, and others, but it doesn't plot any- #
-#                      thing.)                                                             #
-#   - yearly_ascii.r - This creates three ascii (csv) files with annual averages of        #
-#                      various variables.  It doesn't have all possible variables as it is #
-#                      intended to simplify the output for learning purposes.              #
-#   - plot_monthly.r - This creates several plots based on the monthly mean output.        #
-#   - plot_yearly.r  - This creates plots with year time series.                           #
-#   - plot_ycomp.r   - This creates yearly comparisons based on the monthly mean output.   #
-#   - plot_povray.r  - This creates yearly plots of the polygon using POV-Ray.             #
-#   - plot_rk4.r     - This creates plots from the detailed output for Runge-Kutta.        #
-#                      (patch-level only).                                                 #
-#   - plot_photo.r   - This creates plots from the detailed output for Farquhar-Leuning.   #
-#   - plot_rk4pc.r   - This creates plots from the detailed output for Runge-Kutta.        #
-#                      (patch- and cohort-level).                                          #
-#   - plot_budget.r  - This creates plots from the detailed budget for Runge-Kutta.        #
-#                      (patch-level only).                                                 #
-#   - plot_eval_ed.r - This creates plots comparing model with eddy flux observations.     #
-#   - plot_census.r  - This creates plots comparing model with biometric data.             #
-#   - whichrun.r     - This checks the run status.                                         #
+#   - read_monthly.r  - This reads the monthly mean files (results can then be used for    #
+#                       plot_monthly.r, plot_yearly.r, and others, but it doesn't plot     #
+#                       anything.)                                                         #
+#   - yearly_ascii.r  - This creates three ascii (csv) files with annual averages of       #
+#                       various variables.  It doesn't have all possible variables as it   #
+#                       is intended to simplify the output for learning purposes.          #
+#   - monthly_ascii.r - This creates three ascii (csv) files with annual averages of       #
+#                       various variables.  It doesn't have all possible variables as it   #
+#                       is intended to simplify the output for learning purposes.          #
+#   - plot_monthly.r  - This creates several plots based on the monthly mean output.       #
+#   - plot_yearly.r   - This creates plots with year time series.                          #
+#   - plot_ycomp.r    - This creates yearly comparisons based on the monthly mean output.  #
+#   - plot_povray.r   - This creates yearly plots of the polygon using POV-Ray.            #
+#   - plot_rk4.r      - This creates plots from the detailed output for Runge-Kutta.       #
+#                       (patch-level only).                                                #
+#   - plot_photo.r    - This creates plots from the detailed output for Farquhar-Leuning.  #
+#   - plot_rk4pc.r    - This creates plots from the detailed output for Runge-Kutta.       #
+#                       (patch- and cohort-level).                                         #
+#   - plot_budget.r   - This creates plots from the detailed budget for Runge-Kutta.       #
+#                       (patch-level only).                                                #
+#   - plot_eval_ed.r  - This creates plots comparing model with eddy flux observations.    #
+#   - plot_census.r   - This creates plots comparing model with biometric data.            #
+#   - whichrun.r      - This checks the run status.                                        #
 #                                                                                          #
 #   The following scripts should work too, but I haven't tested them.                      #
-#   - plot_daily.r   - This creates plots from the daily mean output.                      #
-#   - plot_fast.r    - This creates plots from the analysis files.                         #
-#   - patchprops.r   - This creates simple plots showing the patch structure.              #
-#   - reject_ed.r    - This tracks the number of steps that were rejected, and what caused #
-#                      the step to be rejected.                                            #
+#   - plot_daily.r    - This creates plots from the daily mean output.                     #
+#   - plot_fast.r     - This creates plots from the analysis files.                        #
+#   - patchprops.r    - This creates simple plots showing the patch structure.             #
+#   - reject_ed.r     - This tracks the number of steps that were rejected, and what       #
+#                       caused the step to be rejected.                                    #
 #------------------------------------------------------------------------------------------#
 rscripts="plot_yearly.r"
 #rscripts="yearly_ascii.r"
@@ -275,6 +278,9 @@ read_monthly.r)
    ;;
 yearly_ascii.r)
    epostkey="yasc"
+   ;;
+monthly_ascii.r)
+   epostkey="masc"
    ;;
 r10_monthly.r)
    epostkey="rm10"
@@ -707,7 +713,7 @@ do
    #     Set up the time and output variables according to the script.                     #
    #---------------------------------------------------------------------------------------#
    case ${rscript} in
-   read_monthly.r|yearly_ascii.r|plot_monthly.r|plot_yearly.r|plot_ycomp.r|plot_census.r|plot_povray.r|r10_monthly.r)
+   read_monthly.r|yearly_ascii.r|monthly_ascii.r|plot_monthly.r|plot_yearly.r|plot_ycomp.r|plot_census.r|plot_povray.r|r10_monthly.r)
       #------------------------------------------------------------------------------------#
       #     Scripts that are based on monthly means.  The set up is the same, the only     #
       # difference is in the output names.                                                 #

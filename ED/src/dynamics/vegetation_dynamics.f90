@@ -35,7 +35,7 @@ module vegetation_dynamics
       use mem_polygons         , only : maxpatch                      ! ! intent(in)
       use disturb_coms         , only : include_fire                  ! ! intent(in)
       use average_utils        , only : normalize_ed_today_vars       & ! sub-routine
-                                      , normalize_ed_todaynpp_vars    & ! sub-routine
+                                      , copy_today_to_dmean_vars      & ! sub-routine
                                       , zero_ed_today_vars            ! ! sub-routine
       use canopy_radiation_coms, only : ihrzrad                       ! ! intent(in)
       use hrzshade_utils       , only : split_hrzshade                & ! sub-routine
@@ -49,7 +49,7 @@ module vegetation_dynamics
                                       , update_polygon_derived_props  ! ! sub-routine
       use fusion_fission_coms  , only : ifusion                       ! ! intent(in)
       use fire                 , only : fire_frequency                & ! sub-routine
-                                      , integ_nesterov                & ! sub-routine
+                                      , integ_fire_danger             & ! sub-routine
                                       , integ_emberfire               & ! sub-routine
                                       , integ_firestarter             & ! sub-routine
                                       , reset_daily_fire              ! ! sub-routine
@@ -106,8 +106,8 @@ module vegetation_dynamics
          !----- Update phenology and growth of live tissues. ------------------------------!
          call phenology_driver(cgrid,doy,current_time%month, dtlsm_o_day,veget_dyn_on)
          call dbalive_dt(cgrid,gr_tfact0,year_o_day,veget_dyn_on)
-         !----- Integrate Nesterov index (used by some fire models). ----------------------!
-         call integ_nesterov(cgrid)
+         !----- Integrate fire danger indices (used by some fire models). -----------------!
+         call integ_fire_danger(cgrid)
          !----- Depending on the fire model, we must integrate fire disturbances daily. ---!
          select case (include_fire)
          case (3)
@@ -161,8 +161,13 @@ module vegetation_dynamics
 
 
 
-         !------  update dmean and mmean values for NPP allocation terms ------------------!
-         call normalize_ed_todayNPP_vars(cgrid)
+         !---------------------------------------------------------------------------------!
+         !      Transfer a few variables (mostly NPP and fire-related) from the "today"    !
+         ! variables to dmean.  Today may be used for other purposes in ED2 and are not    !
+         ! options, whilst dmean variables are optional but are written to daily output    !
+         ! variables.                                                                      !
+         !---------------------------------------------------------------------------------!
+         call copy_today_to_dmean_vars(cgrid)
          !---------------------------------------------------------------------------------!
 
 

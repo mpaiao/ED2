@@ -10,6 +10,8 @@ here=$(pwd)
 moi=$(whoami)
 #----- Description of this simulation, used to create unique job names. -------------------#
 desc=$(basename ${here})
+#----- Source path for ED code and executable. --------------------------------------------#
+srcpath="${HOME}/EDBRAMS/ED"
 #----- Original and scratch main data paths. ----------------------------------------------#
 ordinateur=$(hostname -s)
 d_path="${HOME}/data"
@@ -57,8 +59,6 @@ dateh="01"    # Day
 timeh="0000"  # Hour
 #----- Default tolerance. -----------------------------------------------------------------#
 toldef="0.01"
-#----- Executable names. ------------------------------------------------------------------#
-execname="ed_2.2-opt"             # Normal executable, for most queues
 #----- Initialisation scripts. ------------------------------------------------------------#
 initrc="${HOME}/.bashrc"          # Initialisation script for most nodes
 #----- Initialisation scripts. ------------------------------------------------------------#
@@ -68,6 +68,9 @@ optsrc="-n"                   # Option for .bashrc (for special submission setti
 submit=false      # This checks whether to submit runs or not.
 on_the_fly=false  # In case submit=true and this is the CANNON cluster, on_the_fly allows
                   #   directories are jobs to be submitted as the directories are ready.
+#----- Executable names. ------------------------------------------------------------------#
+execname="ed_2.2-opt"            # Normal executable, for most queues
+checkexec=true                   # Check executable
 #----- Settings for this group of polygons. -----------------------------------------------#
 global_queue="shared,huce_intel" # Queue
 partial=false                    # Partial submission (false will ignore polya and npartial
@@ -255,11 +258,30 @@ done
 # script.                                                                                  #
 #------------------------------------------------------------------------------------------#
 exec_full="${here}/executable/${execname}"
+exec_src="${srcpath}/build/${execname}"
 if [[ ! -s ${exec_full} ]]
 then
    echo "Executable file : ${exec_full} is not in the executable directory"
    echo "Copy the executable to the file before running this script!"
    exit 99
+elif ${checkexec}
+then
+   #----- Check whether the executable is up to date. -------------------------------------#
+   idiff=$(diff ${exec_full} ${exec_src} 2> /dev/null | wc -l)
+   if [[ ${idiff} -gt 0 ]]
+   then
+      #----- Executable is not up to date, warn user and offer to update it. --------------#
+      echo "Executable ${exec_full} is not the same as the most recently compiled file."
+      echo "Most recent: ${exec_src}."
+      echo "Do you want to update the executable? [y/N]"
+      read update
+      update=$(echo ${update} | tr '[:upper:]' '[:lower:]')
+      case "${update}" in
+         y*) rsync - Putv ${exec_src} ${exec_full} ;;
+      esac
+      #------------------------------------------------------------------------------------#
+   fi
+   #---------------------------------------------------------------------------------------#
 fi
 #------------------------------------------------------------------------------------------#
 

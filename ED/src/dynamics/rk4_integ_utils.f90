@@ -258,7 +258,8 @@ module rk4_integ_utils
    subroutine update_today_met_summ(cpoly,isi)
       use ed_state_vars  , only : polygontype     ! ! structure
       use met_driver_coms, only : met_driv_state  ! ! structure
-      use therm_lib      , only : tslif           ! ! function
+      use therm_lib      , only : eslif           & ! function
+                                , tslif           ! ! function
       use ed_misc_coms   , only : dtlsm_o_day_sec ! ! intent(in)
       use consts_coms    , only : ep              ! ! intent(in)
       implicit none
@@ -268,7 +269,9 @@ module rk4_integ_utils
       !----- Local variables --------------------------------------------------------------!
       type(met_driv_state)     , pointer      :: cmet
       real                                    :: atm_pvap
+      real                                    :: atm_psat
       real                                    :: atm_tdew
+      real                                    :: atm_vpdef
       !------------------------------------------------------------------------------------!
 
 
@@ -293,11 +296,14 @@ module rk4_integ_utils
 
 
       !------------------------------------------------------------------------------------!
-      !     Find the vapour pressure and dew point temperature.                            !
+      !     Find the vapour pressures, the dew point temperature, and VPD.                 !
       !------------------------------------------------------------------------------------!
-      atm_pvap                  = cmet%prss * cmet%atm_shv / (ep + (1.-ep) * cmet%atm_shv)
-      atm_tdew                  = tslif(atm_pvap)
-      cpoly%today_atm_tdew(isi) = cpoly%today_atm_tdew(isi) + atm_tdew * dtlsm_o_day_sec
+      atm_psat                   = eslif(cmet%atm_tmp)
+      atm_pvap                   = cmet%prss * cmet%atm_shv / (ep + (1.-ep) * cmet%atm_shv)
+      atm_tdew                   = tslif(atm_pvap)
+      atm_vpdef                  = max(0.,atm_psat - atm_pvap)
+      cpoly%today_atm_tdew (isi) = cpoly%today_atm_tdew (isi) + atm_tdew  * dtlsm_o_day_sec
+      cpoly%today_atm_vpdef(isi) = cpoly%today_atm_vpdef(isi) + atm_vpdef * dtlsm_o_day_sec
       !------------------------------------------------------------------------------------!
 
 

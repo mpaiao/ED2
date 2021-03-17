@@ -481,6 +481,20 @@ module pft_coms
 
 
    !---------------------------------------------------------------------------------------!
+   !     Parameter associated with the LPJmL4 VPD-based fire danger index (D19).           !
+   !                                                                                       !
+   ! Reference:                                                                            !
+   ! Druke  M, Forkel M, von Bloh W, Sakschewski B, Cardoso M, Bustamante M, Kurths J,     !
+   !    Thonicke K. 2019. Improving the LPJmL4-SPITFIRE vegetation--fire model for South   !
+   !    America using satellite data. Geosci. Model Dev., 12: 5029-5054.                   !
+   !    doi:10.5194/gmd-12-5029-2019 (D19).                                                !
+   !---------------------------------------------------------------------------------------!
+   real, dimension(n_pft) :: alpha_fdivpd
+   !---------------------------------------------------------------------------------------!
+
+
+
+   !---------------------------------------------------------------------------------------!
    !    Parameters that control for probability of mortality due to fire-driven crown      !
    ! damage (SPITFIRE).                                                                    !
    !---------------------------------------------------------------------------------------!

@@ -987,6 +987,7 @@ module ed_type_init
       csite%today_sfc_mstpot                (ipaa:ipaz) =       0.0
       csite%today_can_vels                  (ipaa:ipaz) =       0.0
       csite%today_can_tdew                  (ipaa:ipaz) =       0.0
+      csite%today_can_vpdef                 (ipaa:ipaz) =       0.0
       !------------------------------------------------------------------------------------!
 
 
@@ -1084,6 +1085,8 @@ module ed_type_init
       csite%total_plant_nitrogen_uptake     (ipaa:ipaz) = 0.0
       csite%mineralized_N_loss              (ipaa:ipaz) = 0.0
       csite%mineralized_N_input             (ipaa:ipaz) = 0.0
+      csite%nesterov_index                  (ipaa:ipaz) = 0.0
+      csite%fdivpd_index                    (ipaa:ipaz) = 0.0
       csite%tstar                           (ipaa:ipaz) = 0.0
       csite%qstar                           (ipaa:ipaz) = 0.0
       csite%cstar                           (ipaa:ipaz) = 0.0
@@ -1153,6 +1156,7 @@ module ed_type_init
       csite%fmean_sfcw_mass                 (ipaa:ipaz) = 0.0
       csite%fmean_sfcw_temp                 (ipaa:ipaz) = 0.0
       csite%fmean_sfcw_fliq                 (ipaa:ipaz) = 0.0
+      csite%fmean_snowfac                   (ipaa:ipaz) = 0.0
       csite%fmean_rshort_gnd                (ipaa:ipaz) = 0.0
       csite%fmean_par_gnd                   (ipaa:ipaz) = 0.0
       csite%fmean_rlong_gnd                 (ipaa:ipaz) = 0.0
@@ -1235,6 +1239,7 @@ module ed_type_init
          csite%dmean_sfcw_mass              (ipaa:ipaz) = 0.0
          csite%dmean_sfcw_temp              (ipaa:ipaz) = 0.0
          csite%dmean_sfcw_fliq              (ipaa:ipaz) = 0.0
+         csite%dmean_snowfac                (ipaa:ipaz) = 0.0
          csite%dmean_rshort_gnd             (ipaa:ipaz) = 0.0
          csite%dmean_par_gnd                (ipaa:ipaz) = 0.0
          csite%dmean_rlong_gnd              (ipaa:ipaz) = 0.0
@@ -1311,6 +1316,7 @@ module ed_type_init
          csite%mmean_sfcw_mass              (ipaa:ipaz) = 0.0
          csite%mmean_sfcw_temp              (ipaa:ipaz) = 0.0
          csite%mmean_sfcw_fliq              (ipaa:ipaz) = 0.0
+         csite%mmean_snowfac                (ipaa:ipaz) = 0.0
          csite%mmean_rshort_gnd             (ipaa:ipaz) = 0.0
          csite%mmean_par_gnd                (ipaa:ipaz) = 0.0
          csite%mmean_rlong_gnd              (ipaa:ipaz) = 0.0
@@ -1434,6 +1440,7 @@ module ed_type_init
          csite%qmean_sfcw_mass            (:,ipaa:ipaz) = 0.0
          csite%qmean_sfcw_temp            (:,ipaa:ipaz) = 0.0
          csite%qmean_sfcw_fliq            (:,ipaa:ipaz) = 0.0
+         csite%qmean_snowfac              (:,ipaa:ipaz) = 0.0
          csite%qmean_rshort_gnd           (:,ipaa:ipaz) = 0.0
          csite%qmean_par_gnd              (:,ipaa:ipaz) = 0.0
          csite%qmean_rlong_gnd            (:,ipaa:ipaz) = 0.0
@@ -1553,7 +1560,8 @@ module ed_type_init
       use disturb_coms  , only : include_fire           & ! intent(in)
                                , fire_dryness_threshold & ! intent(in)
                                , k_fire_first           & ! intent(in)
-                               , fire_smoist_depth      ! ! intent(in)
+                               , fire_smoist_depth      & ! intent(in)
+                               , fh_pcpg_edi            ! ! intent(in)
       use soil_coms     , only : soil                   & ! intent(in)
                                , slz                    ! ! intent(in)
       implicit none
@@ -1717,9 +1725,11 @@ module ed_type_init
 
 
       !------------------------------------------------------------------------------------!
-      !      Initialise Nesterov index.                                                    !
+      !      Initialise running average of precipitation.  To avoid fires right at the     !
+      ! beginning of the simulation, we initialise the rainfall with a large               !
+      ! precipitation, proportional to the decay rate.                                     !
       !------------------------------------------------------------------------------------!
-      cpoly%nesterov_index(:) = 0.
+      cpoly%avg_running_pcpg(:) = 3. / abs(fh_pcpg_edi)
       !------------------------------------------------------------------------------------!
 
 
@@ -1727,10 +1737,17 @@ module ed_type_init
       !      Initialise daily meteorological summaries.  For minimum and maximum           !
       ! temperatures, we should set values that would be discarded at the first step.      !
       !------------------------------------------------------------------------------------!
-      cpoly%today_pcpg    (:) = 0.
-      cpoly%tdmax_atm_temp(:) = -huge_num
-      cpoly%tdmin_atm_temp(:) =  huge_num
-      cpoly%today_atm_tdew(:) = 0.
+      cpoly%today_pcpg     (:) = 0.
+      cpoly%tdmax_atm_temp (:) = -huge_num
+      cpoly%tdmin_atm_temp (:) =  huge_num
+      cpoly%today_atm_tdew (:) = 0.
+      cpoly%today_atm_vpdef(:) = 0.
+      !------------------------------------------------------------------------------------!
+
+
+      !----- Initialise fire variables. ---------------------------------------------------!
+      cpoly%today_fire_density   (:) = 0.
+      cpoly%today_fire_extinction(:) = 0.
       !------------------------------------------------------------------------------------!
 
 
@@ -1759,6 +1776,7 @@ module ed_type_init
       cpoly%primary_harvest_memory           (:) = 0.0
       cpoly%secondary_harvest_memory         (:) = 0.0
       cpoly%fire_density                     (:) = 0.0
+      cpoly%fire_extinction                  (:) = 0.0
       cpoly%fire_intensity                   (:) = 0.0
       cpoly%fire_tlethal                     (:) = 0.0
       cpoly%fire_spread                      (:) = 0.0
@@ -1866,6 +1884,8 @@ module ed_type_init
          cpoly%dmean_pcpg                  (:) = 0.0
          cpoly%dmean_qpcpg                 (:) = 0.0
          cpoly%dmean_dpcpg                 (:) = 0.0
+         cpoly%dmean_fire_density          (:) = 0.0
+         cpoly%dmean_fire_extinction       (:) = 0.0
       end if
       !------------------------------------------------------------------------------------!
 
@@ -1891,6 +1911,7 @@ module ed_type_init
          cpoly%mmean_qpcpg                 (:) = 0.0
          cpoly%mmean_dpcpg                 (:) = 0.0
          cpoly%mmean_fire_density          (:) = 0.0
+         cpoly%mmean_fire_extinction       (:) = 0.0
          cpoly%mmean_fire_intensity        (:) = 0.0
          cpoly%mmean_fire_tlethal          (:) = 0.0
          cpoly%mmean_fire_spread           (:) = 0.0
@@ -2203,6 +2224,7 @@ module ed_type_init
          cgrid%fmean_sfcw_mass            (ipy) = 0.0
          cgrid%fmean_sfcw_temp            (ipy) = 0.0
          cgrid%fmean_sfcw_fliq            (ipy) = 0.0
+         cgrid%fmean_snowfac              (ipy) = 0.0
          cgrid%fmean_rshort_gnd           (ipy) = 0.0
          cgrid%fmean_par_gnd              (ipy) = 0.0
          cgrid%fmean_rlong_gnd            (ipy) = 0.0
@@ -2376,6 +2398,7 @@ module ed_type_init
             cgrid%dmean_sfcw_mass            (ipy) = 0.0
             cgrid%dmean_sfcw_temp            (ipy) = 0.0
             cgrid%dmean_sfcw_fliq            (ipy) = 0.0
+            cgrid%dmean_snowfac              (ipy) = 0.0
             cgrid%dmean_rshort_gnd           (ipy) = 0.0
             cgrid%dmean_par_gnd              (ipy) = 0.0
             cgrid%dmean_rlong_gnd            (ipy) = 0.0
@@ -2429,6 +2452,8 @@ module ed_type_init
             cgrid%dmean_smoist_gg          (:,ipy) = 0.0
             cgrid%dmean_transloss          (:,ipy) = 0.0
             cgrid%dmean_sensible_gg        (:,ipy) = 0.0
+            cgrid%dmean_fire_density         (ipy) = 0.0
+            cgrid%dmean_fire_extinction      (ipy) = 0.0
          end if
          !---------------------------------------------------------------------------------!
 
@@ -2533,6 +2558,7 @@ module ed_type_init
             cgrid%mmean_sfcw_mass            (ipy) = 0.0
             cgrid%mmean_sfcw_temp            (ipy) = 0.0
             cgrid%mmean_sfcw_fliq            (ipy) = 0.0
+            cgrid%mmean_snowfac              (ipy) = 0.0
             cgrid%mmean_rshort_gnd           (ipy) = 0.0
             cgrid%mmean_par_gnd              (ipy) = 0.0
             cgrid%mmean_rlong_gnd            (ipy) = 0.0
@@ -2640,6 +2666,7 @@ module ed_type_init
             cgrid%mmean_qpcpg                (ipy) = 0.0
             cgrid%mmean_dpcpg                (ipy) = 0.0
             cgrid%mmean_fire_density         (ipy) = 0.0
+            cgrid%mmean_fire_extinction      (ipy) = 0.0
             cgrid%mmean_fire_intensity       (ipy) = 0.0
             cgrid%mmean_fire_tlethal         (ipy) = 0.0
             cgrid%mmean_fire_spread          (ipy) = 0.0
@@ -2784,6 +2811,7 @@ module ed_type_init
             cgrid%qmean_sfcw_mass          (:,ipy) = 0.0
             cgrid%qmean_sfcw_temp          (:,ipy) = 0.0
             cgrid%qmean_sfcw_fliq          (:,ipy) = 0.0
+            cgrid%qmean_snowfac            (:,ipy) = 0.0
             cgrid%qmean_rshort_gnd         (:,ipy) = 0.0
             cgrid%qmean_par_gnd            (:,ipy) = 0.0
             cgrid%qmean_rlong_gnd          (:,ipy) = 0.0

@@ -243,6 +243,11 @@ create.monthly <<- function(ntimes,montha,yeara,inpref,slz.min){
    emean$can.vpd                 = rep(NA_real_,times=ntimes)
    emean$can.depth               = rep(NA_real_,times=ntimes) 
    emean$can.area                = rep(NA_real_,times=ntimes)
+   emean$sfcw.temp               = rep(NA_real_,times=ntimes)
+   emean$sfcw.fliq               = rep(NA_real_,times=ntimes)
+   emean$sfcw.mass               = rep(NA_real_,times=ntimes)
+   emean$sfcw.depth              = rep(NA_real_,times=ntimes)
+   emean$sfcw.cover              = rep(NA_real_,times=ntimes)
    emean$soil.temp.top           = rep(NA_real_,times=ntimes)
    emean$soil.water.top          = rep(NA_real_,times=ntimes) 
    emean$soil.water.bot          = rep(NA_real_,times=ntimes)
@@ -917,6 +922,11 @@ create.monthly <<- function(ntimes,montha,yeara,inpref,slz.min){
    patch$sla              = list()
    patch$can.depth        = list()
    patch$can.area         = list()
+   patch$sfcw.temp        = list()
+   patch$sfcw.fliq        = list()
+   patch$sfcw.mass        = list()
+   patch$sfcw.depth       = list()
+   patch$sfcw.cover       = list()
    patch$veg.height       = list()
    patch$veg.displace     = list()
    patch$veg.rough        = list()
@@ -1323,6 +1333,11 @@ update.monthly <<- function(new.ntimes,old.datum,montha,yeara,inpref,slz.min){
    new.datum$emean$can.co2           [idx ] = old.datum$emean$can.co2             [sel ]
    new.datum$emean$can.depth         [idx ] = old.datum$emean$can.depth           [sel ]
    new.datum$emean$can.area          [idx ] = old.datum$emean$can.area            [sel ]
+   new.datum$emean$sfcw.temp         [idx ] = old.datum$emean$sfcw.temp           [sel ]
+   new.datum$emean$sfcw.fliq         [idx ] = old.datum$emean$sfcw.fliq           [sel ]
+   new.datum$emean$sfcw.mass         [idx ] = old.datum$emean$sfcw.mass           [sel ]
+   new.datum$emean$sfcw.depth        [idx ] = old.datum$emean$sfcw.depth          [sel ]
+   new.datum$emean$sfcw.cover        [idx ] = old.datum$emean$sfcw.cover          [sel ]
    new.datum$emean$soil.temp.top     [idx ] = old.datum$emean$soil.temp.top       [sel ]
    new.datum$emean$soil.water.top    [idx ] = old.datum$emean$soil.water.top      [sel ]
    new.datum$emean$soil.water.bot    [idx ] = old.datum$emean$soil.water.bot      [sel ]
@@ -1953,6 +1968,11 @@ update.monthly <<- function(new.ntimes,old.datum,montha,yeara,inpref,slz.min){
    new.datum$patch$sla              = old.datum$patch$sla
    new.datum$patch$can.depth        = old.datum$patch$can.depth
    new.datum$patch$can.area         = old.datum$patch$can.area
+   new.datum$patch$sfcw.temp        = old.datum$patch$sfcw.temp
+   new.datum$patch$sfcw.fliq        = old.datum$patch$sfcw.fliq
+   new.datum$patch$sfcw.mass        = old.datum$patch$sfcw.mass
+   new.datum$patch$sfcw.depth       = old.datum$patch$sfcw.depth
+   new.datum$patch$sfcw.cover       = old.datum$patch$sfcw.cover
    new.datum$patch$veg.height       = old.datum$patch$veg.height
    new.datum$patch$veg.displace     = old.datum$patch$veg.displace
    new.datum$patch$veg.rough        = old.datum$patch$veg.rough

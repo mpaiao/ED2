@@ -1584,28 +1584,31 @@ module ed_state_vars
       !<output only.
 
       real, pointer, dimension(:) :: tdmax_can_temp
-      !<Maximum canopy air space temperature, used for the new fire model.
+      !<Maximum canopy air space temperature, used by EMBERFIRE/FIRESTARTER.
 
       real, pointer, dimension(:) :: tdmin_can_temp
-      !<Minimum canopy air space temperature, used for the new fire model.
+      !<Minimum canopy air space temperature, used by EMBERFIRE/FIRESTARTER.
 
       real, pointer, dimension(:) :: tdmax_can_rhv
-      !<Maximum canopy air space relative humidity, used for the new fire model.
+      !<Maximum canopy air space relative humidity, used by EMBERFIRE/FIRESTARTER.
 
       real, pointer, dimension(:) :: tdmin_can_rhv
-      !<Minimum canopy air space relative humidity, used for the new fire model.
+      !<Minimum canopy air space relative humidity, used by EMBERFIRE/FIRESTARTER.
 
       real, pointer, dimension(:) :: today_sfc_wetness
-      !<Average relative soil moisture, used for the new fire model.
+      !<Average relative soil moisture, used by EMBERFIRE/FIRESTARTER.
 
       real, pointer, dimension(:) :: today_sfc_mstpot
-      !<Average soil matric potential, used for the new fire model.
+      !<Average soil matric potential, used by EMBERFIRE/FIRESTARTER.
 
       real, pointer, dimension(:) :: today_can_vels
-      !<Average wind speed at the canopy air space, used for the new fire model.
+      !<Average wind speed at the canopy air space, used by EMBERFIRE/FIRESTARTER.
 
       real, pointer, dimension(:) :: today_can_tdew
-      !<Average dewpoint temperature of the canopy air space, used for the new fire model.
+      !<Average dewpoint temperature of the canopy air space, used by EMBERFIRE/FIRESTARTER.
+
+      real, pointer, dimension(:) :: today_can_vpdef
+      !<Average canopy air space vapour pressure deficit, used by EMBERFIRE/FIRESTARTER.
 
       real, pointer,dimension(:,:) :: repro    !(n_pft,npatches)  
       !<Carbon available to establish recruits [kgC/m2]
@@ -1658,6 +1661,12 @@ module ed_state_vars
       !<Input to mineralized soil nitrogen pool [kgN/m2/day]
       real, pointer,dimension(:) :: mineralized_N_loss
       !<Loss of mineralized soil nitrogen pool [kgN/m2/day]
+
+      real , pointer,dimension(:) :: nesterov_index
+      !<Nesterov index (fire model) [degC^2]
+
+      real , pointer,dimension(:) :: fdivpd_index
+      !<VPD-based fire danger index [--]
 
       real , pointer,dimension(:) :: rshort_g
       !<Short wave radiation absorbed by the ground (W/m2)
@@ -1894,6 +1903,7 @@ module ed_state_vars
       real,pointer,dimension(:)   :: fmean_sfcw_mass       !<TPSL water mass    [    kg/m2]
       real,pointer,dimension(:)   :: fmean_sfcw_temp       !<TPSL temperature   [        K]
       real,pointer,dimension(:)   :: fmean_sfcw_fliq       !<TPSL liquid frac.  [       --]
+      real,pointer,dimension(:)   :: fmean_snowfac         !<TPSL sfc. frac.    [       --]
       real,pointer,dimension(:,:) :: fmean_soil_energy     !<Soil int. energy   [     J/m3]
       real,pointer,dimension(:,:) :: fmean_soil_mstpot     !<Soil matric potl.  [        m]
       real,pointer,dimension(:,:) :: fmean_soil_water      !<Soil water content [    m3/m3]
@@ -1991,6 +2001,7 @@ module ed_state_vars
       real,pointer,dimension(:)     :: dmean_sfcw_mass
       real,pointer,dimension(:)     :: dmean_sfcw_temp
       real,pointer,dimension(:)     :: dmean_sfcw_fliq
+      real,pointer,dimension(:)     :: dmean_snowfac
       real,pointer,dimension(:,:)   :: dmean_soil_energy
       real,pointer,dimension(:,:)   :: dmean_soil_mstpot
       real,pointer,dimension(:,:)   :: dmean_soil_water
@@ -2058,6 +2069,7 @@ module ed_state_vars
       real,pointer,dimension(:)     :: mmean_sfcw_mass
       real,pointer,dimension(:)     :: mmean_sfcw_temp
       real,pointer,dimension(:)     :: mmean_sfcw_fliq
+      real,pointer,dimension(:)     :: mmean_snowfac
       real,pointer,dimension(:,:)   :: mmean_soil_energy
       real,pointer,dimension(:,:)   :: mmean_soil_mstpot
       real,pointer,dimension(:,:)   :: mmean_soil_water
@@ -2155,6 +2167,7 @@ module ed_state_vars
       real,pointer,dimension(:,:)   :: qmean_sfcw_mass
       real,pointer,dimension(:,:)   :: qmean_sfcw_temp
       real,pointer,dimension(:,:)   :: qmean_sfcw_fliq
+      real,pointer,dimension(:,:)   :: qmean_snowfac
       real,pointer,dimension(:,:,:) :: qmean_soil_energy
       real,pointer,dimension(:,:,:) :: qmean_soil_mstpot
       real,pointer,dimension(:,:,:) :: qmean_soil_water
@@ -2476,6 +2489,9 @@ module ed_state_vars
       real, pointer, dimension(:) :: fire_density
       !<Fire count per unit area (1/m2)
 
+      real, pointer, dimension(:) :: fire_extinction
+      !<Fire extinction rate (1/day)
+
       real, pointer, dimension(:) :: fire_intensity
       !<Fire intensity           ( W/m)
 
@@ -2503,8 +2519,8 @@ module ed_state_vars
       real, pointer, dimension(:) :: fire_f_stgc
       !<Combusted fraction of structural C on ground
 
-      real,pointer,dimension(:) :: nesterov_index
-      !<Nesterov index
+      real,pointer,dimension(:) :: avg_running_pcpg
+      !<Running average of precipitation rate (kg/m2/s)
 
       real,pointer,dimension(:) :: today_pcpg
       !<Daily average precipitation rate of day (internal use only)
@@ -2512,11 +2528,20 @@ module ed_state_vars
       real,pointer,dimension(:) :: today_atm_tdew
       !<Daily average dew point temperature (internal use only)
 
+      real,pointer,dimension(:) :: today_atm_vpdef
+      !<Daily average vapour pressure deficit (internal use only)
+
       real,pointer,dimension(:) :: tdmin_atm_temp
       !<Daily minimum temperature (internal use only)
 
       real,pointer,dimension(:) :: tdmax_atm_temp
       !<Daily maximum temperature (internal use only)
+
+      real,pointer,dimension(:) :: today_fire_density
+      !<Daily average fire density (internal use only)
+
+      real,pointer,dimension(:) :: today_fire_extinction
+      !<Daily average fire extinction rate (internal use only)
 
       real,pointer, dimension(:,:) :: lambda_fire
       !<  initialized in create_site !(12,nsites)
@@ -2630,7 +2655,7 @@ module ed_state_vars
       real,pointer,dimension(:) :: fmean_atm_co2         !<Air CO2               [umol/mol]
       real,pointer,dimension(:) :: fmean_pcpg            !<Precipitation rate    [ kg/m2/s]
       real,pointer,dimension(:) :: fmean_qpcpg           !<Energy gain - rain    [    W/m2]
-      real,pointer,dimension(:) :: fmean_dpcpg           !<Precipitation depth   [       m]
+      real,pointer,dimension(:) :: fmean_dpcpg           !<Precipitation depth   [     m/s]
       !------ Daily mean. -----------------------------------------------------------------!
       real,pointer,dimension(:) :: dmean_atm_theiv
       real,pointer,dimension(:) :: dmean_atm_theta
@@ -2649,6 +2674,8 @@ module ed_state_vars
       real,pointer,dimension(:) :: dmean_pcpg
       real,pointer,dimension(:) :: dmean_qpcpg
       real,pointer,dimension(:) :: dmean_dpcpg
+      real,pointer,dimension(:) :: dmean_fire_density
+      real,pointer,dimension(:) :: dmean_fire_extinction
       !------ Monthly mean. ---------------------------------------------------------------!
       real,pointer,dimension(:) :: mmean_atm_theiv
       real,pointer,dimension(:) :: mmean_atm_theta
@@ -2668,6 +2695,7 @@ module ed_state_vars
       real,pointer,dimension(:) :: mmean_qpcpg
       real,pointer,dimension(:) :: mmean_dpcpg
       real,pointer,dimension(:) :: mmean_fire_density
+      real,pointer,dimension(:) :: mmean_fire_extinction
       real,pointer,dimension(:) :: mmean_fire_intensity
       real,pointer,dimension(:) :: mmean_fire_tlethal
       real,pointer,dimension(:) :: mmean_fire_spread
@@ -3103,6 +3131,7 @@ module ed_state_vars
       real,pointer,dimension(:)   :: fmean_sfcw_mass       !<TPSL water mass    [     kg/m2]
       real,pointer,dimension(:)   :: fmean_sfcw_temp       !<TPSL temperature   [         K]
       real,pointer,dimension(:)   :: fmean_sfcw_fliq       !<TPSL liquid frac.  [        --]
+      real,pointer,dimension(:)   :: fmean_snowfac         !<TPSL sfc. frac.    [        --]
       real,pointer,dimension(:,:) :: fmean_soil_energy     !<Soil int. energy   [      J/m3]
       real,pointer,dimension(:,:) :: fmean_soil_mstpot     !<Soil matric potl.  [         m]
       real,pointer,dimension(:,:) :: fmean_soil_water      !<Soil water content [     m3/m3]
@@ -3159,7 +3188,7 @@ module ed_state_vars
       real,pointer,dimension(:) :: fmean_atm_co2         !<Air CO2               [ umol/mol]
       real,pointer,dimension(:) :: fmean_pcpg            !<Precipitation rate    [  kg/m2/s]
       real,pointer,dimension(:) :: fmean_qpcpg           !<Energy gain - rain    [     W/m2]
-      real,pointer,dimension(:) :: fmean_dpcpg           !<Precipitation depth   [        m]
+      real,pointer,dimension(:) :: fmean_dpcpg           !<Precipitation depth   [      m/s]
       !----- Moore Foundation variables. --------------------------------------------------!
       real,pointer,dimension(:) :: fmean_soil_wetness     !<Soil wetness index  [        --]
       real,pointer,dimension(:) :: fmean_skin_temp        !<Skin temperature    [         K]
@@ -3317,6 +3346,7 @@ module ed_state_vars
       real,pointer,dimension(:)     :: dmean_sfcw_mass
       real,pointer,dimension(:)     :: dmean_sfcw_temp
       real,pointer,dimension(:)     :: dmean_sfcw_fliq
+      real,pointer,dimension(:)     :: dmean_snowfac
       real,pointer,dimension(:,:)   :: dmean_soil_energy
       real,pointer,dimension(:,:)   :: dmean_soil_mstpot
       real,pointer,dimension(:,:)   :: dmean_soil_water
@@ -3370,6 +3400,8 @@ module ed_state_vars
       real,pointer,dimension(:)     :: dmean_pcpg
       real,pointer,dimension(:)     :: dmean_qpcpg
       real,pointer,dimension(:)     :: dmean_dpcpg
+      real,pointer,dimension(:)     :: dmean_fire_density
+      real,pointer,dimension(:)     :: dmean_fire_extinction
       !----- Monthly mean (same units as fast mean). --------------------------------------!
       real,pointer,dimension(:)     :: mmean_gpp
       real,pointer,dimension(:)     :: mmean_npp
@@ -3465,6 +3497,7 @@ module ed_state_vars
       real,pointer,dimension(:)     :: mmean_sfcw_mass
       real,pointer,dimension(:)     :: mmean_sfcw_temp
       real,pointer,dimension(:)     :: mmean_sfcw_fliq
+      real,pointer,dimension(:)     :: mmean_snowfac
       real,pointer,dimension(:,:)   :: mmean_soil_energy
       real,pointer,dimension(:,:)   :: mmean_soil_mstpot
       real,pointer,dimension(:,:)   :: mmean_soil_water
@@ -3534,6 +3567,7 @@ module ed_state_vars
       real,pointer,dimension(:)     :: mmean_qpcpg
       real,pointer,dimension(:)     :: mmean_dpcpg
       real,pointer,dimension(:)     :: mmean_fire_density
+      real,pointer,dimension(:)     :: mmean_fire_extinction
       real,pointer,dimension(:)     :: mmean_fire_intensity
       real,pointer,dimension(:)     :: mmean_fire_tlethal
       real,pointer,dimension(:)     :: mmean_fire_spread
@@ -3670,6 +3704,7 @@ module ed_state_vars
       real,pointer,dimension(:,:)   :: qmean_sfcw_mass
       real,pointer,dimension(:,:)   :: qmean_sfcw_temp
       real,pointer,dimension(:,:)   :: qmean_sfcw_fliq
+      real,pointer,dimension(:,:)   :: qmean_snowfac
       real,pointer,dimension(:,:,:) :: qmean_soil_energy
       real,pointer,dimension(:,:,:) :: qmean_soil_mstpot
       real,pointer,dimension(:,:,:) :: qmean_soil_water
@@ -4153,6 +4188,7 @@ module ed_state_vars
       allocate(cgrid%fmean_sfcw_mass            (                    npolygons))
       allocate(cgrid%fmean_sfcw_temp            (                    npolygons))
       allocate(cgrid%fmean_sfcw_fliq            (                    npolygons))
+      allocate(cgrid%fmean_snowfac              (                    npolygons))
       allocate(cgrid%fmean_soil_energy          (                nzg,npolygons))
       allocate(cgrid%fmean_soil_mstpot          (                nzg,npolygons))
       allocate(cgrid%fmean_soil_water           (                nzg,npolygons))
@@ -4328,6 +4364,7 @@ module ed_state_vars
          allocate(cgrid%dmean_sfcw_mass         (                     npolygons))
          allocate(cgrid%dmean_sfcw_temp         (                     npolygons))
          allocate(cgrid%dmean_sfcw_fliq         (                     npolygons))
+         allocate(cgrid%dmean_snowfac           (                     npolygons))
          allocate(cgrid%dmean_soil_energy       (                 nzg,npolygons))
          allocate(cgrid%dmean_soil_mstpot       (                 nzg,npolygons))
          allocate(cgrid%dmean_soil_water        (                 nzg,npolygons))
@@ -4381,6 +4418,8 @@ module ed_state_vars
          allocate(cgrid%dmean_pcpg              (                     npolygons))
          allocate(cgrid%dmean_qpcpg             (                     npolygons))
          allocate(cgrid%dmean_dpcpg             (                     npolygons))
+         allocate(cgrid%dmean_fire_density      (                     npolygons))
+         allocate(cgrid%dmean_fire_extinction   (                     npolygons))
       end if
       !------------------------------------------------------------------------------------!
 
@@ -4524,6 +4563,7 @@ module ed_state_vars
          allocate(cgrid%mmean_sfcw_mass         (                     npolygons)) 
          allocate(cgrid%mmean_sfcw_temp         (                     npolygons)) 
          allocate(cgrid%mmean_sfcw_fliq         (                     npolygons)) 
+         allocate(cgrid%mmean_snowfac           (                     npolygons)) 
          allocate(cgrid%mmean_soil_energy       (                 nzg,npolygons)) 
          allocate(cgrid%mmean_soil_mstpot       (                 nzg,npolygons)) 
          allocate(cgrid%mmean_soil_water        (                 nzg,npolygons)) 
@@ -4593,6 +4633,7 @@ module ed_state_vars
          allocate(cgrid%mmean_qpcpg             (                     npolygons)) 
          allocate(cgrid%mmean_dpcpg             (                     npolygons)) 
          allocate(cgrid%mmean_fire_density      (                     npolygons))
+         allocate(cgrid%mmean_fire_extinction   (                     npolygons))
          allocate(cgrid%mmean_fire_intensity    (                     npolygons))
          allocate(cgrid%mmean_fire_tlethal      (                     npolygons))
          allocate(cgrid%mmean_fire_spread       (                     npolygons))
@@ -4738,6 +4779,7 @@ module ed_state_vars
          allocate(cgrid%qmean_sfcw_mass         (             ndcycle,npolygons))
          allocate(cgrid%qmean_sfcw_temp         (             ndcycle,npolygons))
          allocate(cgrid%qmean_sfcw_fliq         (             ndcycle,npolygons))
+         allocate(cgrid%qmean_snowfac           (             ndcycle,npolygons))
          allocate(cgrid%qmean_soil_energy       (     nzg,    ndcycle,npolygons))
          allocate(cgrid%qmean_soil_mstpot       (     nzg,    ndcycle,npolygons))
          allocate(cgrid%qmean_soil_water        (     nzg,    ndcycle,npolygons))
@@ -4917,6 +4959,7 @@ module ed_state_vars
       allocate(cpoly%secondary_harvest_memory      (                          nsites))
       allocate(cpoly%fire_wmass_threshold          (                          nsites))
       allocate(cpoly%fire_density                  (                          nsites))
+      allocate(cpoly%fire_extinction               (                          nsites))
       allocate(cpoly%fire_intensity                (                          nsites))
       allocate(cpoly%fire_tlethal                  (                          nsites))
       allocate(cpoly%fire_spread                   (                          nsites))
@@ -4926,11 +4969,14 @@ module ed_state_vars
       allocate(cpoly%fire_f_bwoody                 (                          nsites))
       allocate(cpoly%fire_f_fgc                    (                          nsites))
       allocate(cpoly%fire_f_stgc                   (                          nsites))
-      allocate(cpoly%nesterov_index                (                          nsites))
+      allocate(cpoly%avg_running_pcpg              (                          nsites))
       allocate(cpoly%today_pcpg                    (                          nsites))
       allocate(cpoly%today_atm_tdew                (                          nsites))
+      allocate(cpoly%today_atm_vpdef               (                          nsites))
       allocate(cpoly%tdmin_atm_temp                (                          nsites))
       allocate(cpoly%tdmax_atm_temp                (                          nsites))
+      allocate(cpoly%today_fire_density            (                          nsites))
+      allocate(cpoly%today_fire_extinction         (                          nsites))
       allocate(cpoly%lambda_fire                   (                       12,nsites))
       allocate(cpoly%avg_fire_intensity            (                       12,nsites))
       allocate(cpoly%avg_fire_tlethal              (                       12,nsites))
@@ -5004,6 +5050,8 @@ module ed_state_vars
          allocate(cpoly%dmean_pcpg                 (                          nsites))
          allocate(cpoly%dmean_qpcpg                (                          nsites))
          allocate(cpoly%dmean_dpcpg                (                          nsites))
+         allocate(cpoly%dmean_fire_density         (                          nsites))
+         allocate(cpoly%dmean_fire_extinction      (                          nsites))
       end if
 
       if (writing_eorq) then
@@ -5025,6 +5073,7 @@ module ed_state_vars
          allocate(cpoly%mmean_qpcpg                (                          nsites))
          allocate(cpoly%mmean_dpcpg                (                          nsites))
          allocate(cpoly%mmean_fire_density         (                          nsites))
+         allocate(cpoly%mmean_fire_extinction      (                          nsites))
          allocate(cpoly%mmean_fire_intensity       (                          nsites))
          allocate(cpoly%mmean_fire_tlethal         (                          nsites))
          allocate(cpoly%mmean_fire_spread          (                          nsites))
@@ -5254,6 +5303,7 @@ module ed_state_vars
       allocate(csite%today_sfc_mstpot              (              npatches))
       allocate(csite%today_can_vels                (              npatches))
       allocate(csite%today_can_tdew                (              npatches))
+      allocate(csite%today_can_vpdef               (              npatches))
       allocate(csite%repro                         (        n_pft,npatches))
       allocate(csite%veg_rough                     (              npatches))
       allocate(csite%veg_height                    (              npatches))
@@ -5271,6 +5321,8 @@ module ed_state_vars
       allocate(csite%total_plant_nitrogen_uptake   (              npatches))
       allocate(csite%mineralized_N_loss            (              npatches))
       allocate(csite%mineralized_N_input           (              npatches))
+      allocate(csite%nesterov_index                (              npatches))
+      allocate(csite%fdivpd_index                  (              npatches))
       allocate(csite%rshort_g                      (              npatches))
       allocate(csite%rshort_g_beam                 (              npatches))
       allocate(csite%rshort_g_diffuse              (              npatches))
@@ -5364,6 +5416,7 @@ module ed_state_vars
       allocate(csite%fmean_sfcw_mass               (              npatches))
       allocate(csite%fmean_sfcw_temp               (              npatches))
       allocate(csite%fmean_sfcw_fliq               (              npatches))
+      allocate(csite%fmean_snowfac                 (              npatches))
       allocate(csite%fmean_soil_energy             (          nzg,npatches))
       allocate(csite%fmean_soil_mstpot             (          nzg,npatches))
       allocate(csite%fmean_soil_water              (          nzg,npatches))
@@ -5439,6 +5492,7 @@ module ed_state_vars
          allocate(csite%dmean_sfcw_mass            (              npatches))
          allocate(csite%dmean_sfcw_temp            (              npatches))
          allocate(csite%dmean_sfcw_fliq            (              npatches))
+         allocate(csite%dmean_snowfac              (              npatches))
          allocate(csite%dmean_soil_energy          (          nzg,npatches))
          allocate(csite%dmean_soil_mstpot          (          nzg,npatches))
          allocate(csite%dmean_soil_water           (          nzg,npatches))
@@ -5532,6 +5586,7 @@ module ed_state_vars
          allocate(csite%mmean_sfcw_mass            (              npatches))
          allocate(csite%mmean_sfcw_temp            (              npatches))
          allocate(csite%mmean_sfcw_fliq            (              npatches))
+         allocate(csite%mmean_snowfac              (              npatches))
          allocate(csite%mmean_soil_energy          (          nzg,npatches))
          allocate(csite%mmean_soil_mstpot          (          nzg,npatches))
          allocate(csite%mmean_soil_water           (          nzg,npatches))
@@ -5629,6 +5684,7 @@ module ed_state_vars
          allocate(csite%qmean_sfcw_mass            (      ndcycle,npatches))
          allocate(csite%qmean_sfcw_temp            (      ndcycle,npatches))
          allocate(csite%qmean_sfcw_fliq            (      ndcycle,npatches))
+         allocate(csite%qmean_snowfac              (      ndcycle,npatches))
          allocate(csite%qmean_soil_energy          (  nzg,ndcycle,npatches))
          allocate(csite%qmean_soil_mstpot          (  nzg,ndcycle,npatches))
          allocate(csite%qmean_soil_water           (  nzg,ndcycle,npatches))
@@ -6534,6 +6590,7 @@ module ed_state_vars
       nullify(cgrid%fmean_sfcw_mass         )
       nullify(cgrid%fmean_sfcw_temp         )
       nullify(cgrid%fmean_sfcw_fliq         )
+      nullify(cgrid%fmean_snowfac           )
       nullify(cgrid%fmean_soil_energy       )
       nullify(cgrid%fmean_soil_mstpot       )
       nullify(cgrid%fmean_soil_water        )
@@ -6701,6 +6758,7 @@ module ed_state_vars
       nullify(cgrid%dmean_sfcw_mass         )
       nullify(cgrid%dmean_sfcw_temp         )
       nullify(cgrid%dmean_sfcw_fliq         )
+      nullify(cgrid%dmean_snowfac           )
       nullify(cgrid%dmean_soil_energy       )
       nullify(cgrid%dmean_soil_mstpot       )
       nullify(cgrid%dmean_soil_water        )
@@ -6754,6 +6812,8 @@ module ed_state_vars
       nullify(cgrid%dmean_pcpg              )
       nullify(cgrid%dmean_qpcpg             )
       nullify(cgrid%dmean_dpcpg             )
+      nullify(cgrid%dmean_fire_density      )
+      nullify(cgrid%dmean_fire_extinction   )
       nullify(cgrid%mmean_thbark            )
       nullify(cgrid%mmean_lai               )
       nullify(cgrid%mmean_bleaf             )
@@ -6886,6 +6946,7 @@ module ed_state_vars
       nullify(cgrid%mmean_sfcw_mass         )
       nullify(cgrid%mmean_sfcw_temp         )
       nullify(cgrid%mmean_sfcw_fliq         )
+      nullify(cgrid%mmean_snowfac           )
       nullify(cgrid%mmean_soil_energy       )
       nullify(cgrid%mmean_soil_mstpot       )
       nullify(cgrid%mmean_soil_water        )
@@ -6955,6 +7016,7 @@ module ed_state_vars
       nullify(cgrid%mmean_qpcpg             )
       nullify(cgrid%mmean_dpcpg             )
       nullify(cgrid%mmean_fire_density      )
+      nullify(cgrid%mmean_fire_extinction   )
       nullify(cgrid%mmean_fire_intensity    )
       nullify(cgrid%mmean_fire_tlethal      )
       nullify(cgrid%mmean_fire_spread       )
@@ -7089,6 +7151,7 @@ module ed_state_vars
       nullify(cgrid%qmean_sfcw_mass         )
       nullify(cgrid%qmean_sfcw_temp         )
       nullify(cgrid%qmean_sfcw_fliq         )
+      nullify(cgrid%qmean_snowfac           )
       nullify(cgrid%qmean_soil_energy       )
       nullify(cgrid%qmean_soil_mstpot       )
       nullify(cgrid%qmean_soil_water        )
@@ -7243,6 +7306,7 @@ module ed_state_vars
       nullify(cpoly%secondary_harvest_memory   )
       nullify(cpoly%fire_wmass_threshold       )
       nullify(cpoly%fire_density               )
+      nullify(cpoly%fire_extinction            )
       nullify(cpoly%fire_intensity             )
       nullify(cpoly%fire_tlethal               )
       nullify(cpoly%fire_spread                )
@@ -7253,11 +7317,14 @@ module ed_state_vars
       nullify(cpoly%fire_f_bwoody              )
       nullify(cpoly%fire_f_fgc                 )
       nullify(cpoly%fire_f_stgc                )
-      nullify(cpoly%nesterov_index             )
+      nullify(cpoly%avg_running_pcpg           )
       nullify(cpoly%today_pcpg                 )
       nullify(cpoly%today_atm_tdew             )
+      nullify(cpoly%today_atm_vpdef            )
       nullify(cpoly%tdmin_atm_temp             )
       nullify(cpoly%tdmax_atm_temp             )
+      nullify(cpoly%today_fire_density         )
+      nullify(cpoly%today_fire_extinction      )
       nullify(cpoly%avg_fire_intensity         )
       nullify(cpoly%avg_fire_tlethal           )
       nullify(cpoly%avg_monthly_accp           )
@@ -7325,6 +7392,8 @@ module ed_state_vars
       nullify(cpoly%dmean_pcpg                 )
       nullify(cpoly%dmean_qpcpg                )
       nullify(cpoly%dmean_dpcpg                )
+      nullify(cpoly%dmean_fire_density         )
+      nullify(cpoly%dmean_fire_extinction      )
       nullify(cpoly%mmean_atm_theiv            )
       nullify(cpoly%mmean_atm_theta            )
       nullify(cpoly%mmean_atm_temp             )
@@ -7343,6 +7412,7 @@ module ed_state_vars
       nullify(cpoly%mmean_qpcpg                )
       nullify(cpoly%mmean_dpcpg                )
       nullify(cpoly%mmean_fire_density         )
+      nullify(cpoly%mmean_fire_extinction      )
       nullify(cpoly%mmean_fire_intensity       )
       nullify(cpoly%mmean_fire_tlethal         )
       nullify(cpoly%mmean_fire_spread          )
@@ -7532,6 +7602,7 @@ module ed_state_vars
       nullify(csite%today_sfc_mstpot           )
       nullify(csite%today_can_vels             )
       nullify(csite%today_can_tdew             )
+      nullify(csite%today_can_vpdef            )
       nullify(csite%repro                      )
       nullify(csite%veg_rough                  )
       nullify(csite%veg_height                 )
@@ -7549,6 +7620,8 @@ module ed_state_vars
       nullify(csite%total_plant_nitrogen_uptake)
       nullify(csite%mineralized_N_loss         )
       nullify(csite%mineralized_N_input        )
+      nullify(csite%nesterov_index             )
+      nullify(csite%fdivpd_index               )
       nullify(csite%rshort_g                   )
       nullify(csite%rshort_g_beam              )
       nullify(csite%rshort_g_diffuse           )
@@ -7642,6 +7715,7 @@ module ed_state_vars
       nullify(csite%fmean_sfcw_mass            )
       nullify(csite%fmean_sfcw_temp            )
       nullify(csite%fmean_sfcw_fliq            )
+      nullify(csite%fmean_snowfac              )
       nullify(csite%fmean_soil_energy          )
       nullify(csite%fmean_soil_mstpot          )
       nullify(csite%fmean_soil_water           )
@@ -7715,6 +7789,7 @@ module ed_state_vars
       nullify(csite%dmean_sfcw_mass            )
       nullify(csite%dmean_sfcw_temp            )
       nullify(csite%dmean_sfcw_fliq            )
+      nullify(csite%dmean_snowfac              )
       nullify(csite%dmean_soil_energy          )
       nullify(csite%dmean_soil_mstpot          )
       nullify(csite%dmean_soil_water           )
@@ -7806,6 +7881,7 @@ module ed_state_vars
       nullify(csite%mmean_sfcw_mass            )
       nullify(csite%mmean_sfcw_temp            )
       nullify(csite%mmean_sfcw_fliq            )
+      nullify(csite%mmean_snowfac              )
       nullify(csite%mmean_soil_energy          )
       nullify(csite%mmean_soil_mstpot          )
       nullify(csite%mmean_soil_water           )
@@ -7901,6 +7977,7 @@ module ed_state_vars
       nullify(csite%qmean_sfcw_mass            )
       nullify(csite%qmean_sfcw_temp            )
       nullify(csite%qmean_sfcw_fliq            )
+      nullify(csite%qmean_snowfac              )
       nullify(csite%qmean_soil_energy          )
       nullify(csite%qmean_soil_mstpot          )
       nullify(csite%qmean_soil_water           )
@@ -8706,6 +8783,7 @@ module ed_state_vars
       if(associated(csite%today_sfc_mstpot           )) deallocate(csite%today_sfc_mstpot           )
       if(associated(csite%today_can_vels             )) deallocate(csite%today_can_vels             )
       if(associated(csite%today_can_tdew             )) deallocate(csite%today_can_tdew             )
+      if(associated(csite%today_can_vpdef            )) deallocate(csite%today_can_vpdef            )
       if(associated(csite%repro                      )) deallocate(csite%repro                      )
       if(associated(csite%veg_rough                  )) deallocate(csite%veg_rough                  )
       if(associated(csite%veg_height                 )) deallocate(csite%veg_height                 )
@@ -8723,6 +8801,8 @@ module ed_state_vars
       if(associated(csite%total_plant_nitrogen_uptake)) deallocate(csite%total_plant_nitrogen_uptake)
       if(associated(csite%mineralized_N_loss         )) deallocate(csite%mineralized_N_loss         )
       if(associated(csite%mineralized_N_input        )) deallocate(csite%mineralized_N_input        )
+      if(associated(csite%nesterov_index             )) deallocate(csite%nesterov_index             )
+      if(associated(csite%fdivpd_index               )) deallocate(csite%fdivpd_index               )
       if(associated(csite%rshort_g                   )) deallocate(csite%rshort_g                   )
       if(associated(csite%rshort_g_beam              )) deallocate(csite%rshort_g_beam              )
       if(associated(csite%rshort_g_diffuse           )) deallocate(csite%rshort_g_diffuse           )
@@ -8816,6 +8896,7 @@ module ed_state_vars
       if(associated(csite%fmean_sfcw_mass            )) deallocate(csite%fmean_sfcw_mass            )
       if(associated(csite%fmean_sfcw_temp            )) deallocate(csite%fmean_sfcw_temp            )
       if(associated(csite%fmean_sfcw_fliq            )) deallocate(csite%fmean_sfcw_fliq            )
+      if(associated(csite%fmean_snowfac              )) deallocate(csite%fmean_snowfac              )
       if(associated(csite%fmean_soil_energy          )) deallocate(csite%fmean_soil_energy          )
       if(associated(csite%fmean_soil_mstpot          )) deallocate(csite%fmean_soil_mstpot          )
       if(associated(csite%fmean_soil_water           )) deallocate(csite%fmean_soil_water           )
@@ -8889,6 +8970,7 @@ module ed_state_vars
       if(associated(csite%dmean_sfcw_mass            )) deallocate(csite%dmean_sfcw_mass            )
       if(associated(csite%dmean_sfcw_temp            )) deallocate(csite%dmean_sfcw_temp            )
       if(associated(csite%dmean_sfcw_fliq            )) deallocate(csite%dmean_sfcw_fliq            )
+      if(associated(csite%dmean_snowfac              )) deallocate(csite%dmean_snowfac              )
       if(associated(csite%dmean_soil_energy          )) deallocate(csite%dmean_soil_energy          )
       if(associated(csite%dmean_soil_mstpot          )) deallocate(csite%dmean_soil_mstpot          )
       if(associated(csite%dmean_soil_water           )) deallocate(csite%dmean_soil_water           )
@@ -8980,6 +9062,7 @@ module ed_state_vars
       if(associated(csite%mmean_sfcw_mass            )) deallocate(csite%mmean_sfcw_mass            )
       if(associated(csite%mmean_sfcw_temp            )) deallocate(csite%mmean_sfcw_temp            )
       if(associated(csite%mmean_sfcw_fliq            )) deallocate(csite%mmean_sfcw_fliq            )
+      if(associated(csite%mmean_snowfac              )) deallocate(csite%mmean_snowfac              )
       if(associated(csite%mmean_soil_energy          )) deallocate(csite%mmean_soil_energy          )
       if(associated(csite%mmean_soil_mstpot          )) deallocate(csite%mmean_soil_mstpot          )
       if(associated(csite%mmean_soil_water           )) deallocate(csite%mmean_soil_water           )
@@ -9075,6 +9158,7 @@ module ed_state_vars
       if(associated(csite%qmean_sfcw_mass            )) deallocate(csite%qmean_sfcw_mass            )
       if(associated(csite%qmean_sfcw_temp            )) deallocate(csite%qmean_sfcw_temp            )
       if(associated(csite%qmean_sfcw_fliq            )) deallocate(csite%qmean_sfcw_fliq            )
+      if(associated(csite%qmean_snowfac              )) deallocate(csite%qmean_snowfac              )
       if(associated(csite%qmean_soil_energy          )) deallocate(csite%qmean_soil_energy          )
       if(associated(csite%qmean_soil_mstpot          )) deallocate(csite%qmean_soil_mstpot          )
       if(associated(csite%qmean_soil_water           )) deallocate(csite%qmean_soil_water           )
@@ -9904,6 +9988,7 @@ module ed_state_vars
          osite%today_sfc_mstpot           (opa) = isite%today_sfc_mstpot           (ipa)
          osite%today_can_vels             (opa) = isite%today_can_vels             (ipa)
          osite%today_can_tdew             (opa) = isite%today_can_tdew             (ipa)
+         osite%today_can_vpdef            (opa) = isite%today_can_vpdef            (ipa)
          osite%veg_rough                  (opa) = isite%veg_rough                  (ipa)
          osite%veg_height                 (opa) = isite%veg_height                 (ipa)
          osite%veg_displace               (opa) = isite%veg_displace               (ipa)
@@ -9920,6 +10005,8 @@ module ed_state_vars
          osite%total_plant_nitrogen_uptake(opa) = isite%total_plant_nitrogen_uptake(ipa)
          osite%mineralized_N_loss         (opa) = isite%mineralized_N_loss         (ipa)
          osite%mineralized_N_input        (opa) = isite%mineralized_N_input        (ipa)
+         osite%nesterov_index             (opa) = isite%nesterov_index             (ipa)
+         osite%fdivpd_index               (opa) = isite%fdivpd_index               (ipa)
          osite%rshort_g                   (opa) = isite%rshort_g                   (ipa)
          osite%rshort_g_beam              (opa) = isite%rshort_g_beam              (ipa)
          osite%rshort_g_diffuse           (opa) = isite%rshort_g_diffuse           (ipa)
@@ -10011,6 +10098,7 @@ module ed_state_vars
          osite%fmean_sfcw_mass            (opa) = isite%fmean_sfcw_mass            (ipa)
          osite%fmean_sfcw_temp            (opa) = isite%fmean_sfcw_temp            (ipa)
          osite%fmean_sfcw_fliq            (opa) = isite%fmean_sfcw_fliq            (ipa)
+         osite%fmean_snowfac              (opa) = isite%fmean_snowfac              (ipa)
          osite%fmean_rshort_gnd           (opa) = isite%fmean_rshort_gnd           (ipa)
          osite%fmean_par_gnd              (opa) = isite%fmean_par_gnd              (ipa)
          osite%fmean_rlong_gnd            (opa) = isite%fmean_rlong_gnd            (ipa)
@@ -10139,6 +10227,7 @@ module ed_state_vars
             osite%dmean_sfcw_mass      (opa) = isite%dmean_sfcw_mass      (ipa)
             osite%dmean_sfcw_temp      (opa) = isite%dmean_sfcw_temp      (ipa)
             osite%dmean_sfcw_fliq      (opa) = isite%dmean_sfcw_fliq      (ipa)
+            osite%dmean_snowfac        (opa) = isite%dmean_snowfac        (ipa)
             osite%dmean_rshort_gnd     (opa) = isite%dmean_rshort_gnd     (ipa)
             osite%dmean_par_gnd        (opa) = isite%dmean_par_gnd        (ipa)
             osite%dmean_rlong_gnd      (opa) = isite%dmean_rlong_gnd      (ipa)
@@ -10247,6 +10336,7 @@ module ed_state_vars
             osite%mmean_sfcw_mass      (opa) = isite%mmean_sfcw_mass      (ipa)
             osite%mmean_sfcw_temp      (opa) = isite%mmean_sfcw_temp      (ipa)
             osite%mmean_sfcw_fliq      (opa) = isite%mmean_sfcw_fliq      (ipa)
+            osite%mmean_snowfac        (opa) = isite%mmean_snowfac        (ipa)
             osite%mmean_rshort_gnd     (opa) = isite%mmean_rshort_gnd     (ipa)
             osite%mmean_par_gnd        (opa) = isite%mmean_par_gnd        (ipa)
             osite%mmean_rlong_gnd      (opa) = isite%mmean_rlong_gnd      (ipa)
@@ -10360,6 +10450,7 @@ module ed_state_vars
                osite%qmean_sfcw_mass      (n,opa) = isite%qmean_sfcw_mass      (n,ipa)
                osite%qmean_sfcw_temp      (n,opa) = isite%qmean_sfcw_temp      (n,ipa)
                osite%qmean_sfcw_fliq      (n,opa) = isite%qmean_sfcw_fliq      (n,ipa)
+               osite%qmean_snowfac        (n,opa) = isite%qmean_snowfac        (n,ipa)
                osite%qmean_rshort_gnd     (n,opa) = isite%qmean_rshort_gnd     (n,ipa)
                osite%qmean_par_gnd        (n,opa) = isite%qmean_par_gnd        (n,ipa)
                osite%qmean_rlong_gnd      (n,opa) = isite%qmean_rlong_gnd      (n,ipa)
@@ -10673,6 +10764,7 @@ module ed_state_vars
       osite%today_sfc_mstpot           (1:z) = pack(isite%today_sfc_mstpot           ,lmask)
       osite%today_can_vels             (1:z) = pack(isite%today_can_vels             ,lmask)
       osite%today_can_tdew             (1:z) = pack(isite%today_can_tdew             ,lmask)
+      osite%today_can_vpdef            (1:z) = pack(isite%today_can_vpdef            ,lmask)
       osite%veg_rough                  (1:z) = pack(isite%veg_rough                  ,lmask)
       osite%veg_height                 (1:z) = pack(isite%veg_height                 ,lmask)
       osite%veg_displace               (1:z) = pack(isite%veg_displace               ,lmask)
@@ -10689,6 +10781,8 @@ module ed_state_vars
       osite%total_plant_nitrogen_uptake(1:z) = pack(isite%total_plant_nitrogen_uptake,lmask)
       osite%mineralized_N_loss         (1:z) = pack(isite%mineralized_N_loss         ,lmask)
       osite%mineralized_N_input        (1:z) = pack(isite%mineralized_N_input        ,lmask)
+      osite%nesterov_index             (1:z) = pack(isite%nesterov_index             ,lmask)
+      osite%fdivpd_index               (1:z) = pack(isite%fdivpd_index               ,lmask)
       osite%rshort_g                   (1:z) = pack(isite%rshort_g                   ,lmask)
       osite%rshort_g_beam              (1:z) = pack(isite%rshort_g_beam              ,lmask)
       osite%rshort_g_diffuse           (1:z) = pack(isite%rshort_g_diffuse           ,lmask)
@@ -10861,6 +10955,7 @@ module ed_state_vars
       osite%fmean_sfcw_mass           (1:z) = pack(isite%fmean_sfcw_mass           ,lmask)
       osite%fmean_sfcw_temp           (1:z) = pack(isite%fmean_sfcw_temp           ,lmask)
       osite%fmean_sfcw_fliq           (1:z) = pack(isite%fmean_sfcw_fliq           ,lmask)
+      osite%fmean_snowfac             (1:z) = pack(isite%fmean_snowfac             ,lmask)
       osite%fmean_rshort_gnd          (1:z) = pack(isite%fmean_rshort_gnd          ,lmask)
       osite%fmean_par_gnd             (1:z) = pack(isite%fmean_par_gnd             ,lmask)
       osite%fmean_rlong_gnd           (1:z) = pack(isite%fmean_rlong_gnd           ,lmask)
@@ -10976,6 +11071,7 @@ module ed_state_vars
       osite%dmean_sfcw_mass      (1:z) = pack(isite%dmean_sfcw_mass      (:),lmask)
       osite%dmean_sfcw_temp      (1:z) = pack(isite%dmean_sfcw_temp      (:),lmask)
       osite%dmean_sfcw_fliq      (1:z) = pack(isite%dmean_sfcw_fliq      (:),lmask)
+      osite%dmean_snowfac        (1:z) = pack(isite%dmean_snowfac        (:),lmask)
       osite%dmean_rshort_gnd     (1:z) = pack(isite%dmean_rshort_gnd     (:),lmask)
       osite%dmean_par_gnd        (1:z) = pack(isite%dmean_par_gnd        (:),lmask)
       osite%dmean_rlong_gnd      (1:z) = pack(isite%dmean_rlong_gnd      (:),lmask)
@@ -11111,6 +11207,7 @@ module ed_state_vars
       osite%mmean_sfcw_mass      (1:z) = pack(isite%mmean_sfcw_mass      (:),lmask)
       osite%mmean_sfcw_temp      (1:z) = pack(isite%mmean_sfcw_temp      (:),lmask)
       osite%mmean_sfcw_fliq      (1:z) = pack(isite%mmean_sfcw_fliq      (:),lmask)
+      osite%mmean_snowfac        (1:z) = pack(isite%mmean_snowfac        (:),lmask)
       osite%mmean_rshort_gnd     (1:z) = pack(isite%mmean_rshort_gnd     (:),lmask)
       osite%mmean_par_gnd        (1:z) = pack(isite%mmean_par_gnd        (:),lmask)
       osite%mmean_rlong_gnd      (1:z) = pack(isite%mmean_rlong_gnd      (:),lmask)
@@ -11251,6 +11348,7 @@ module ed_state_vars
          osite%qmean_sfcw_mass      (n,1:z) = pack(isite%qmean_sfcw_mass      (n,:),lmask)
          osite%qmean_sfcw_temp      (n,1:z) = pack(isite%qmean_sfcw_temp      (n,:),lmask)
          osite%qmean_sfcw_fliq      (n,1:z) = pack(isite%qmean_sfcw_fliq      (n,:),lmask)
+         osite%qmean_snowfac        (n,1:z) = pack(isite%qmean_snowfac        (n,:),lmask)
          osite%qmean_rshort_gnd     (n,1:z) = pack(isite%qmean_rshort_gnd     (n,:),lmask)
          osite%qmean_par_gnd        (n,1:z) = pack(isite%qmean_par_gnd        (n,:),lmask)
          osite%qmean_rlong_gnd      (n,1:z) = pack(isite%qmean_rlong_gnd      (n,:),lmask)
@@ -15143,6 +15241,15 @@ module ed_state_vars
                            ,'Sub-daily mean - Liquid fraction - temporary water layer'     &
                            ,'[         --]','(ipoly)'            )
       end if
+      if (associated(cgrid%fmean_snowfac         )) then
+         nvar = nvar+1
+         call vtable_edio_r(npts,cgrid%fmean_snowfac                                       &
+                           ,nvar,igr,init,cgrid%pyglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'FMEAN_SNOWFAC_PY           :11:'//trim(fast_keys)     )
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Sub-daily mean - Snow/flood cover fraction'                   &
+                           ,'[         --]','(ipoly)'            )
+      end if
       if (associated(cgrid%fmean_rshort_gnd      )) then
          nvar = nvar+1
          call vtable_edio_r(npts,cgrid%fmean_rshort_gnd                                    &
@@ -15546,7 +15653,7 @@ module ed_state_vars
                            ,'FMEAN_DPCPG_PY             :11:'//trim(fast_keys)     )
          call metadata_edio(nvar,igr                                                       &
                            ,'Sub-daily mean - Precipitation depth'                         &
-                           ,'[          m]','(ipoly)'            )
+                           ,'[        m/s]','(ipoly)'            )
       end if
       if (associated(cgrid%fmean_soil_wetness    )) then
          nvar = nvar+1
@@ -16631,6 +16738,15 @@ module ed_state_vars
                            ,'Daily mean - Liquid fraction - temporary water layer'         &
                            ,'[         --]','(ipoly)'            )
       end if
+      if (associated(cgrid%dmean_snowfac         )) then
+         nvar = nvar+1
+         call vtable_edio_r(npts,cgrid%dmean_snowfac                                       &
+                           ,nvar,igr,init,cgrid%pyglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'DMEAN_SNOWFAC_PY           :11:'//trim(dail_keys)     )
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Daily mean - Snow/flood cover fraction'                       &
+                           ,'[         --]','(ipoly)'            )
+      end if
       if (associated(cgrid%dmean_rshort_gnd      )) then
          nvar = nvar+1
          call vtable_edio_r(npts,cgrid%dmean_rshort_gnd                                    &
@@ -17034,7 +17150,25 @@ module ed_state_vars
                            ,'DMEAN_DPCPG_PY             :11:'//trim(dail_keys)     )
          call metadata_edio(nvar,igr                                                       &
                            ,'Daily mean - Precipitation depth'                             &
-                           ,'[          m]','(ipoly)'            )
+                           ,'[        m/s]','(ipoly)'            )
+      end if
+      if (associated(cgrid%dmean_fire_density    )) then
+         nvar = nvar+1
+         call vtable_edio_r(npts,cgrid%dmean_fire_density                                  &
+                           ,nvar,igr,init,cgrid%pyglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'DMEAN_FIRE_DENSITY_PY      :11:'//trim(dail_keys)     )
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Daily mean - Fire count density'                              &
+                           ,'[       1/m2]','(ipoly)'            )
+      end if
+      if (associated(cgrid%dmean_fire_extinction )) then
+         nvar = nvar+1
+         call vtable_edio_r(npts,cgrid%dmean_fire_extinction                               &
+                           ,nvar,igr,init,cgrid%pyglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'DMEAN_FIRE_EXTINCTION_PY   :11:'//trim(dail_keys)     )
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Daily mean - Fire extinction rate'                            &
+                           ,'[      1/day]','(ipoly)'            )
       end if
       !------------------------------------------------------------------------------------!
 
@@ -17940,6 +18074,15 @@ module ed_state_vars
                            ,'Monthly mean - Liquid fraction - temporary water layer'       &
                            ,'[         --]','(ipoly)'            )
       end if
+      if (associated(cgrid%mmean_snowfac         )) then
+         nvar = nvar+1
+         call vtable_edio_r(npts,cgrid%mmean_snowfac                                       &
+                           ,nvar,igr,init,cgrid%pyglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'MMEAN_SNOWFAC_PY           :11:'//trim(eorq_keys))
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Monthly mean - Snow/flood cover fraction'                     &
+                           ,'[         --]','(ipoly)'            )
+      end if
       if (associated(cgrid%mmean_rshort_gnd      )) then
          nvar = nvar+1
          call vtable_edio_r(npts,cgrid%mmean_rshort_gnd                                    &
@@ -18478,7 +18621,7 @@ module ed_state_vars
                            ,'MMEAN_DPCPG_PY             :11:'//trim(eorq_keys))
          call metadata_edio(nvar,igr                                                       &
                            ,'Monthly mean - Precipitation depth'                           &
-                           ,'[          m]','(ipoly)'            )
+                           ,'[        m/s]','(ipoly)'            )
       end if
       if (associated(cgrid%mmean_fire_density    )) then
          nvar = nvar+1
@@ -18488,6 +18631,15 @@ module ed_state_vars
          call metadata_edio(nvar,igr                                                       &
                            ,'Monthly mean - Fire count density'                            &
                            ,'[       1/m2]','(ipoly)'            )
+      end if
+      if (associated(cgrid%mmean_fire_extinction )) then
+         nvar = nvar+1
+         call vtable_edio_r(npts,cgrid%mmean_fire_extinction                               &
+                           ,nvar,igr,init,cgrid%pyglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'MMEAN_FIRE_EXTINCTION_PY   :11:'//trim(eorq_keys))
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Monthly mean - Fire extinction rate'                          &
+                           ,'[      1/day]','(ipoly)'            )
       end if
       if (associated(cgrid%mmean_fire_intensity  )) then
          nvar = nvar+1
@@ -19895,6 +20047,15 @@ module ed_state_vars
                            ,'Mean diel - Liquid fraction - temporary water layer'          &
                            ,'[         --]','(ndcycle,ipoly)'    )
       end if
+      if (associated(cgrid%qmean_snowfac         )) then
+         nvar = nvar+1
+         call vtable_edio_r(npts,cgrid%qmean_snowfac                                       &
+                           ,nvar,igr,init,cgrid%pyglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'QMEAN_SNOWFAC_PY          :-11:'//trim(eorq_keys)     )
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Mean diel - Snow/flood cover fraction'                        &
+                           ,'[         --]','(ndcycle,ipoly)'            )
+      end if
       if (associated(cgrid%qmean_rshort_gnd      )) then
          nvar = nvar+1
          call vtable_edio_r(npts,cgrid%qmean_rshort_gnd                                    &
@@ -20298,7 +20459,7 @@ module ed_state_vars
                            ,'QMEAN_DPCPG_PY            :-11:'//trim(eorq_keys)     )
          call metadata_edio(nvar,igr                                                       &
                            ,'Mean diel - Precipitation depth'                              &
-                           ,'[          m]','(ndcycle,ipoly)'    )
+                           ,'[        m/s]','(ndcycle,ipoly)'    )
       end if
       if (associated(cgrid%qmsqu_gpp             )) then
          nvar = nvar+1
@@ -22138,6 +22299,14 @@ module ed_state_vars
          call metadata_edio(nvar,igr,'Instantaneous fire count density','[1/m2]','(isi)')
       end if
 
+      if (associated(cpoly%fire_extinction)) then
+         nvar=nvar+1
+         call vtable_edio_r(npts,cpoly%fire_extinction                                     &
+                           ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'FIRE_EXTINCTION :21:hist') 
+         call metadata_edio(nvar,igr,'Instantaneous fire extinction rate','[1/day]','(isi)')
+      end if
+
       if (associated(cpoly%fire_intensity)) then
          nvar=nvar+1
          call vtable_edio_r(npts,cpoly%fire_intensity                                      &
@@ -22283,14 +22452,14 @@ module ed_state_vars
                            ,'[--]','(isite)')
       end if
 
-      if (associated(cpoly%nesterov_index)) then
+      if (associated(cpoly%avg_running_pcpg)) then
          nvar=nvar+1
-         call vtable_edio_r(npts,cpoly%nesterov_index                                      &
+         call vtable_edio_r(npts,cpoly%avg_running_pcpg                                    &
                            ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
-                           ,'NESTEROV_INDEX :21:hist:dail') 
+                           ,'AVG_RUNNING_PCPG :21:hist') 
          call metadata_edio(nvar,igr                                                       &
-                           ,'Nesterov index'                                               &
-                           ,'[degC^2]','(isite)') 
+                           ,'Running average of precipitation rate'                        &
+                           ,'[kg/m2/s]','(isite)') 
       end if
 
       if (associated(cpoly%today_pcpg)) then
@@ -22313,6 +22482,16 @@ module ed_state_vars
                            ,'[--]','(isite)') 
       end if
 
+      if (associated(cpoly%today_atm_vpdef)) then
+         nvar=nvar+1
+         call vtable_edio_r(npts,cpoly%today_atm_vpdef                                     &
+                           ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'TODAY_ATM_VPDEF :21:hist') 
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Internal variable, do not use it for analysis'                &
+                           ,'[--]','(isite)') 
+      end if
+
       if (associated(cpoly%tdmin_atm_temp)) then
          nvar=nvar+1
          call vtable_edio_r(npts,cpoly%tdmin_atm_temp                                      &
@@ -22328,6 +22507,26 @@ module ed_state_vars
          call vtable_edio_r(npts,cpoly%tdmax_atm_temp                                      &
                            ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
                            ,'TDMAX_ATM_TEMP :21:hist') 
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Internal variable, do not use it for analysis'                &
+                           ,'[--]','(isite)') 
+      end if
+
+      if (associated(cpoly%today_fire_density)) then
+         nvar=nvar+1
+         call vtable_edio_r(npts,cpoly%today_fire_density                                  &
+                           ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'TODAY_FIRE_DENSITY :21:hist') 
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Internal variable, do not use it for analysis'                &
+                           ,'[--]','(isite)') 
+      end if
+
+      if (associated(cpoly%today_fire_extinction)) then
+         nvar=nvar+1
+         call vtable_edio_r(npts,cpoly%today_fire_extinction                               &
+                           ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'TODAY_FIRE_EXTINCTION :21:hist') 
          call metadata_edio(nvar,igr                                                       &
                            ,'Internal variable, do not use it for analysis'                &
                            ,'[--]','(isite)') 
@@ -22565,7 +22764,7 @@ module ed_state_vars
                            ,'FMEAN_DPCPG_SI             :21:'//trim(fast_keys)     )
          call metadata_edio(nvar,igr                                                       &
                            ,'Sub-daily mean - Precipitation depth'                         &
-                           ,'[          m]','(isite)'            )
+                           ,'[        m/s]','(isite)'            )
       end if
       !------------------------------------------------------------------------------------!
 
@@ -22774,6 +22973,51 @@ module ed_state_vars
          call metadata_edio(nvar,igr                                                       &
                            ,'Daily mean - CO2 mixing ratio: Atmosphere'                    &
                            ,'[   umol/mol]','(isite)'            )
+      end if
+      if (associated(cpoly%dmean_pcpg            )) then
+         nvar = nvar+1
+         call vtable_edio_r(npts,cpoly%dmean_pcpg                                          &
+                           ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'DMEAN_PCPG_SI              :21:'//trim(dail_keys)     )
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Daily mean - Precipitation rate'                              &
+                           ,'[    kg/m2/s]','(isite)'            )
+      end if
+      if (associated(cpoly%dmean_qpcpg           )) then
+         nvar = nvar+1
+         call vtable_edio_r(npts,cpoly%dmean_qpcpg                                         &
+                           ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'DMEAN_QPCPG_SI             :21:'//trim(dail_keys)     )
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Daily mean - Energy gain - rain'                              &
+                           ,'[       W/m2]','(isite)'            )
+      end if
+      if (associated(cpoly%dmean_dpcpg           )) then
+         nvar = nvar+1
+         call vtable_edio_r(npts,cpoly%dmean_dpcpg                                         &
+                           ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'DMEAN_DPCPG_SI             :21:'//trim(dail_keys)     )
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Daily mean - Precipitation depth gain'                             &
+                           ,'[        m/s]','(isite)'            )
+      end if
+      if (associated(cpoly%dmean_fire_density    )) then
+         nvar = nvar+1
+         call vtable_edio_r(npts,cpoly%dmean_fire_density                                  &
+                           ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'DMEAN_FIRE_DENSITY_SI      :21:'//trim(dail_keys)     )
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Daily mean - Fire count density'                              &
+                           ,'[       1/m2]','(isite)'            )
+      end if
+      if (associated(cpoly%dmean_fire_extinction )) then
+         nvar = nvar+1
+         call vtable_edio_r(npts,cpoly%dmean_fire_extinction                               &
+                           ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'DMEAN_FIRE_EXTINCTION_SI   :21:'//trim(dail_keys)     )
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Daily mean - Fire extinction rate'                            &
+                           ,'[      1/day]','(isite)'            )
       end if
       !------------------------------------------------------------------------------------!
 
@@ -22995,7 +23239,7 @@ module ed_state_vars
                            ,'MMEAN_DPCPG_SI             :21:'//trim(eorq_keys))
          call metadata_edio(nvar,igr                                                       &
                            ,'Monthly mean - Precipitation depth'                           &
-                           ,'[          m]','(isite)'            )
+                           ,'[        m/s]','(isite)'            )
       end if
       if (associated(cpoly%mmean_fire_density    )) then
          nvar = nvar+1
@@ -23005,6 +23249,15 @@ module ed_state_vars
          call metadata_edio(nvar,igr                                                       &
                            ,'Monthly mean - Fire count density'                            &
                            ,'[       1/m2]','(isite)'            )
+      end if
+      if (associated(cpoly%mmean_fire_extinction )) then
+         nvar = nvar+1
+         call vtable_edio_r(npts,cpoly%mmean_fire_extinction                               &
+                           ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'MMEAN_FIRE_EXTINCTION_SI   :21:'//trim(eorq_keys))
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Monthly mean - Fire extinction rate'                          &
+                           ,'[      1/day]','(isite)'            )
       end if
       if (associated(cpoly%mmean_fire_intensity  )) then
          nvar = nvar+1
@@ -23461,7 +23714,7 @@ module ed_state_vars
                            ,'QMEAN_DPCPG_SI            :-21:'//trim(eorq_keys)     )
          call metadata_edio(nvar,igr                                                       &
                            ,'Mean diel - Precipitation depth'                              &
-                           ,'[          m]','(ndcycle,isite)'    )
+                           ,'[        m/s]','(ndcycle,isite)'    )
       end if
       !------------------------------------------------------------------------------------!
       !------------------------------------------------------------------------------------!
@@ -24388,6 +24641,22 @@ module ed_state_vars
            call vtable_edio_r(npts,csite%mineralized_N_input,nvar,igr,init,csite%paglob_id, &
            var_len,var_len_global,max_ptrs,'NMIN_INPUT :31:hist') 
          call metadata_edio(nvar,igr,'No metadata available','[NA]','NA') 
+      end if
+
+      if (associated(csite%nesterov_index)) then
+         nvar=nvar+1
+         call vtable_edio_r(npts,csite%nesterov_index                                      &
+                           ,nvar,igr,init,csite%paglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'NESTEROV_INDEX :31:hist:dail') 
+         call metadata_edio(nvar,igr,'Nesterov index','[degC^2]','(ipatch)') 
+      end if
+
+      if (associated(csite%fdivpd_index)) then
+         nvar=nvar+1
+         call vtable_edio_r(npts,csite%fdivpd_index                                        &
+                           ,nvar,igr,init,csite%paglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'FDIVPD_INDEX :31:hist:dail') 
+         call metadata_edio(nvar,igr,'VPD-based fire danger index','[--]','(ipatch)') 
       end if
 
       if (associated(csite%rshort_g)) then
@@ -25539,6 +25808,16 @@ module ed_state_vars
                            ,'[   NA]','(ipatch)'            )
       end if
 
+      if (associated(csite%today_can_vpdef)) then
+         nvar=nvar+1
+         call vtable_edio_r(npts,csite%today_can_vpdef                                     &
+                           ,nvar,igr,init,csite%paglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'TODAY_CAN_VPDEF              :31:hist')
+         call metadata_edio(nvar,igr                                                       &
+                           ,'For internal ED2 use only.  Do not use for research'          &
+                           ,'[   NA]','(ipatch)'            )
+      end if
+
       return
    end subroutine filltab_sitetype_p31today
    !=======================================================================================!
@@ -25886,6 +26165,15 @@ module ed_state_vars
                            ,'FMEAN_SFCW_FLIQ_PA         :31:'//trim(fast_keys)     )
          call metadata_edio(nvar,igr                                                       &
                            ,'Sub-daily mean - Liquid fraction - temporary water layer'     &
+                           ,'[         --]','(ipatch)'            )
+      end if
+      if (associated(csite%fmean_snowfac         )) then
+         nvar = nvar+1
+         call vtable_edio_r(npts,csite%fmean_snowfac                                       &
+                           ,nvar,igr,init,csite%paglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'FMEAN_SNOWFAC_PA           :31:'//trim(fast_keys)     )
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Sub-daily mean - Snow/flood cover fraction'                   &
                            ,'[         --]','(ipatch)'            )
       end if
       if (associated(csite%fmean_rshort_gnd      )) then
@@ -26546,6 +26834,15 @@ module ed_state_vars
                            ,'Daily mean - Liquid fraction - temporary water layer'         &
                            ,'[         --]','(ipatch)'            )
       end if
+      if (associated(csite%dmean_snowfac         )) then
+         nvar = nvar+1
+         call vtable_edio_r(npts,csite%dmean_snowfac                                       &
+                           ,nvar,igr,init,csite%paglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'DMEAN_SNOWFAC_PA           :31:'//trim(dail_keys)     )
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Daily mean - Snow/flood cover fraction'                       &
+                           ,'[         --]','(ipatch)'            )
+      end if
       if (associated(csite%dmean_rshort_gnd      )) then
          nvar = nvar+1
          call vtable_edio_r(npts,csite%dmean_rshort_gnd                                    &
@@ -27134,6 +27431,15 @@ module ed_state_vars
                            ,'MMEAN_SFCW_FLIQ_PA         :31:'//trim(eorq_keys))
          call metadata_edio(nvar,igr                                                       &
                            ,'Monthly mean - Liquid fraction - temporary water layer'       &
+                           ,'[         --]','(ipatch)'            )
+      end if
+      if (associated(csite%mmean_snowfac         )) then
+         nvar = nvar+1
+         call vtable_edio_r(npts,csite%mmean_snowfac                                       &
+                           ,nvar,igr,init,csite%paglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'MMEAN_SNOWFAC_PA           :31:'//trim(eorq_keys))
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Monthly mean - Snow/flood cover fraction'                     &
                            ,'[         --]','(ipatch)'            )
       end if
       if (associated(csite%mmean_rshort_gnd      )) then
@@ -28152,6 +28458,15 @@ module ed_state_vars
                            ,'QMEAN_SFCW_FLIQ_PA        :-31:'//trim(eorq_keys)     )
          call metadata_edio(nvar,igr                                                       &
                            ,'Mean diel - Liquid fraction - temporary water layer'          &
+                           ,'[         --]','(ndcycle,ipatch)'    )
+      end if
+      if (associated(csite%qmean_snowfac         )) then
+         nvar = nvar+1
+         call vtable_edio_r(npts,csite%qmean_snowfac                                       &
+                           ,nvar,igr,init,csite%paglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'QMEAN_SNOWFAC_PA          :-31:'//trim(eorq_keys)     )
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Mean diel - Snow/flood cover fraction'                        &
                            ,'[         --]','(ndcycle,ipatch)'    )
       end if
       if (associated(csite%qmean_rshort_gnd      )) then

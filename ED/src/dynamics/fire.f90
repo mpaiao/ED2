@@ -97,7 +97,7 @@ module fire
 
 
       !----- Current month. ---------------------------------------------------------------!
-      imo = current_time%month
+      imo = lastmonth%month
       !------------------------------------------------------------------------------------!
 
 
@@ -308,14 +308,17 @@ module fire
                !---------------------------------------------------------------------------!
 
 
-               !----- Use burnt area to find disturbance rate. ----------------------------!
+               !----- Use fire "intensity" to find disturbance rate. ----------------------!
                cpoly%lambda_fire  (imo,isi) = cpoly%avg_fire_intensity(imo,isi)
                cpoly%ignition_rate    (isi) = cpoly%avg_fire_intensity(imo,isi)            &
                                             / fire_parameter
-               lnexp                        = max( lnexp_min                               &
-                                                 , min( lnexp_max                          &
-                                                      , - cpoly%lambda_fire(imo,isi) ) )
-               cpoly%burnt_area       (isi) = 1. - exp(lnexp)
+               !---------------------------------------------------------------------------!
+
+
+               !----- Use disturbance rate to estimate the burnt area. --------------------!
+               lnexp                 = max( lnexp_min                                      &
+                                          , min(lnexp_max, - cpoly%lambda_fire(imo,isi)) )
+               cpoly%burnt_area(isi) = 1. - exp(lnexp)
                !---------------------------------------------------------------------------!
 
 
@@ -383,42 +386,90 @@ module fire
 
    !=======================================================================================!
    !=======================================================================================!
-   !       Sub-routine that integrates the Nesterov index.  Although not used by the model !
-   ! unless INCLUDE_FIRE = 4, we still define  the index in case it is useful as a         !
-   ! diagnostic variable.                                                                  !
+   ! SUB-ROUTINE INTEG_FIRESTARTER
+   !\brief Subroutine that integrates variables used to assess fire risk.
+   !\details This sub-routine that integrates the fire disturbance rate when using the 
+   !!       Sub-routine that integrates the Nesterov index (T10) and the VPD-based fire
+   !!        danger index (D19), but replacing their approximation for VPD with the 
+   !!        calculated VPD scaled by the reference pressure at sea level (see rationale in
+   !!        PS09).  The foliar projective cover is based on (S18), but using accounting
+   !!        for leaf orientation factor. Although not used by every fire model, we still
+   !!        define the indices in case they are useful as diagnostic variables.
+   !!
+   !! Reference:
+   !! 
+   !! Druke  M, Forkel M, von Bloh W, Sakschewski B, Cardoso M, Bustamante M, Kurths J,
+   !!    Thonicke K. 2019. Improving the LPJmL4-SPITFIRE vegetation--fire model for South
+   !!    America using satellite data. Geosci. Model Dev., 12: 5029-5054.
+   !!    doi:10.5194/gmd-12-5029-2019 (D19).
+   !!
+   !! Schaphoff S, von Bloh W, Rammig A, Thonicke K, Biemans H, Forkel M, Gerten D, 
+   !!    Heinke J, Jagermeyr J, Knauer J et al. 2018. LPJmL4 -- a dynamic global 
+   !!    vegetation model with managed land -- part 1: Model description. 
+   !!    Geosci. Model Dev., 11: 13431375. doi:10.5194/gmd-11-1343-2018 (S18).
+   !!
+   !! Pechony O, Shindell DT. 2009. Fire parameterization on a global scale. J. Geophys.
+   !!    Res.-Atmos., 114(D16): D16115. doi:10.1029/2009JD011927 (PS09).
+   !!
+   !! Thonicke K, Spessa A, Prentice IC, Harrison SP, Dong L, Carmona-Moreno C. 2010. The
+   !!    influence of vegetation, fire spread and fire behaviour on biomass burning and
+   !!    trace gas emissions: results from a process-based model. Biogeosciences, 7:
+   !!    1991-2011. doi:10.5194/bg-7-1991-2010 (T10).
    !---------------------------------------------------------------------------------------!
-   subroutine integ_nesterov(cgrid)
-      use ed_state_vars , only : edtype                 & ! structure
-                               , polygontype            & ! structure
-                               , sitetype               ! ! structure
-      use ed_misc_coms  , only : current_time           ! ! intent(in)
-      use consts_coms   , only : t00                    & ! intent(in)
-                               , day_sec                ! ! intent(in)
-      use disturb_coms  , only : fh_pcpg_ni0            ! ! intent(in)
+   subroutine integ_fire_danger(cgrid)
+      use ed_state_vars        , only : edtype       & ! structure
+                                      , polygontype  & ! structure
+                                      , sitetype     & ! structure
+                                      , patchtype    ! ! structure
+      use ed_misc_coms         , only : current_time ! ! intent(in)
+      use consts_coms          , only : t00          & ! intent(in)
+                                      , day_sec      & ! intent(in)
+                                      , tiny_num     & ! intent(in)
+                                      , lnexp_min    & ! intent(in)
+                                      , lnexp_max    & ! intent(in)
+                                      , prefsea      ! ! intent(in)
+      use disturb_coms         , only : fh_pcpg_ni0  & ! intent(in)
+                                      , fh_pcpg_edi  & ! intent(in)
+                                      , fh_pcpg_win  ! ! intent(in)
+      use canopy_radiation_coms, only : eproj_light  ! ! intent(in)
+      use pft_coms             , only : alpha_fdivpd ! ! intent(in)
       implicit none
       !----- -Arguments. ------------------------------------------------------------------!
       type(edtype)     , target     :: cgrid
       !------ Local variables. ------------------------------------------------------------!
       type(polygontype), pointer    :: cpoly
       type(sitetype)   , pointer    :: csite
+      type(patchtype)  , pointer    :: cpatch
       integer                       :: ipy
       integer                       :: isi
       integer                       :: ipa
+      integer                       :: ico
+      integer                       :: ipft
       logical                       :: dry_day
+      real                          :: avgrun_accp
+      real                          :: frain_fdivpd
       real                          :: today_nesterov
-      real                          :: patch_nesterov
       real                          :: today_accp
       real                          :: tdmax_atm_temp
       real                          :: tdmin_atm_temp
       real                          :: today_atm_tdew
+      real                          :: today_atm_vpdef
       real                          :: tdmax_can_temp
       real                          :: tdmin_can_temp
       real                          :: today_can_tdew
+      real                          :: today_can_vpdef
+      real                          :: lnexp
+      real                          :: lai_ind
+      real                          :: fpc_coh
+      real                          :: fpc_pat
+      real                          :: alpha_pat
       !----- Local parameters. ------------------------------------------------------------!
-      character(len=20) , parameter :: firefile = 'nesterov_details.txt'
+      character(len=22) , parameter :: firefile = 'firedanger_details.txt'
       logical           , parameter :: printout = .false.
       !----- Locally saved variables. -----------------------------------------------------!
       logical           , save      :: first_time = .true.
+      real              , save      :: wgt_running
+      real              , save      :: wgt_today
       !------------------------------------------------------------------------------------!
 
 
@@ -428,12 +479,28 @@ module fire
          !----- Make the header. ----------------------------------------------------------!
          if (printout) then
             open (unit=35,file=firefile,status='replace',action='write')
-            write (unit=35,fmt='(16(a,1x))')                                               &
+            write (unit=35,fmt='(24(a,1x))')                                               &
                      '  YEAR',      ' MONTH',      '   DAY',      '   ISI',      '   IPA'  &
-              ,'        AREA','   CAN_DEPTH','      PRECIP','ATM_TEMP_MAX','CAN_TEMP_MAX'  &
-              ,'ATM_TEMP_MIN','CAN_TEMP_MIN','    ATM_TDEW','    CAN_TDEW','NESTEROV_PAT'  &
-              ,'NESTEROV_INT'
+              ,'        AREA','   CAN_DEPTH','   ALPHA_VPD','     FPC_PAT','      PRECIP'  &
+              ,' RUNAVG_PREC','   WGT_TODAY',' WGT_RUNNING','ATM_TEMP_MAX','CAN_TEMP_MAX'  &
+              ,'ATM_TEMP_MIN','CAN_TEMP_MIN','    ATM_TDEW','    CAN_TDEW','   ATM_VPDEF'  &
+              ,'   CAN_VPDEF','NESTEROV_PAT','NESTEROV_INT','  FDIVPD_PAT'
             close (unit=35,status='keep')
+         end if
+         !---------------------------------------------------------------------------------!
+
+
+         !----- Define weight for running average. ----------------------------------------!
+         if (fh_pcpg_win > 1.) then
+            !----- Weighting factor for today is the inverse of running average window. ---!
+            wgt_today   = max(0.,min(1.,1.  / fh_pcpg_win))
+            wgt_running = 1. - wgt_today
+            !------------------------------------------------------------------------------!
+         else
+            !----- Running average window is too short, use today's value only. -----------!
+            wgt_today   = 1.0
+            wgt_running = 0.0
+            !------------------------------------------------------------------------------!
          end if
          !---------------------------------------------------------------------------------!
 
@@ -447,14 +514,36 @@ module fire
          cpoly => cgrid%polygon(ipy)
 
 
-         !----- Loop over sites. ----------------------------------------------------------!
+
+         !---------------------------------------------------------------------------------!
+         !      Loop over sites.                                                           !
+         !---------------------------------------------------------------------------------!
          site_loop: do isi = 1,cpoly%nsites
             csite => cpoly%site(isi)
 
+
+            !----- Update precipitation running average. ----------------------------------!
+            cpoly%avg_running_pcpg(isi) = wgt_running * cpoly%avg_running_pcpg(isi)        &
+                                        + wgt_today   * cpoly%today_pcpg      (isi)
+            avgrun_accp                 = cpoly%avg_running_pcpg(isi) * day_sec
+            !------------------------------------------------------------------------------!
+
+
+
+            !----- Find the rainfall down-regulation term for VPD-based FDI. --------------!
+            lnexp        = max( lnexp_min                                                  &
+                              , min( lnexp_max                                             &
+                                   , fh_pcpg_edi * cpoly%avg_running_pcpg(isi) ) )
+            frain_fdivpd = exp(lnexp)
+            !------------------------------------------------------------------------------!
+
+
+
             !----- Convert air temperature to degC (useful for the report). ---------------!
-            tdmax_atm_temp = cpoly%tdmax_atm_temp(isi) - t00
-            tdmin_atm_temp = cpoly%tdmin_atm_temp(isi) - t00
-            today_atm_tdew = cpoly%today_atm_tdew(isi) - t00
+            tdmax_atm_temp  = cpoly%tdmax_atm_temp (isi) - t00
+            tdmin_atm_temp  = cpoly%tdmin_atm_temp (isi) - t00
+            today_atm_tdew  = cpoly%today_atm_tdew (isi) - t00
+            today_atm_vpdef = cpoly%today_atm_vpdef(isi) * 0.01
             !------------------------------------------------------------------------------!
 
 
@@ -472,24 +561,79 @@ module fire
             !------------------------------------------------------------------------------!
             today_nesterov = 0.0
             patch_loop: do ipa=1,csite%npatches
+               cpatch => csite%patch(ipa)
+
+
                !----- Convert temperature to degC (also useful for the report). -----------!
-               tdmax_can_temp = csite%tdmax_can_temp(ipa) - t00
-               tdmin_can_temp = csite%tdmin_can_temp(ipa) - t00
-               today_can_tdew = csite%today_can_tdew(ipa) - t00
+               tdmax_can_temp  = csite%tdmax_can_temp (ipa) - t00
+               tdmin_can_temp  = csite%tdmin_can_temp (ipa) - t00
+               today_can_tdew  = csite%today_can_tdew (ipa) - t00
+               today_can_vpdef = csite%today_can_vpdef(ipa) * 0.01
+               !---------------------------------------------------------------------------!
+
+
+               !---------------------------------------------------------------------------!
+               !      Loop through cohorts.                                                !
+               !---------------------------------------------------------------------------!
+               fpc_pat   = 0.
+               alpha_pat = 0.
+               cohort_loop: do ico=1,cpatch%ncohorts
+                  !------ Handy aliases. --------------------------------------------------!
+                  ipft = cpatch%pft(ico)
+                  !------------------------------------------------------------------------!
+
+
+                  !------ Find the individual leaf cover (S18). ---------------------------!
+                  if (cpatch%leaf_resolvable(ico)) then
+                     lai_ind = cpatch%lai(ico) / cpatch%crown_area(ico)
+                     lnexp   = max(lnexp_min,min(lnexp_max,-eproj_light(ipft)*lai_ind))
+                     fpc_coh = cpatch%crown_area(ico) * (1. - exp(lnexp))
+                  else
+                     fpc_coh = 0.
+                  end if
+                  !------------------------------------------------------------------------!
+
+                  !------ Integrate foliar projective cover, and the alpha term. ----------!
+                  fpc_pat   = fpc_pat + fpc_coh
+                  alpha_pat = alpha_pat + alpha_fdivpd(ipft) * fpc_coh
+                  !------------------------------------------------------------------------!
+               end do cohort_loop
+               !---------------------------------------------------------------------------!
+
+
+
+               !----- Normalise the patch-level alpha factor. -----------------------------!
+               if (fpc_pat > tiny_num) then
+                  alpha_pat = alpha_pat / fpc_pat
+               else
+                  alpha_pat = 0.
+               end if
+               !---------------------------------------------------------------------------!
+
+
+               !---------------------------------------------------------------------------!
+               !      Find the fire danger index, following D19, but using the daily       !
+               ! average VPD instead of the approximations.  Following the rationale of    !
+               ! PS09, we make VPD dimensionless by dividing it by the reference pressure  !
+               ! at the sea level.                                                         !
+               !---------------------------------------------------------------------------!
+               csite%fdivpd_index(ipa) = alpha_pat * csite%today_can_vpdef(ipa) / prefsea  &
+                                       * fpc_pat * frain_fdivpd
                !---------------------------------------------------------------------------!
 
 
                !---- Patch Nesterov index, and make sure it is never negative. ------------!
                if (dry_day) then
-                  patch_nesterov = max(0.,tdmax_can_temp*(tdmax_can_temp-today_can_tdew))
+                  today_nesterov = max(0.,tdmax_can_temp*(tdmax_can_temp-today_can_tdew))
                else
-                  patch_nesterov = 0.
+                  today_nesterov = 0.
                end if
                !---------------------------------------------------------------------------!
 
 
-               !----- Add patch contribution. ---------------------------------------------!
-               today_nesterov = today_nesterov + patch_nesterov * csite%area(ipa)
+               !----- Add patch contribution to today's Nesterov index. -------------------!
+               csite%nesterov_index(ipa) = csite%nesterov_index(ipa)                       &
+                                         + today_nesterov
                !---------------------------------------------------------------------------!
 
 
@@ -498,30 +642,18 @@ module fire
                !---------------------------------------------------------------------------!
                if (printout) then
                   open(unit=35,file=firefile,status='old',position='append',action='write')
-                  write(unit=35,fmt='(5(i6,1x),11(f12.6,1x))')                             &
+                  write(unit=35,fmt='(5(i6,1x),19(f12.4,1x))')                             &
                              current_time%year,current_time%month,current_time%date,isi    &
-                            ,ipa,csite%area(ipa),csite%can_depth(ipa),today_accp           &
+                            ,ipa,csite%area(ipa),csite%can_depth(ipa),alpha_pat            &
+                            ,fpc_pat,today_accp,avgrun_accp,wgt_today,wgt_running          &
                             ,tdmax_atm_temp,tdmax_can_temp,tdmin_atm_temp,tdmin_can_temp   &
-                            ,today_atm_tdew,today_can_tdew,patch_nesterov,today_nesterov
+                            ,today_atm_tdew,today_can_tdew,today_atm_vpdef,today_can_vpdef &
+                            ,today_nesterov,csite%nesterov_index(ipa)                      &
+                            ,csite%fdivpd_index(ipa)
                   close(unit=35,status='keep')
                end if
                !---------------------------------------------------------------------------!
            end do patch_loop
-            !------------------------------------------------------------------------------!
-
-
-            !------------------------------------------------------------------------------!
-            !      Decide whether or not to reset the index.                               !
-            !------------------------------------------------------------------------------!
-            if (dry_day) then
-               !----- Update site-level Nesterov Index. -----------------------------------!
-               cpoly%nesterov_index(isi) = cpoly%nesterov_index(isi) + today_nesterov
-               !---------------------------------------------------------------------------!
-            else
-               !----- Rainy day, reset the index. -----------------------------------------!
-               cpoly%nesterov_index(isi) = 0.
-               !---------------------------------------------------------------------------!
-            end if
             !------------------------------------------------------------------------------!
          end do site_loop
          !---------------------------------------------------------------------------------!
@@ -530,7 +662,7 @@ module fire
 
 
       return
-   end subroutine integ_nesterov
+   end subroutine integ_fire_danger
    !=======================================================================================!
    !=======================================================================================!
 
@@ -542,8 +674,9 @@ module fire
    !=======================================================================================!
    !=======================================================================================!
    ! SUB-ROUTINE INTEG_EMBERFIRE
-   !> This subroutine will integrate the fuel loads and fire intensity for the
-   !> "Empirical Model for Basic Ecosystem Response to FIRE" (EMBERFIRE model).
+   !\brief Integration step of the EMBERFIRE model
+   !\details This subroutine will integrate the fuel loads and fire intensity for the
+   !!        "Empirical Model for Basic Ecosystem Response to FIRE" (EMBERFIRE model).
    !---------------------------------------------------------------------------------------!
    subroutine integ_emberfire(cgrid)
       use ed_state_vars , only : edtype            & ! structure
@@ -559,6 +692,8 @@ module fire
       use disturb_coms  , only : fire_parameter    & ! intent(in)
                                , fuel_height_max   & ! intent(in)
                                , fe_anth_ignt_only & ! intent(in)
+                               , fe_fdivpd_exp     & ! intent(in)
+                               , fe_use_fdivpd     & ! intent(in)
                                , fh_f0001          & ! intent(in)
                                , fh_f0010          & ! intent(in)
                                , fh_f0100          & ! intent(in)
@@ -566,9 +701,11 @@ module fire
                                , fx_a0001          & ! intent(in)
                                , fx_a0010          & ! intent(in)
                                , fx_a0100          & ! intent(in)
-                               , fr_Mxdead         ! ! intent(in)
+                               , fx_rmfac          & ! intent(in)
+                               , n_fst             ! ! intent(in)
       use consts_coms   , only : day_sec           & ! intent(in)
                                , t00               & ! intent(in)
+                               , tiny_num          & ! intent(in)
                                , lnexp_min         & ! intent(in)
                                , lnexp_max         ! ! intent(in)
       implicit none
@@ -587,6 +724,7 @@ module fire
       integer                    :: isi               ! Site index                [    ---]
       integer                    :: ndays             ! # days in month           [    ---]
       logical                    :: people_around     ! Any anth. disturb. type   [    T|F]
+      real, dimension(n_fst)     :: Mx_i              ! Fuel moist. extinct.      [  kg/kg]
       real                       :: bfuel_d0001_pat   ! Patch 1-hr dead fuels     [ kgC/m2]
       real                       :: bfuel_d0001_tot   ! Site 1-hr dead fuels      [ kgC/m2]
       real                       :: bfuel_d0010_pat   ! Patch 10-hr dead fuels    [ kgC/m2]
@@ -595,22 +733,33 @@ module fire
       real                       :: bfuel_d0100_tot   ! Site 100-hr dead fuels    [ kgC/m2]
       real                       :: bfuel_d1000_pat   ! Patch 1000-hr dead fuels  [ kgC/m2]
       real                       :: bfuel_d1000_tot   ! Site 1000-hr dead fuels   [ kgC/m2]
+      real                       :: bfuel_d0111_pat   ! (1+10+100-hr fuels)       [ kgC/m2]
+      real                       :: bfuel_d0111_tot   ! (1+10+100-hr fuels)       [ kgC/m2]
       real                       :: bfuel_dead_tot    ! Total dead fuels          [ kgC/m2]
       real                       :: bfuel_live_tot    ! Total live fuels          [ kgC/m2]
-      real                       :: bfuel_hd111_tot_i ! 1./(herb+1+10+100hr fuel) [ m2/kgC]
       real                       :: bherb             ! Cohort Herbaceous fuels   [ kgC/pl]
       real                       :: bherb_pat         ! Patch Herbaceous fuels    [ kgC/m2]
       real                       :: bherb_tot         ! Site Herbaceous fuels     [ kgC/m2]
       real                       :: bwoody            ! Cohort living woody fuels [ kgC/pl]
       real                       :: bwoody_pat        ! Patch living woody fuels  [ kgC/m2]
       real                       :: bwoody_tot        ! Site living woody fuels   [ kgC/m2]
+      real                       :: fdivpd_avg        ! Average fire danger index [     --]
       real                       :: ignition_rate     ! Ignition probability rate [     --]
       real                       :: lnexp             ! Aux. var. for safe exp    [    ---]
-      real                       :: moist_bfuel       ! Dead fuel moisture        [    ---]
+      real                       :: moist_bfuel_avg   ! Dead fuel moisture        [    ---]
+      real                       :: moist_bfuel_pat   ! Dead fuel moisture        [    ---]
+      real                       :: moist_bherb_avg   ! Herbaceous fuel moisture  [    ---]
+      real                       :: moist_bherb_pat   ! Herbaceous fuel moisture  [    ---]
+      real                       :: moist_bwoody_avg  ! Living woody fuel moist.  [    ---]
+      real                       :: moist_bwoody_pat  ! Living woody fuel moist.  [    ---]
       real                       :: ndaysi            ! 1/# days in a month       [  1/day]
+      real                       :: nesterov_avg      ! Average Nesterov index    [  degC2]
+      real                       :: rmoist_avg        ! Relative fuel moisture    [    ---]
       real                       :: tdmax_can_temp    ! Maximum temperature       [   degC]
       real                       :: today_can_tdew    ! Dew point temperature     [   degC]
       real                       :: today_pcpg        ! Daily rainfall            [     mm]
+      !------ External functions. ---------------------------------------------------------!
+      real              , external  :: bpow01         ! Power funct. for [0-1]    [    ---]
       !----- Local parameters. ------------------------------------------------------------!
       character(len=21) , parameter :: firefile = 'emberfire_details.txt'
       logical           , parameter :: printout = .false.
@@ -625,10 +774,12 @@ module fire
          !----- Make the header. ----------------------------------------------------------!
          if (printout) then
             open (unit=35,file=firefile,status='replace',action='write')
-            write (unit=35,fmt='(15(a,1x))')                                               &
+            write (unit=35,fmt='(21(a,1x))')                                               &
                      '  YEAR',      ' MONTH',      '   DAY',      '   ISI',      'PEOPLE'  &
-              ,'      PRECIP','CAN_TEMP_MAX','    CAN_TDEW','    NESTEROV','  BFUEL_LIVE'  &
-              ,'  BFUEL_DEAD','  MOIST_FUEL',' MSTEXT_FUEL','    IGNITION','   INTENSITY'
+              ,'      PRECIP','CAN_TEMP_MAX','    CAN_TDEW','    NESTEROV','     FDI_VPD'  &
+              ,'  BFUEL_HERB','  BFUEL_WOOD','  BFUEL_DEAD',' MOIST_BHERB','MOIST_BWOODY'  &
+              ,' MOIST_BFUEL',' MSTEXT_DEAD',' MSTEXT_LIVE',' RMOIST_FUEL','    IGNITION'  &
+              ,'   INTENSITY'
             close (unit=35,status='keep')
          end if
          !---------------------------------------------------------------------------------!
@@ -707,8 +858,22 @@ module fire
             bfuel_d0010_tot = 0.
             bfuel_d0100_tot = 0.
             bfuel_d1000_tot = 0.
+            bfuel_d0111_tot = 0.
             bherb_tot       = 0.
             bwoody_tot      = 0.
+            !------------------------------------------------------------------------------!
+
+
+            !------ Initialise dead and live fuel moisture. -------------------------------!
+            moist_bfuel_avg    = 0.
+            moist_bherb_avg    = 0.
+            moist_bwoody_avg   = 0.
+            !------------------------------------------------------------------------------!
+
+
+            !------ Initialise average indices. -------------------------------------------!
+            nesterov_avg    = 0.
+            fdivpd_avg      = 0.
             !------------------------------------------------------------------------------!
 
 
@@ -731,6 +896,7 @@ module fire
                bfuel_d0010_pat = fh_f0010 * csite%structural_grnd_C(ipa)
                bfuel_d0100_pat = fh_f0100 * csite%structural_grnd_C(ipa)
                bfuel_d1000_pat = fh_f1000 * csite%structural_grnd_C(ipa)
+               bfuel_d0111_pat = bfuel_d0100_pat + bfuel_d0010_pat + bfuel_d0001_pat
                bherb_pat       = 0.
                bwoody_pat      = 0.
                cohort_loop: do ico=1,cpatch%ncohorts
@@ -765,6 +931,7 @@ module fire
                bfuel_d0010_tot = bfuel_d0010_tot + bfuel_d0010_pat * csite%area(ipa)
                bfuel_d0100_tot = bfuel_d0100_tot + bfuel_d0100_pat * csite%area(ipa)
                bfuel_d1000_tot = bfuel_d1000_tot + bfuel_d1000_pat * csite%area(ipa)
+               bfuel_d0111_tot = bfuel_d0111_tot + bfuel_d0111_pat * csite%area(ipa)
                bherb_tot       = bherb_tot       + bherb_pat       * csite%area(ipa)
                bwoody_tot      = bwoody_tot      + bwoody_pat      * csite%area(ipa)
                !---------------------------------------------------------------------------!
@@ -774,6 +941,69 @@ module fire
                !----- Integrate site-average temperatures. --------------------------------!
                tdmax_can_temp = tdmax_can_temp + csite%tdmax_can_temp(ipa) * csite%area(ipa)
                today_can_tdew = today_can_tdew + csite%today_can_tdew(ipa) * csite%area(ipa)
+               !---------------------------------------------------------------------------!
+
+
+
+
+               !---------------------------------------------------------------------------!
+               !      Find herb and woody fuel wetness, using the wetness of the top       !
+               ! soil.                                                                     !
+               !---------------------------------------------------------------------------!
+               moist_bherb_pat  = max(0.,min(1.,csite%today_sfc_wetness(ipa)))
+               moist_bwoody_pat = max(0.,min(1.,csite%today_sfc_wetness(ipa)))
+               !---------------------------------------------------------------------------!
+
+
+
+               !---------------------------------------------------------------------------!
+               !    Compute fuel moisture.  Decide whether to use the original SPITFIRE    !
+               ! approach (based on Nesterov index) or the VPD-based fire danger index.    !
+               !---------------------------------------------------------------------------!
+               if (fe_use_fdivpd) then
+                  !------------------------------------------------------------------------!
+                  !       Use the fire danger index to estimate fuel moisture.             !
+                  !------------------------------------------------------------------------!
+                  lnexp           = max( lnexp_min                                         &
+                                       , min( lnexp_max                                    &
+                                            , fe_fdivpd_exp*csite%fdivpd_index(ipa) ) )
+                  moist_bfuel_pat = exp(lnexp)
+                  !------------------------------------------------------------------------!
+               else
+                  !------------------------------------------------------------------------!
+                  !       Compute fuel moisture, based on SPITFIRE (T10).                  !
+                  !------------------------------------------------------------------------!
+                  if (bfuel_d0111_pat > tiny_num) then
+                     lnexp             = - ( fx_a0001 * bfuel_d0001_pat                    &
+                                           + fx_a0010 * bfuel_d0010_pat                    &
+                                           + fx_a0100 * bfuel_d0100_pat )                  &
+                                           / bfuel_d0111_pat * csite%nesterov_index(ipa)
+                     moist_bfuel_pat   = exp(max(lnexp_min,min(lnexp_max,lnexp)))
+                  else
+                     moist_bfuel_pat   = 1.0
+                  end if
+                  !------------------------------------------------------------------------!
+               end if
+               !---------------------------------------------------------------------------!
+
+
+
+               !---------------------------------------------------------------------------!
+               !      Integrate fuel moisture, scaling by area and fuel stocks in this     !
+               ! patch.                                                                    !
+               !---------------------------------------------------------------------------!
+               moist_bfuel_avg  = moist_bfuel_avg                                          &
+                                + moist_bfuel_pat  * bfuel_d0111_pat * csite%area(ipa)
+               moist_bherb_avg  = moist_bherb_avg                                          &
+                                + moist_bherb_pat  * bherb_pat       * csite%area(ipa)
+               moist_bwoody_avg = moist_bwoody_avg                                         &
+                                + moist_bwoody_pat * bwoody_pat      * csite%area(ipa)
+               !---------------------------------------------------------------------------!
+
+
+               !------ Integrate average indices. -----------------------------------------!
+               nesterov_avg    = nesterov_avg + csite%nesterov_index(ipa) * csite%area(ipa)
+               fdivpd_avg      = fdivpd_avg   + csite%fdivpd_index  (ipa) * csite%area(ipa)
                !---------------------------------------------------------------------------!
 
             end do patchloop
@@ -788,19 +1018,46 @@ module fire
 
 
 
+            !------------------------------------------------------------------------------!
+            !       Normalise fuel moisture for dead and live components.                  !
+            !------------------------------------------------------------------------------!
+            if (bfuel_d0111_tot  > tiny_num) then
+               moist_bfuel_avg  = moist_bfuel_avg  / bfuel_d0111_tot
+            else
+               moist_bfuel_avg  = 1.0
+            end if
+            if (bherb_tot  > tiny_num) then
+               moist_bherb_avg  = moist_bherb_avg  / bherb_tot
+            else
+               moist_bherb_avg  = 1.0
+            end if
+            if (bwoody_tot > tiny_num) then
+               moist_bwoody_avg = moist_bwoody_avg / bwoody_tot
+            else
+               moist_bwoody_avg = 1.0
+            end if
+            !------ Apply correction factor for fuel moisture. ----------------------------!
+            moist_bherb_avg  = max(0., (1.+fx_rmfac) * moist_bherb_avg  - 1. ) / fx_rmfac
+            moist_bwoody_avg = max(0., (1.+fx_rmfac) * moist_bwoody_avg - 1. ) / fx_rmfac
+            !------------------------------------------------------------------------------!
+
+
 
             !------------------------------------------------------------------------------!
-            !       Compute fuel moisture, based on SPITFIRE (T10).                        !
+            !    Find moisture of extinction for fuels and the relative moisture.          !
             !------------------------------------------------------------------------------!
-            bfuel_hd111_tot_i = 1.                                                         &
-                              / ( bherb_tot       + bfuel_d0100_tot                        &
-                                + bfuel_d0010_tot + bfuel_d0001_tot )
-            lnexp             = - ( fx_a0001 * bherb_tot                                   &
-                                  + fx_a0001 * bfuel_d0001_tot                             &
-                                  + fx_a0010 * bfuel_d0010_tot                             &
-                                  + fx_a0100 * bfuel_d0100_tot ) * bfuel_hd111_tot_i       &
-                              * cpoly%nesterov_index(isi)
-            moist_bfuel       = exp(max(lnexp_min,min(lnexp_max,lnexp)))
+            call find_mextinct(bfuel_d0001_tot,bfuel_d0010_tot,bfuel_d0100_tot             &
+                              ,bfuel_d1000_tot,bherb_tot,bwoody_tot                        &
+                              ,moist_bfuel_avg,moist_bfuel_avg,moist_bfuel_avg             &
+                              ,moist_bfuel_avg,moist_bherb_avg,moist_bwoody_avg,Mx_i)
+            if ( (bfuel_d0111_tot + bfuel_live_tot) > tiny_num ) then
+               rmoist_avg = ( moist_bfuel_avg  * bfuel_d0111_tot                           &
+                            + moist_bherb_avg  * bherb_tot                                 &
+                            + moist_bwoody_avg * bwoody_tot           )                    &
+                          / ( Mx_i(1) * bfuel_d0111_tot + Mx_i(2) * bfuel_live_tot )
+            else
+               rmoist_avg = 1.0
+            end if
             !------------------------------------------------------------------------------!
 
 
@@ -812,9 +1069,9 @@ module fire
             ! existing signs of land use.                                                  !
             !------------------------------------------------------------------------------!
             if (people_around) then
-               ignition_rate          = max(0.,1. - moist_bfuel / fr_Mxdead )
+               ignition_rate = max(0.,1. - rmoist_avg )
             else
-               ignition_rate          = 0.
+               ignition_rate = 0.
             end if
             !------------------------------------------------------------------------------!
 
@@ -847,11 +1104,12 @@ module fire
 
 
                open(unit=35,file=firefile,status='old',position='append',action='write')
-               write(unit=35,fmt='(4(i6,1x),1(5x,l1,1x),10(f12.4,1x))')                    &
+               write(unit=35,fmt='(4(i6,1x),1(5x,l1,1x),16(f12.4,1x))')                    &
                           current_time%year,current_time%month,current_time%date,isi       &
                          ,people_around,today_pcpg,tdmax_can_temp,today_can_tdew           &
-                         ,cpoly%nesterov_index(isi),bfuel_live_tot,bfuel_dead_tot          &
-                         ,moist_bfuel,fr_Mxdead,ignition_rate,cpoly%fire_intensity(isi)
+                         ,nesterov_avg,fdivpd_avg,bherb_tot,bwoody_tot,bfuel_dead_tot      &
+                         ,moist_bherb_avg,moist_bwoody_avg,moist_bfuel_avg,Mx_i(1),Mx_i(2) &
+                         ,rmoist_avg,ignition_rate,cpoly%fire_intensity(isi)
                close(unit=35,status='keep')
             end if
             !------------------------------------------------------------------------------!
@@ -873,13 +1131,14 @@ module fire
    !=======================================================================================!
    !=======================================================================================!
    ! SUB-ROUTINE INTEG_FIRESTARTER
-   !> This sub-routine that integrates the fire disturbance rate when using the 
-   !! "Fire Ignition, Rate of Elliptical Spread, and Termination Approaches to Represent
-   !! the Terrestrial Ecosystem Responses (to fires)" (FIRESTARTER) model.  The 
-   !! FIRESTARTER model builds on the HESFIRE model (LP15/LP17) for ignitions and 
-   !! termination, and the SPITFIRE (T10) for ecosystem response to fires.  The 
-   !! calculation of maximum rate of spread is based on R72 model revised by A18 and 
-   !! using the very dry fuel conditions described in SB05.
+   !\brief Main integrator of the FIRESTARTER model
+   !\details This sub-routine that integrates the fire disturbance rate when using the 
+   !!        "Fire Ignition, Rate of Elliptical Spread, and Termination Approaches to
+   !!        Represent the Terrestrial Ecosystem Responses (to fires)" (FIRESTARTER) model.
+   !!        The FIRESTARTER model builds on the HESFIRE model (LP15/LP17) for ignitions 
+   !!        and termination, and the SPITFIRE (T10) for ecosystem response to fires.  The
+   !!        calculation of maximum rate of spread is based on R72 model revised by A18
+   !!        and using the very dry fuel conditions described in SB05.
    !!
    !> References:
    !!
@@ -901,6 +1160,11 @@ module fire
    !!    and Range Experiment Station, Ogden, UT, U. S. A.,
    !!    https://www.fs.usda.gov/treesearch/pubs/32533 (R72).
    !!
+   !! Schaphoff S, von Bloh W, Rammig A, Thonicke K, Biemans H, Forkel M, Gerten D, 
+   !!    Heinke J, Jagermeyr J, Knauer J et al. 2018. LPJmL4 -- a dynamic global 
+   !!    vegetation model with managed land -- part 1: Model description. 
+   !!    Geosci. Model Dev., 11: 13431375. doi:10.5194/gmd-11-1343-2018 (S18).
+   !!
    !! Scott JH , Burgan RE. 2005. Standard fire behavior fuel models: a comprehensive set
    !!    for use with Rothermel's surface fire spread model. Gen. Tech. Rep. RMRS-GTR-153,
    !!    U.S. Department of Agriculture, Forest Service, Rocky Mountain Research Station,
@@ -912,14 +1176,16 @@ module fire
    !!    1991-2011. doi:10.5194/bg-7-1991-2010 (T10).
    !!
    !---------------------------------------------------------------------------------------!
-   subroutine integ_firestarter(cgrid,dtfire)
+   subroutine integ_firestarter(cgrid,dtfull)
       use ed_state_vars , only : edtype                 & ! structure
                                , polygontype            & ! structure
                                , sitetype               & ! structure
                                , patchtype              ! ! structure
       use ed_misc_coms  , only : simtime                & ! structure
                                , current_time           ! ! intent(in)
-      use disturb_coms  , only : fh_f0001               & ! intent(in)
+      use disturb_coms  , only : fe_fdivpd_exp          & ! intent(in)
+                               , fe_use_fdivpd          & ! intent(in)
+                               , fh_f0001               & ! intent(in)
                                , fh_f0010               & ! intent(in)
                                , fh_f0100               & ! intent(in)
                                , fh_f1000               & ! intent(in)
@@ -934,6 +1200,7 @@ module fire
                                , fi_sf_maxage           & ! intent(in)
                                , fr_h                   & ! intent(in)
                                , fs_ba_frag             & ! intent(in)
+                               , fs_bck_exp             & ! intent(in)
                                , fs_gw_infty            & ! intent(in)
                                , fs_lbr_exp             & ! intent(in)
                                , fs_lbr_slp             & ! intent(in)
@@ -960,7 +1227,7 @@ module fire
                                , fx_a0100               & ! intent(in)
                                , fx_rmfac               & ! intent(in)
                                , fx_tlh_slope           & ! intent(in)
-                               , n_fst                  ! ! strcuture
+                               , n_fst                  ! ! intent(in)
       use pft_coms      , only : agf_bs                 & ! intent(in)
                                , C2B                    & ! intent(in)
                                , f_labile_leaf          & ! intent(in)
@@ -975,7 +1242,7 @@ module fire
       implicit none
       !----- -Arguments. ------------------------------------------------------------------!
       type(edtype)  , target     :: cgrid             ! Current grid              [    ---]
-      real          , intent(in) :: dtfire            ! Fire full time step       [      s]
+      real          , intent(in) :: dtfull            ! Fire full time step       [      s]
       !------ Local variables. ------------------------------------------------------------!
       type(polygontype), pointer :: cpoly             ! Current polygon           [    ---]
       type(sitetype)   , pointer :: csite             ! Current site              [    ---]
@@ -1008,8 +1275,12 @@ module fire
       real                       :: bfuel_d0100_tot   ! Site 100-hr dead fuels    [ kgC/m2]
       real                       :: bfuel_d1000_pat   ! Patch 1000-hr dead fuels  [ kgC/m2]
       real                       :: bfuel_d1000_tot   ! Site 1000-hr dead fuels   [ kgC/m2]
-      real                       :: bfuel_d0111_tot_i ! 1./(1+10+100-hr fuels)    [ m2/kgC]
+      real                       :: bfuel_d0111_pat   ! (1+10+100-hr fuels)       [ kgC/m2]
+      real                       :: bfuel_d0111_tot   ! (1+10+100-hr fuels)       [ kgC/m2]
+      real                       :: burnt_area_deja   ! Burnt area so far         [  m2/m2]
+      real                       :: burnt_area_potl   ! Potl. Burnt area (step)   [  m2/m2]
       real                       :: burnt_area_step   ! Burnt area (time step)    [  m2/m2]
+      real                       :: burnt_area_max    ! Maximum burnt area        [  m2/m2]
       real                       :: bwoody            ! Cohort living woody fuels [ kgC/pl]
       real                       :: bwoody_pat        ! Patch living woody fuels  [ kgC/m2]
       real                       :: bwoody_tot        ! Site living woody fuels   [ kgC/m2]
@@ -1017,36 +1288,38 @@ module fire
       real                       :: can_rhvn          ! Norm. CAS relative hum.   [    ---]
       real                       :: can_temp          ! Canopy air space temp.    [      K]
       real                       :: can_tempn         ! Normalised CAS temp.      [    ---]
+      real                       :: dtfire            ! Fire time step            [      s]
+      real                       :: ell_length        ! Length of main ell. axis  [      m]
+      real                       :: fdivpd_avg        ! Average fire danger index [     --]
       real                       :: fintn             ! Norm. fire intensity      [    ---]
-      real                       :: fire_density_mid  ! Fire density (midstep)    [   1/m2]
       real                       :: fragn             ! Norm. fragmentation       [    ---]
-      real                       :: fragxn            ! Alt. Norm. fragmentation  [    ---]
-      real                       :: fs_iarea          ! Individual fire area      [     m2]
-      real                       :: fs_length         ! Length of fire ellipse    [    ---]
-      real                       :: fs_rhv_loc        ! Rel. Hum. control funct.  [    ---]
-      real                       :: fs_smpot_loc      ! Soil Potl. ctrl. funct.   [    ---]
-      real                       :: fs_temp_loc       ! Temp. control function    [    ---]
-      real                       :: fs_wind_loc       ! Wind control function     [    ---]
-      real                       :: fs_rhv_fun        ! Rel. Hum. control funct.  [    ---]
-      real                       :: fs_smpot_fun      ! Soil Potl. ctrl. funct.   [    ---]
-      real                       :: fs_temp_fun       ! Temp. control function    [    ---]
-      real                       :: fs_wind_fun       ! Wind control function     [    ---]
-      real                       :: ft_frag_fun       ! Fragmentation limit. fac. [    ---]
-      real                       :: ft_fuel_fun       ! Fuel limitation factor    [    ---]
-      real                       :: ft_rhv_fun        ! Rel. Hum. control funct.  [    ---]
-      real                       :: ft_smpot_fun      ! Soil Potl. ctrl. funct.   [    ---]
-      real                       :: ft_supp_fun       ! Suppression limit. factor [    ---]
-      real                       :: ft_suppress       ! Fire suppression factor   [    ---]
-      real                       :: ft_temp_fun       ! Temp. control function    [    ---]
-      real                       :: ft_decay_fun      ! Fire termination factor   [    ---]
-      real                       :: ft_wind_fun       ! Wind control function     [    ---]
-      real                       :: ft_wthr_fun       ! Weather limitation factor [    ---]
+      real                       :: flamn             ! Flammable area            [    ---]
+      real                       :: fp_cntg_fun       ! Contiguity factor         [    ---]
+      real                       :: fp_fuel_fun       ! Fuel availability factor  [    ---]
+      real                       :: fp_rhv_fun        ! Rel. Hum. control funct.  [    ---]
+      real                       :: fp_rhv_loc        ! Rel. Hum. control funct.  [    ---]
+      real                       :: fp_smpot_fun      ! Soil Potl. ctrl. funct.   [    ---]
+      real                       :: fp_smpot_loc      ! Soil Potl. ctrl. funct.   [    ---]
+      real                       :: fp_temp_fun       ! Temp. control function    [    ---]
+      real                       :: fp_temp_loc       ! Temp. control function    [    ---]
+      real                       :: fp_wild_fun       ! Wildfire risk function    [    ---]
+      real                       :: fp_wind_fun       ! Wind control function     [    ---]
+      real                       :: fp_wind_loc       ! Wind control function     [    ---]
+      real                       :: fs_iarea_pat      ! Individual fire area      [     m2]
+      real                       :: fs_iarea_avg      ! Individual fire area      [     m2]
       real                       :: fx_b0001          ! Fuel consumption 1-h      [ kgC/m2]
+      real                       :: fx_b0001_potl     ! Potl. fuel cons. 1-h      [ kgC/m2]
       real                       :: fx_b0010          ! Fuel consumption 10-h     [ kgC/m2]
+      real                       :: fx_b0010_potl     ! Potl. fuel cons. 10-h     [ kgC/m2]
       real                       :: fx_b0100          ! Fuel consumption 100-h    [ kgC/m2]
+      real                       :: fx_b0100_potl     ! Potl. fuel cons. 100-h    [ kgC/m2]
       real                       :: fx_b1000          ! Fuel consumption 1000-h   [ kgC/m2]
+      real                       :: fx_b1000_potl     ! Potl. fuel cons. 1000-h   [ kgC/m2]
       real                       :: fx_bherb          ! Fuel consumption herb     [ kgC/m2]
-      real                       :: fx_bwoody         ! Fuel consumpton woody     [ kgC/m2]
+      real                       :: fx_bherb_potl     ! Potl. fuel cons. herb     [ kgC/m2]
+      real                       :: fx_bwoody         ! Fuel consumption woody    [ kgC/m2]
+      real                       :: fx_bwoody_potl    ! Potl. fuel cons. woody    [ kgC/m2]
+      real                       :: fx_duration       ! Fire duration correction  [    ---]
       real                       :: fx_f_b0001        ! Rel. fuel consumpt. 1-h   [    ---]
       real                       :: fx_f_b0010        ! Rel. fuel consumpt. 10-h  [    ---]
       real                       :: fx_f_b0100        ! Rel. fuel consumpt. 100-h [    ---]
@@ -1059,6 +1332,8 @@ module fire
       real                       :: fx_intensity      ! Step fire intensity       [    W/m]
       real                       :: fx_tlethal        ! Step lethal heat duration [      s]
       real                       :: fx_wn1000         ! F. consumpt. woody-1000h  [ kgC/m2]
+      real                       :: fx_wn1000_potl    ! Potl. F. C. woody-1000h   [ kgC/m2]
+      real                       :: g_Umax            ! Maximum wind for ROS      [    m/s]
       real                       :: hb_ratio          ! Head:back ratio           [    ---]
       real                       :: hdin              ! Norm. human develop. idx  [    ---]
       real                       :: lb_ratio          ! Length:breadth ratio      [    ---]
@@ -1066,22 +1341,28 @@ module fire
       real                       :: lu_area           ! LU area                   [    ---]
       real                       :: lu_effect         ! LU effect on ignition     [    ---]
       real                       :: lu_norm           ! Norm. LU area             [    ---]
-      real                       :: moist_bfuel       ! Dead fuel moisture        [    ---]
-      real                       :: moist_bherb       ! Herbaceous fuel moisture  [    ---]
-      real                       :: moist_bwoody      ! Living woody fuel moist.  [    ---]
+      real                       :: moist_bfuel_avg   ! Dead fuel moisture        [    ---]
+      real                       :: moist_bfuel_pat   ! Dead fuel moisture        [    ---]
+      real                       :: moist_bherb_avg   ! Herbaceous fuel moisture  [    ---]
+      real                       :: moist_bherb_pat   ! Herbaceous fuel moisture  [    ---]
+      real                       :: moist_bwoody_avg  ! Living woody fuel moist.  [    ---]
+      real                       :: moist_bwoody_pat  ! Living woody fuel moist.  [    ---]
       real                       :: nat_ign_rate      ! Natural ignition rate     [ 1/m2/s]
       real                       :: ndaysi            ! 1/# days in a month       [  1/day]
+      real                       :: nesterov_avg      ! Average Nesterov index    [  degC2]
+      real                       :: prob_persist      ! Persistence probability   [    ---]
       real                       :: rmoist_b0001      ! 1-hr dead rel. moisture   [    ---]
-      real                       :: rmoist_b0010      ! 1-hr dead rel. moisture   [    ---]
-      real                       :: rmoist_b0100      ! 1-hr dead rel. moisture   [    ---]
-      real                       :: rmoist_b1000      ! 1-hr dead rel. moisture   [    ---]
+      real                       :: rmoist_b0010      ! 10-hr dead rel. moisture  [    ---]
+      real                       :: rmoist_b0100      ! 100-hr dead rel. moisture [    ---]
+      real                       :: rmoist_b1000      ! 1000-hr dead rel. mst.    [    ---]
       real                       :: rmoist_bherb      ! Herbaceous rel. moisture  [    ---]
       real                       :: rmoist_bwoody     ! Living woody rel. moist.  [    ---]
-      real                       :: rosmax            ! Maximum rate of spread    [    m/s]
-      real                       :: rosnow            ! Actual rate of spread     [    m/s]
-      real                       :: rosmax_avg        ! Site-avg max. spread rate [    m/s]
-      real                       :: rosnow_avg        ! Site-avg act. spread rate [    m/s]
+      real                       :: rosbwd            ! Backward rate of spread   [    m/s]
+      real                       :: rosfwd            ! Forward rate of spread    [    m/s]
+      real                       :: rosbwd_avg        ! Site-avg bwd. spread rate [    m/s]
+      real                       :: rosfwd_avg        ! Site-avg fwd. spread rate [    m/s]
       real                       :: sfc_smpotn        ! Norm. soil matrix potl.   [    ---]
+      real                       :: suppressibility   ! Fire suppressibility      [    ---]
       real                       :: total_ignition    ! Number of ignitions       [   1/m2]
       !------ External functions. ---------------------------------------------------------!
       real              , external  :: solid_area     ! Solid-angle area          [     m2]
@@ -1100,25 +1381,30 @@ module fire
          !----- Make the header. ----------------------------------------------------------!
          if (printout) then
             open (unit=35,file=firefile,status='replace',action='write')
-            write (unit=35,fmt='(58(a,1x))')                                               &
+            write (unit=35,fmt='(56(a,1x))')                                               &
                      '  YEAR',      ' MONTH',      '   DAY',      '  STEP',      '   ISI'  &
               ,      ' NIGHT','    APY_AREA','    LANDFRAC','       FRAGN','     LU_AREA'  &
               ,'         HDI','   C2G_FLASH','IGNR_NATURAL','IGNR_ANTHROP','TOT_IGNITION'  &
               ,' BFUEL_D0001',' BFUEL_D0010',' BFUEL_D0100',' BFUEL_D1000','   BHERB_TOT'  &
-              ,'  BWOODY_TOT','    NESTEROV',' MOIST_BHERB','MOIST_BWOODY',' MOIST_BFUEL'  &
-              ,'   MEXT_DEAD','   MEXT_LIVE','      ROSMAX','      ROSNOW',' FS_TEMP_FUN'  &
-              ,'  FS_RHV_FUN','FS_SMPOT_FUN',' FS_WIND_FUN','    FS_IAREA',' FCOMB_B0001'  &
-              ,' FCOMB_B0010',' FCOMB_B0100',' FCOMB_B1000',' FCOMB_BHERB','FCOMB_BWOODY'  &
-              ,'FCOMB_WN1000','  FCOMB_FAST','FCOMB_STRUCT','FX_INTENSITY','  FX_TLETHAL'  &
-              ,' FT_SUPP_FUN',' FT_WTHR_FUN',' FT_FUEL_FUN',' FT_FRAG_FUN',' FT_TEMP_FUN'  &
-              ,'  FT_RHV_FUN','FT_SMPOT_FUN',' FT_WIND_FUN',' FT_SUPPRESS','FT_DECAY_FUN'  &
-              ,'  BAREA_STEP','  BURNT_AREA','FIRE_DENSITY'
+              ,'  BWOODY_TOT','    NESTEROV','     FDI_VPD',' MOIST_BHERB','MOIST_BWOODY'  &
+              ,' MOIST_BFUEL','   MEXT_DEAD','   MEXT_LIVE','      ROSFWD','      ROSBWD'  &
+              ,'    FS_IAREA',' FCOMB_B0001',' FCOMB_B0010',' FCOMB_B0100',' FCOMB_B1000'  &
+              ,' FCOMB_BHERB','FCOMB_BWOODY','FCOMB_WN1000','  FCOMB_FAST','FCOMB_STRUCT'  &
+              ,' FX_DURATION','FX_INTENSITY','  FX_TLETHAL',' FP_TEMP_FUN','  FP_RHV_FUN'  &
+              ,'FP_SMPOT_FUN',' FP_WIND_FUN','  SUPPRESSIB',' FP_WILD_FUN',' FP_FUEL_FUN'  &
+              ,' FP_CNTG_FUN','PROB_PERSIST','  BAREA_STEP','  BURNT_AREA','FIRE_DENSITY'  &
+              ,'FIRE_EXTINCT'
             close (unit=35,status='keep')
          end if
          !---------------------------------------------------------------------------------!
 
          first_time = .false.
       end if
+      !------------------------------------------------------------------------------------!
+
+
+      !----- Set fire time step. ----------------------------------------------------------!
+      dtfire = 0.5 * dtfull
       !------------------------------------------------------------------------------------!
 
 
@@ -1255,6 +1541,22 @@ module fire
             !------------------------------------------------------------------------------!
 
 
+            !------------------------------------------------------------------------------!
+            !     The maximum are that can burn is scaled by the landscape fragmentation   !
+            ! (including the permanent fragmentation such as lakes, oceans, and glaciers.  !
+            !------------------------------------------------------------------------------!
+            burnt_area_max = cgrid%landfrac(ipy) * (1. - fragn)
+            !------------------------------------------------------------------------------!
+
+
+            !------------------------------------------------------------------------------!
+            !     Land use area relative to the total grid area (including permanent       !
+            ! areas not solved by ED2 such as lakes, oceans, and glaciers).                !
+            !------------------------------------------------------------------------------!
+            lu_area       = lu_area * cgrid%landfrac(ipy)
+            !------------------------------------------------------------------------------!
+
+
 
             !------------------------------------------------------------------------------!
             !       Match the SEI time (currently SEI data are yearly).                    !
@@ -1300,7 +1602,6 @@ module fire
             ! the land use area to the maximum land use area that contributes to           !
             ! anthropogenic ignitions.                                                     !
             !------------------------------------------------------------------------------!
-            lu_area       = min(fi_lu_upr,lu_area * cgrid%landfrac(ipy))
             lu_norm       = max(0.,min(1.,1. - lu_area / fi_lu_upr))
             lu_effect     = max(0.,fi_lu_off * ( 1. - bpow01( lu_norm, fi_lu_exp + 1 ) ))
             hdin          = max(0., min(1.,cpoly%seitimes(isei,isi)%hdi/fi_hdi_upr) )
@@ -1314,7 +1615,7 @@ module fire
             ! day.                                                                         !
             !------------------------------------------------------------------------------!
             cpoly%ignition_rate(isi) = nat_ign_rate + anth_ign_rate
-            total_ignition           = cpoly%ignition_rate(isi) * 0.5 * dtfire
+            total_ignition           = cpoly%ignition_rate(isi) * dtfire
             !------------------------------------------------------------------------------!
 
 
@@ -1360,14 +1661,12 @@ module fire
                !      Initialise the functions that control fire spread and termination.   !
                !---------------------------------------------------------------------------!
                !----- Functions shared by fire spread. ------------------------------------!
-               fs_temp_fun  = 0.
-               fs_rhv_fun   = 0.
-               fs_smpot_fun = 0.
-               fs_wind_fun  = 0.
-               fs_iarea     = 0.
-               !----- Functions used for fire termination. --------------------------------!
-               ft_supp_fun  = 0.
-               ft_wthr_fun  = 0.
+               fs_iarea_avg = 0.
+               !----- Functions used for fire persistence. --------------------------------!
+               fp_temp_fun  = 0.
+               fp_rhv_fun   = 0.
+               fp_smpot_fun = 0.
+               fp_wind_fun  = 0.
                !---------------------------------------------------------------------------!
 
 
@@ -1376,28 +1675,49 @@ module fire
                bfuel_d0010_tot = 0.
                bfuel_d0100_tot = 0.
                bfuel_d1000_tot = 0.
+               bfuel_d0111_tot = 0.
                bherb_tot       = 0.
                bwoody_tot      = 0.
                !---------------------------------------------------------------------------!
 
 
-               !------ Initialise live woody moisture. ------------------------------------!
-               moist_bherb    = 0.
-               moist_bwoody   = 0.
+               !------ Initialise dead and live fuel moisture. ----------------------------!
+               moist_bfuel_avg    = 0.
+               moist_bherb_avg    = 0.
+               moist_bwoody_avg   = 0.
                !---------------------------------------------------------------------------!
 
 
-               !------ Initialise the average rate of spread. -----------------------------!
-               rosnow_avg     = 0.
-               rosmax_avg     = 0.
+               !------ Initialise the average rate of spread (forward and backward). ------!
+               rosfwd_avg     = 0.
+               rosbwd_avg     = 0.
+               !---------------------------------------------------------------------------!
+
+
+               !------ Scale burnt area up to now by removing permanent fragmentation. ----!
+               burnt_area_deja = cpoly%burnt_area  (isi) * cgrid%landfrac(ipy)
                !---------------------------------------------------------------------------!
 
 
 
                !---------------------------------------------------------------------------!
-               !     Ignite fires.                                                         !
+               !     Update fire density.  Add fire ignitions, and apply last step's       !
+               ! extinction rate.                                                          !
                !---------------------------------------------------------------------------!
-               cpoly%fire_density(isi) = cpoly%fire_density(isi) + total_ignition
+               prob_persist = exp(max( lnexp_min                                           &
+                                     ,min(lnexp_max,-cpoly%fire_extinction(isi)*dtfire) ) )
+               if (prob_persist < almost_zero) then
+                  cpoly%fire_density(isi) = total_ignition
+               else
+                  cpoly%fire_density(isi) = cpoly%fire_density(isi) * prob_persist         &
+                                          + total_ignition
+               end if
+               !---------------------------------------------------------------------------!
+
+
+               !------ Initialise average indices. ----------------------------------------!
+               nesterov_avg    = 0.
+               fdivpd_avg      = 0.
                !---------------------------------------------------------------------------!
 
 
@@ -1442,33 +1762,36 @@ module fire
 
 
                   !------------------------------------------------------------------------!
-                  !      Integrate functions of temperature, relative humidity, and soil   !
-                  ! potential.                                                             !
+                  !      Integrate persistence functions for temperature, relative         !
+                  ! humidity, and soil potential, based on the spread functions from       !
+                  ! HESFIRE (LP15).                                                        !
                   !------------------------------------------------------------------------!
-                  fs_temp_loc  =      bpow01(can_tempn ,fs_temp_exp )
-                  fs_rhv_loc   = 1. - bpow01(can_rhvn  ,fs_rhv_exp  )
-                  fs_smpot_loc = 1. - bpow01(sfc_smpotn,fs_smpot_exp)
+                  fp_temp_loc  =      bpow01(can_tempn ,fs_temp_exp )
+                  fp_rhv_loc   = 1. - bpow01(can_rhvn  ,fs_rhv_exp  )
+                  fp_smpot_loc = 1. - bpow01(sfc_smpotn,fs_smpot_exp)
                   !------------------------------------------------------------------------!
 
 
-                  !----- Find the wind influence function. --------------------------------!
+                  !------------------------------------------------------------------------!
+                  !      Find the wind influence function on termination.                  !
+                  !------------------------------------------------------------------------!
                   lnexp       = max( lnexp_min                                             &
                                    , min( lnexp_max                                        &
                                         , fs_lbr_exp * csite%today_can_vels(ipa)) )
                   lb_ratio    = 1. + fs_lbr_slp * (1. - exp(lnexp))
                   hb_ratio    = ( lb_ratio + sqrt( lb_ratio * lb_ratio - 1. ) )            &
                               / ( lb_ratio - sqrt( lb_ratio * lb_ratio - 1. ) )
-                  fs_wind_loc = 2. * lb_ratio / ( 1. + 1. / hb_ratio ) * fs_gw_infty
+                  fp_wind_loc = 2. * lb_ratio / ( 1. + 1. / hb_ratio ) * fs_gw_infty
                   !------------------------------------------------------------------------!
 
 
                   !------------------------------------------------------------------------!
-                  !      Integrate spread functions, which will be used for termination.   !
+                  !      Integrate persistence functions.                                  !
                   !------------------------------------------------------------------------!
-                  fs_temp_fun  = fs_temp_fun  + fs_temp_loc  * csite%area(ipa)
-                  fs_rhv_fun   = fs_rhv_fun   + fs_rhv_loc   * csite%area(ipa)
-                  fs_smpot_fun = fs_smpot_fun + fs_smpot_loc * csite%area(ipa)
-                  fs_wind_fun  = fs_wind_fun  + fs_wind_loc  * csite%area(ipa)
+                  fp_temp_fun  = fp_temp_fun  + fp_temp_loc  * csite%area(ipa)
+                  fp_rhv_fun   = fp_rhv_fun   + fp_rhv_loc   * csite%area(ipa)
+                  fp_smpot_fun = fp_smpot_fun + fp_smpot_loc * csite%area(ipa)
+                  fp_wind_fun  = fp_wind_fun  + fp_wind_loc  * csite%area(ipa)
                   !------------------------------------------------------------------------!
 
 
@@ -1480,6 +1803,7 @@ module fire
                   bfuel_d0010_pat = fh_f0010 * csite%structural_grnd_C(ipa)
                   bfuel_d0100_pat = fh_f0100 * csite%structural_grnd_C(ipa)
                   bfuel_d1000_pat = fh_f1000 * csite%structural_grnd_C(ipa)
+                  bfuel_d0111_pat = bfuel_d0100_pat + bfuel_d0010_pat + bfuel_d0001_pat
                   bherb_pat       = 0.
                   bwoody_pat      = 0.
                   spread_cohort_loop: do ico=1,cpatch%ncohorts
@@ -1513,41 +1837,40 @@ module fire
                   bfuel_d0010_tot = bfuel_d0010_tot + bfuel_d0010_pat * csite%area(ipa)
                   bfuel_d0100_tot = bfuel_d0100_tot + bfuel_d0100_pat * csite%area(ipa)
                   bfuel_d1000_tot = bfuel_d1000_tot + bfuel_d1000_pat * csite%area(ipa)
+                  bfuel_d0111_tot = bfuel_d0111_tot + bfuel_d0111_pat * csite%area(ipa)
                   bherb_tot       = bherb_tot       + bherb_pat       * csite%area(ipa)
                   bwoody_tot      = bwoody_tot      + bwoody_pat      * csite%area(ipa)
                   !------------------------------------------------------------------------!
 
 
-                  !------ Find the maximum rate of spread and the actual rate of spread. --!
-                  rosmax = find_rosmax(isi,bfuel_d0001_pat,bfuel_d0010_pat,bfuel_d0100_pat &
-                                      ,bfuel_d1000_pat,bherb_pat,bwoody_pat)
-                  rosnow = rosmax * fs_rhv_loc * fs_temp_loc * fs_smpot_loc * fs_wind_loc
-                  !------------------------------------------------------------------------!
-
-
-                  !------ Integrate the rate of spread (use kinetic energy for average). --!
-                  rosmax_avg = rosmax_avg + rosmax * rosmax * csite%area(ipa)
-                  rosnow_avg = rosnow_avg + rosnow * rosnow * csite%area(ipa)
-                  !------------------------------------------------------------------------!
-
 
                   !------------------------------------------------------------------------!
-                  !      Find the length of the major axis, following T10 and LP17.  This  !
-                  ! can be applied to both new fires and existing fires.                   !
+                  !    Compute fuel moisture.  Decide whether to use the original SPITFIRE !
+                  ! approach (based on Nesterov index) or the VPD-based fire danger index. !
                   !------------------------------------------------------------------------!
-                  fs_length = rosnow * dtfire
-                  fs_iarea  = fs_iarea                                                     &
-                            + pio4 * fs_length * fs_length / lb_ratio * csite%area(ipa)
-                  !------------------------------------------------------------------------!
-
-
-
-                  !------------------------------------------------------------------------!
-                  !       Normalised weather control on termination.                       !
-                  !------------------------------------------------------------------------!
-                  if (    (can_tempn  <= almost_zero) .or. (can_rhvn >= almost_one)        &
-                     .or. (sfc_smpotn >= almost_one )                               ) then
-                     ft_wthr_fun = ft_wthr_fun + csite%area(ipa)
+                  if (fe_use_fdivpd) then
+                     !---------------------------------------------------------------------!
+                     !       Use the fire danger index to estimate fuel moisture.          !
+                     !---------------------------------------------------------------------!
+                     lnexp           = max( lnexp_min                                      &
+                                          , min( lnexp_max                                 &
+                                               , fe_fdivpd_exp*csite%fdivpd_index(ipa) ) )
+                     moist_bfuel_pat = exp(lnexp)
+                     !---------------------------------------------------------------------!
+                  else
+                     !---------------------------------------------------------------------!
+                     !       Compute fuel moisture, based on SPITFIRE (T10).               !
+                     !---------------------------------------------------------------------!
+                     if (bfuel_d0111_pat > tiny_num) then
+                        lnexp             = - ( fx_a0001 * bfuel_d0001_pat                 &
+                                              + fx_a0010 * bfuel_d0010_pat                 &
+                                              + fx_a0100 * bfuel_d0100_pat )               &
+                                              / bfuel_d0111_pat * csite%nesterov_index(ipa)
+                        moist_bfuel_pat   = exp(max(lnexp_min,min(lnexp_max,lnexp)))
+                     else
+                        moist_bfuel_pat   = 1.0
+                     end if
+                     !---------------------------------------------------------------------!
                   end if
                   !------------------------------------------------------------------------!
 
@@ -1557,10 +1880,63 @@ module fire
                   !      Find herb and woody fuel wetness, using the wetness of the top    !
                   ! soil.                                                                  !
                   !------------------------------------------------------------------------!
-                  moist_bherb  = moist_bherb  + csite%today_sfc_wetness(ipa)               &
-                                              * bherb_pat  * csite%area(ipa)
-                  moist_bwoody = moist_bwoody + csite%today_sfc_wetness(ipa)               &
-                                              * bwoody_pat * csite%area(ipa)
+                  moist_bherb_pat  = max(0.,min(1.,csite%today_sfc_wetness(ipa)))
+                  moist_bwoody_pat = max(0.,min(1.,csite%today_sfc_wetness(ipa)))
+                  !------------------------------------------------------------------------!
+
+
+
+                  !------------------------------------------------------------------------!
+                  !      Integrate fuel moisture, scaling by area and fuel stocks in this  !
+                  ! patch.                                                                 !
+                  !------------------------------------------------------------------------!
+                  moist_bfuel_avg  = moist_bfuel_avg                                       &
+                                   + moist_bfuel_pat  * bfuel_d0111_pat * csite%area(ipa)
+                  moist_bherb_avg  = moist_bherb_avg                                       &
+                                   + moist_bherb_pat  * bherb_pat       * csite%area(ipa)
+                  moist_bwoody_avg = moist_bwoody_avg                                      &
+                                   + moist_bwoody_pat * bwoody_pat      * csite%area(ipa)
+                  !------------------------------------------------------------------------!
+
+
+                  !------------------------------------------------------------------------!
+                  !       Find the fire rates of spread using the R72 model modified by    !
+                  ! A18 (forward) and the SPITFIRE parametrisation (backward).             !
+                  !------------------------------------------------------------------------!
+                  !------ Forward. --------------------------------------------------------!
+                  call rate_of_spread(isi,bfuel_d0001_pat,bfuel_d0010_pat,bfuel_d0100_pat  &
+                                     ,bfuel_d1000_pat,bherb_pat,bwoody_pat                 &
+                                     ,moist_bfuel_pat,moist_bfuel_pat,moist_bfuel_pat      &
+                                     ,moist_bfuel_pat,moist_bherb_pat,moist_bwoody_pat     &
+                                     ,csite%today_can_vels(ipa),.false.,g_Umax,rosfwd     )
+                  !------ Backward. -------------------------------------------------------!
+                  lnexp  = max( lnexp_min                                                  &
+                              , min( lnexp_max, fs_bck_exp * csite%today_can_vels(ipa) ) )
+                  rosbwd = rosfwd * exp(lnexp)
+                  !------------------------------------------------------------------------!
+
+
+                  !------ Integrate the rate of spread (use kinetic energy for average). --!
+                  rosfwd_avg = rosfwd_avg + rosfwd * rosfwd * csite%area(ipa)
+                  rosbwd_avg = rosbwd_avg + rosbwd * rosbwd * csite%area(ipa)
+                  !------------------------------------------------------------------------!
+
+
+                  !------------------------------------------------------------------------!
+                  !      Find the length of the major axis, following S18.                 !
+                  !------------------------------------------------------------------------!
+                  ell_length   = ( rosfwd + rosbwd ) * dtfire
+                  fs_iarea_pat = pio4 * rosfwd * rosfwd * dtfire * dtfire / lb_ratio       &
+                               * ( 1. + 1./hb_ratio ) * ( 1. + 1./hb_ratio )
+                  fs_iarea_avg = fs_iarea_avg + fs_iarea_pat * csite%area(ipa)
+                  !------------------------------------------------------------------------!
+
+
+                  !------ Integrate average indices. --------------------------------------!
+                  nesterov_avg    = nesterov_avg                                           &
+                                  + csite%nesterov_index(ipa) * csite%area(ipa)
+                  fdivpd_avg      = fdivpd_avg                                             &
+                                  + csite%fdivpd_index  (ipa) * csite%area(ipa)
                   !------------------------------------------------------------------------!
 
 
@@ -1572,50 +1948,59 @@ module fire
                !      Make sure the sum is bounded (it could go off the 0-1 interval due   !
                ! to truncation errors).                                                    !
                !---------------------------------------------------------------------------!
-               fs_temp_fun  = max(0.,min(1.,fs_temp_fun ))
-               fs_rhv_fun   = max(0.,min(1.,fs_rhv_fun  ))
-               fs_smpot_fun = max(0.,min(1.,fs_smpot_fun))
-               fs_wind_fun  = max(0.,min(1.,fs_wind_fun ))
-               !---------------------------------------------------------------------------!
-
-
-
-               !---------------------------------------------------------------------------!
-               !       Normalise moisture for herbs and living woody materials.            !
-               !---------------------------------------------------------------------------!
-               if (bherb_tot  > tiny_num) then
-                  moist_bherb  = moist_bherb  / bherb_tot
-               else
-                  moist_bherb  = 1.0
-               end if
-               if (bwoody_tot > tiny_num) then
-                  moist_bwoody = moist_bwoody / bwoody_tot
-               else
-                  moist_bwoody = 1.0
-               end if
-               !------ Apply correction factor for fuel moisture. -------------------------!
-               moist_bherb  = ( (1.+fx_rmfac) * moist_bherb  - 1. ) / fx_rmfac
-               moist_bwoody = ( (1.+fx_rmfac) * moist_bwoody - 1. ) / fx_rmfac
+               fp_temp_fun  = max(0.,min(1.,fp_temp_fun ))
+               fp_rhv_fun   = max(0.,min(1.,fp_rhv_fun  ))
+               fp_smpot_fun = max(0.,min(1.,fp_smpot_fun))
+               fp_wind_fun  = max(0.,min(1.,fp_wind_fun ))
                !---------------------------------------------------------------------------!
 
 
                !------ Normalise rate of spread (square root is needed). ------------------!
-               rosmax_avg = sqrt(rosmax_avg)
-               rosnow_avg = sqrt(rosnow_avg)
+               rosfwd_avg = sqrt(rosfwd_avg)
+               rosbwd_avg = sqrt(rosbwd_avg)
+               !---------------------------------------------------------------------------!
+
+
+               !---------------------------------------------------------------------------!
+               !     Find the potential burnt area for this step (potential means if fires !
+               ! persist the entire time step).                                            !
+               !---------------------------------------------------------------------------!
+               if (cgrid%landfrac(ipy) > tiny_num) then
+                  !------ Increment burnt area until it is saturated. ---------------------!
+                  burnt_area_potl = cpoly%fire_density(isi) * fs_iarea_avg
+                  burnt_area_potl = max( 0., min( burnt_area_max - burnt_area_deja         &
+                                                , burnt_area_potl                    ) )
+                  !------------------------------------------------------------------------!
+               else
+                  !------ No land to burn, set burnt area to zero... ----------------------!
+                  burnt_area_potl = 0.0
+                  !------------------------------------------------------------------------!
+               end if
                !---------------------------------------------------------------------------!
 
 
 
                !---------------------------------------------------------------------------!
-               !       Compute fuel moisture, based on SPITFIRE (T10).                     !
+               !       Normalise fuel moisture for dead and live components.               !
                !---------------------------------------------------------------------------!
-               bfuel_d0111_tot_i = 1.                                                      &
-                                 / (bfuel_d0100_tot + bfuel_d0010_tot + bfuel_d0001_tot)
-               lnexp             = - ( fx_a0001 * bfuel_d0001_tot                          &
-                                     + fx_a0010 * bfuel_d0010_tot                          &
-                                     + fx_a0100 * bfuel_d0100_tot ) * bfuel_d0111_tot_i    &
-                                 * cpoly%nesterov_index(isi)
-               moist_bfuel       = exp(max(lnexp_min,min(lnexp_max,lnexp)))
+               if (bfuel_d0111_tot > tiny_num) then
+                  moist_bfuel_avg = moist_bfuel_avg   / bfuel_d0111_tot
+               else
+                  moist_bfuel_avg = 1.0
+               end if
+               if (bherb_tot  > tiny_num) then
+                  moist_bherb_avg  = moist_bherb_avg  / bherb_tot
+               else
+                  moist_bherb_avg  = 1.0
+               end if
+               if (bwoody_tot > tiny_num) then
+                  moist_bwoody_avg = moist_bwoody_avg / bwoody_tot
+               else
+                  moist_bwoody_avg = 1.0
+               end if
+               !------ Apply correction factor for fuel moisture. -------------------------!
+               moist_bherb_avg  = max(0., (1.+fx_rmfac) * moist_bherb_avg  - 1. ) / fx_rmfac
+               moist_bwoody_avg = max(0., (1.+fx_rmfac) * moist_bwoody_avg - 1. ) / fx_rmfac
                !---------------------------------------------------------------------------!
 
 
@@ -1625,19 +2010,19 @@ module fire
                !---------------------------------------------------------------------------!
                call find_mextinct(bfuel_d0001_tot,bfuel_d0010_tot,bfuel_d0100_tot          &
                                  ,bfuel_d1000_tot,bherb_tot,bwoody_tot                     &
-                                 ,moist_bfuel,moist_bfuel,moist_bfuel,moist_bfuel          &
-                                 ,moist_bherb,moist_bwoody,Mx_i)
-               rmoist_b0001  = moist_bfuel  / Mx_i(1)
-               rmoist_b0010  = moist_bfuel  / Mx_i(1)
-               rmoist_b0100  = moist_bfuel  / Mx_i(1)
-               rmoist_b1000  = moist_bfuel  / Mx_i(1)
-               rmoist_bherb  = moist_bherb  / Mx_i(2)
-               rmoist_bwoody = moist_bwoody / Mx_i(2)
+                                 ,moist_bfuel_avg,moist_bfuel_avg,moist_bfuel_avg          &
+                                 ,moist_bfuel_avg,moist_bherb_avg,moist_bwoody_avg,Mx_i)
+               rmoist_b0001  = moist_bfuel_avg  / Mx_i(1)
+               rmoist_b0010  = moist_bfuel_avg  / Mx_i(1)
+               rmoist_b0100  = moist_bfuel_avg  / Mx_i(1)
+               rmoist_b1000  = moist_bfuel_avg  / Mx_i(1)
+               rmoist_bherb  = moist_bherb_avg  / Mx_i(2)
+               rmoist_bwoody = moist_bwoody_avg / Mx_i(2)
                !---------------------------------------------------------------------------!
 
 
                !---------------------------------------------------------------------------!
-               !      Find fuel consumption.                                               !
+               !      Find potential fuel consumption.                                     !
                !---------------------------------------------------------------------------!
                !----- Find the fuel consumption factors for all fuel classes. -------------!
                call find_fx_factors(rmoist_bherb,rmoist_bwoody,rmoist_b0001,rmoist_b0010   &
@@ -1645,45 +2030,151 @@ module fire
                                    ,fx_f_wn1000,fx_f_b0001,fx_f_b0010,fx_f_b0100           &
                                    ,fx_f_b1000)
                !----- Find fuel consumption. ----------------------------------------------!
-               fx_b0001  = fx_f_b0001  * bfuel_d0001_tot              * burnt_area_step
-               fx_b0010  = fx_f_b0010  * bfuel_d0010_tot              * burnt_area_step
-               fx_b0100  = fx_f_b0100  * bfuel_d0100_tot              * burnt_area_step
-               fx_b1000  = fx_f_b1000  * bfuel_d1000_tot              * burnt_area_step
-               fx_bherb  = fx_f_bherb  * bherb_tot                    * burnt_area_step
-               fx_bwoody = fx_f_bwoody * bwoody_tot                   * burnt_area_step
-               fx_wn1000 = fx_f_wn1000 * bwoody_tot * (1. - fh_f1000) * burnt_area_step
-               !---------------------------------------------------------------------------!
-
-
-
-               !---------------------------------------------------------------------------!
-               !     Find combusted fraction for fast and structural pools.  This is a     !
-               ! simplification that ought to be revisited at some point.  Ideally the     !
-               ! above-ground structural pool should be split into the fuel classes, so    !
-               ! different fractions can be burnt for each class, independently.           !
-               !---------------------------------------------------------------------------!
-               fx_f_fgc  = fx_f_b0001
-               fx_f_stgc = fh_f0001 * fx_f_b0001 + fh_f0010 * fx_f_b0010                   &
-                         + fh_f0100 * fx_f_b0100 + fh_f1000 * fx_f_b1000
+               fx_b0001_potl  = fx_f_b0001  * bfuel_d0001_tot            * burnt_area_potl
+               fx_b0010_potl  = fx_f_b0010  * bfuel_d0010_tot            * burnt_area_potl
+               fx_b0100_potl  = fx_f_b0100  * bfuel_d0100_tot            * burnt_area_potl
+               fx_b1000_potl  = fx_f_b1000  * bfuel_d1000_tot            * burnt_area_potl
+               fx_bherb_potl  = fx_f_bherb  * bherb_tot                  * burnt_area_potl
+               fx_bwoody_potl = fx_f_bwoody * bwoody_tot                 * burnt_area_potl
+               fx_wn1000_potl = fx_f_wn1000 * bwoody_tot * (1.-fh_f1000) * burnt_area_potl
                !---------------------------------------------------------------------------!
 
 
                !---------------------------------------------------------------------------!
                !       Find fire intensity of this step.                                   !
                !---------------------------------------------------------------------------!
-               if (burnt_area_step > tiny_num) then
+               if (burnt_area_potl > tiny_num) then
                   !----- Find fire intensity. ---------------------------------------------!
-                  fx_intensity = fr_h * rosnow_avg * C2B                                       &
-                               * ( fx_b0001 + fx_b0010 + fx_b0100 + fx_bherb + fx_wn1000)  &
-                               / burnt_area_step
-                  if (fx_intensity < ft_fint_lwr) fx_intensity = 0.0
+                  fx_intensity = fr_h * rosfwd_avg * C2B                                   &
+                               * ( fx_b0001_potl + fx_b0010_potl + fx_b0100_potl           &
+                                 + fx_bherb_potl + fx_wn1000_potl                )         &
+                               / burnt_area_potl
+                  !------------------------------------------------------------------------!
+
+
+                  !------ If potential intensity is zero, set burnt area to zero as well. -!
+                  if (fx_intensity <= tiny_num) then
+                     fx_intensity    = 0.0
+                     burnt_area_potl = 0.0
+                  end if
                   !------------------------------------------------------------------------!
                else
-                  !----- No burnt area, set it to zero. -----------------------------------!
-                  fx_intensity = 0.0
+                  !------------------------------------------------------------------------!
+                  !      No burnt area, set it to zero, and zero fire intensity and        !
+                  ! combustion.                                                            !
+                  !------------------------------------------------------------------------!
+                  burnt_area_potl   = 0.0
+                  fx_intensity      = 0.0
+                  fx_b0001_potl     = 0.0
+                  fx_b0010_potl     = 0.0
+                  fx_b0100_potl     = 0.0
+                  fx_b1000_potl     = 0.0
+                  fx_bherb_potl     = 0.0
+                  fx_bwoody_potl    = 0.0
+                  fx_wn1000_potl    = 0.0
                   !------------------------------------------------------------------------!
                end if
                !---------------------------------------------------------------------------!
+
+
+
+               !---------------------------------------------------------------------------!
+               !      Compute the fuel limitation control on fire persistence.  This       !
+               ! replaces the precipitation term in LP15 with a potential fire intensity   !
+               ! term that accounts for fuel loads and fuel moisture.  The first guess     !
+               ! parameters are based on typical scorch heights for tropical broadleaf     !
+               ! evergreen forests, using T10 parameters.                                  !
+               !---------------------------------------------------------------------------!
+               fintn       = ( fx_intensity - ft_fint_lwr ) * ft_fint_dti
+               fintn       = max(0.,min(1.,fintn))
+               fp_fuel_fun = bpow01(fintn,ft_fint_exp)
+               if (fp_fuel_fun < almost_zero) fp_fuel_fun = 0.0
+               !---------------------------------------------------------------------------!
+
+
+
+
+               !---------------------------------------------------------------------------!
+               !      Compute fragmentation control on termination.  This is an empirical  !
+               ! function and thus should include the fragmentation due to areas that      !
+               ! cannot sustain vegetation.                                                !
+               !---------------------------------------------------------------------------!
+               flamn       = max(0.,min(1.,(1. - fragn) * cgrid%landfrac(ipy)))
+               fp_cntg_fun = bpow01(flamn,ft_frag_exp)
+               if (fp_cntg_fun < almost_zero) fp_cntg_fun = 0.0
+               !---------------------------------------------------------------------------!
+
+
+
+
+               !---------------------------------------------------------------------------!
+               !       Compute the fire suppression function.                              !
+               !---------------------------------------------------------------------------!
+               !----- Fire suppressibility. -----------------------------------------------!
+               suppressibility = 1. - sqrt( sqrt( fp_rhv_fun  * fp_smpot_fun               &
+                                                * fp_temp_fun * fp_wind_fun  ) )
+               suppressibility = max(0.,min(1.,suppressibility))
+               !----- Normalised land use . -----------------------------------------------!
+               lu_norm     = max(0.,min(1.,1. - lu_area / ft_lu_upr))
+               !----- Normalised HDI . ----------------------------------------------------!
+               hdin        = max(0.,min(1.,cpoly%seitimes(isei,isi)%hdi / ft_hdi_upr ) )
+               !----- Fire wildfire persistence function. ---------------------------------!
+               fp_wild_fun = (1. - bpow01(lu_norm,ft_lu_exp) * bpow01(hdin,ft_hdi_exp) )   &
+                           * (1. - suppressibility)
+               if (fp_wild_fun < almost_zero) fp_wild_fun = 0.0
+               !---------------------------------------------------------------------------!
+
+
+
+               !---------------------------------------------------------------------------!
+               !       Probability of fire persistence (i.e., probability that  fires will !
+               ! not extinguish).                                                          !
+               !---------------------------------------------------------------------------!
+               prob_persist = fp_fuel_fun * fp_cntg_fun * fp_wild_fun
+               if (prob_persist < almost_zero) then
+                  cpoly%fire_extinction(isi) = - lnexp_min / dtfire
+               else
+                  cpoly%fire_extinction(isi) = - log(prob_persist) / dtfire
+               end if
+               !---------------------------------------------------------------------------!
+
+
+
+               !---------------------------------------------------------------------------!
+               !     Find the scaling factor average time duration.  The average time      !
+               ! duration is given by 1/(extinction rate).  In case the average time       !
+               ! exceeds the time step, we do not amplify fires as we will continue to     !
+               ! integrate them over the next step.                                        !
+               !---------------------------------------------------------------------------!
+               if (cpoly%fire_extinction(isi) < (1. / dtfire)) then
+                  fx_duration = 1.
+               else
+                  fx_duration = 1. / ( cpoly%fire_extinction(isi) * dtfire )
+               end if
+               !---------------------------------------------------------------------------!
+
+
+               !---------------------------------------------------------------------------!
+               !      Scale burnt area and combustion factors by the square of fire        !
+               ! duration (as burnt area is proportional to the square of time).  Fire     !
+               ! intensity does not need to be rescaled because the burnt area appears in  !
+               ! the numerator and denominator, so it is effectively independent on the    !
+               ! fire duration.                                                            !
+               !---------------------------------------------------------------------------!
+               burnt_area_step = burnt_area_potl * fx_duration * fx_duration
+               fx_b0001        = fx_b0001_potl   * fx_duration * fx_duration
+               fx_b0010        = fx_b0010_potl   * fx_duration * fx_duration
+               fx_b0100        = fx_b0100_potl   * fx_duration * fx_duration
+               fx_b1000        = fx_b1000_potl   * fx_duration * fx_duration
+               fx_bherb        = fx_bherb_potl   * fx_duration * fx_duration
+               fx_bwoody       = fx_bwoody_potl  * fx_duration * fx_duration
+               fx_wn1000       = fx_wn1000_potl  * fx_duration * fx_duration
+               !---------------------------------------------------------------------------!
+
+
+
+
+
 
 
                !---------------------------------------------------------------------------!
@@ -1709,98 +2200,25 @@ module fire
 
 
                !---------------------------------------------------------------------------!
-               !      Compute the fuel limitation control on termination.  This replaces   !
-               ! the precipitation term in LP15 with a fire intensity term that accounts   !
-               ! for fuel loads and fuel moisture.  The first guess parameters are based   !
-               ! on typical scorch heights for tropical broadleaf evergreen forests, using !
-               ! T10 parameters.                                                           !
+               !     Find combusted fraction for fast and structural pools.  This is a     !
+               ! simplification that ought to be revisited at some point.  Ideally the     !
+               ! above-ground structural pool should be split into the fuel classes, so    !
+               ! different fractions can be burnt for each class, independently.           !
                !---------------------------------------------------------------------------!
-               fintn          = ( fx_intensity - ft_fint_lwr ) * ft_fint_dti
-               fintn          = max(0.,min(1.,fintn))
-               ft_fuel_fun    = 1. - bpow01(fintn,ft_fint_exp)
-               !---------------------------------------------------------------------------!
-
-
-
-
-               !---------------------------------------------------------------------------!
-               !      Compute fragmentation control on termination.  This is an empirical  !
-               ! function and thus should include the fragmentation due to areas that      !
-               ! cannot sustain vegetation.                                                !
-               !---------------------------------------------------------------------------!
-               fragxn      = max(0.,min(1.,1. - (1. - fragn) * cgrid%landfrac(ipy)))
-               ft_frag_fun = bpow01(fragxn,ft_frag_exp)
+               fx_f_fgc  = fx_f_b0001
+               fx_f_stgc = fh_f0001 * fx_f_b0001 + fh_f0010 * fx_f_b0010                   &
+                         + fh_f0100 * fx_f_b0100 + fh_f1000 * fx_f_b1000
                !---------------------------------------------------------------------------!
 
 
 
                !---------------------------------------------------------------------------!
-               !       The termination functions of temperature, relative humidity, soil   !
-               ! matric potential, and wind are taken as 1 - their spread counterparts.    !
-               ! The rationale is that conditions that make it easy for fire to spread are !
-               ! the same conditions that make it hard to suppress the fire.               !
-               !---------------------------------------------------------------------------!
-               ft_temp_fun  = 1. - fs_temp_fun
-               ft_rhv_fun   = 1. - fs_rhv_fun
-               ft_smpot_fun = 1. - fs_smpot_fun
-               ft_wind_fun  = 1. - fs_wind_fun
-               !---------------------------------------------------------------------------!
-
-
-
-
-               !---------------------------------------------------------------------------!
-               !       Compute the fire suppression function.                              !
-               !---------------------------------------------------------------------------!
-               !----- Fire suppressibility. -----------------------------------------------!
-               ft_suppress = ft_rhv_fun * ft_smpot_fun * ft_temp_fun * ft_wind_fun         &
-                           * ft_fuel_fun
-               !----- Normalised land use . -----------------------------------------------!
-               lu_norm     = max(0.,min(1.,1. - lu_area / ft_lu_upr))
-               !----- Normalised HDI . ----------------------------------------------------!
-               hdin        = max(0.,min(1.,cpoly%seitimes(isei,isi)%hdi / ft_hdi_upr ) )
-               !----- Fire suppression function. ------------------------------------------!
-               ft_supp_fun = bpow01(lu_norm,ft_lu_exp) * bpow01(hdin,ft_hdi_exp)           &
-                           * ft_suppress
-               !---------------------------------------------------------------------------!
-
-
-
-               !---------------------------------------------------------------------------!
-               !       Fire decay due to termination. \                                    !
-               !---------------------------------------------------------------------------!
-               ft_decay_fun = ( 1. - ft_fuel_fun ) * ( 1. - ft_frag_fun )                  &
-                            * ( 1. - ft_supp_fun ) * ( 1. - ft_wthr_fun )
-               !---------------------------------------------------------------------------!
-
-
-               !---------------------------------------------------------------------------!
-               !     Update the burnt area using an intermediate value to account for      !
-               ! failed ignitions and early termination.                                   !
+               !      Add burnt area from this step.                                       !
                !---------------------------------------------------------------------------!
                if (cgrid%landfrac(ipy) > tiny_num) then
-                  !------ Increment burnt area until it is saturated. ---------------------!
-                  fire_density_mid      = 0.5 * ( 1. + ft_decay_fun )                      &
-                                        * cpoly%fire_density(isi)
-                  burnt_area_step       = max( 0.                                          &
-                                             , min( 1. - fragn - cpoly%burnt_area(isi)     &
-                                                  , fire_density_mid * fs_iarea        ) )
-                  cpoly%burnt_area(isi) = cpoly%burnt_area(isi) + burnt_area_step
-                  !------------------------------------------------------------------------!
-               else
-                  !------ No land to burn, set burnt area to zero... ----------------------!
-                  burnt_area_step       = 0.0
-                  cpoly%burnt_area(isi) = 0.0
-                  !------------------------------------------------------------------------!
+                  cpoly%burnt_area(isi) = cpoly%burnt_area(isi)                            &
+                                        + burnt_area_step / cgrid%landfrac(ipy)
                end if
-               !---------------------------------------------------------------------------!
-
-
-
-               !---------------------------------------------------------------------------!
-               !     Terminate fires.                                                      !
-               !---------------------------------------------------------------------------!
-               cpoly%fire_density(isi) = cpoly%fire_density(isi) * ft_decay_fun
                !---------------------------------------------------------------------------!
 
 
@@ -1808,13 +2226,24 @@ module fire
                !---------------------------------------------------------------------------!
                !     Integrate the daily average fire spread.                              !
                !---------------------------------------------------------------------------!
-               cpoly%fire_spread   (isi) = cpoly%fire_spread   (isi) + 0.5 * rosnow_avg
-               cpoly%fire_intensity(isi) = cpoly%fire_intensity(isi) + 0.5 * fx_intensity
-               cpoly%fire_tlethal  (isi) = cpoly%fire_tlethal  (isi) + 0.5 * fx_tlethal
-               cpoly%fire_f_bherb  (isi) = cpoly%fire_f_bherb  (isi) + 0.5 * fx_f_bherb
-               cpoly%fire_f_bwoody (isi) = cpoly%fire_f_bwoody (isi) + 0.5 * fx_f_bwoody
-               cpoly%fire_f_fgc    (isi) = cpoly%fire_f_fgc    (isi) + 0.5 * fx_f_fgc
-               cpoly%fire_f_stgc   (isi) = cpoly%fire_f_stgc   (isi) + 0.5 * fx_f_fgc
+               cpoly%today_fire_density   (isi) = cpoly%today_fire_density   (isi)         &
+                                                + 0.5 * cpoly%fire_density   (isi)
+               cpoly%today_fire_extinction(isi) = cpoly%today_fire_extinction(isi)         &
+                                                + 0.5 * cpoly%fire_extinction(isi)
+               cpoly%fire_spread          (isi) = cpoly%fire_spread          (isi)         &
+                                                + 0.5 * rosfwd_avg
+               cpoly%fire_intensity       (isi) = cpoly%fire_intensity       (isi)         &
+                                                + 0.5 * fx_intensity
+               cpoly%fire_tlethal         (isi) = cpoly%fire_tlethal         (isi)         &
+                                                + 0.5 * fx_tlethal
+               cpoly%fire_f_bherb         (isi) = cpoly%fire_f_bherb         (isi)         &
+                                                + 0.5 * fx_f_bherb
+               cpoly%fire_f_bwoody        (isi) = cpoly%fire_f_bwoody        (isi)         &
+                                                + 0.5 * fx_f_bwoody
+               cpoly%fire_f_fgc           (isi) = cpoly%fire_f_fgc           (isi)         &
+                                                + 0.5 * fx_f_fgc
+               cpoly%fire_f_stgc          (isi) = cpoly%fire_f_stgc          (isi)         &
+                                                + 0.5 * fx_f_fgc
                !---------------------------------------------------------------------------!
 
 
@@ -1825,20 +2254,21 @@ module fire
                !---------------------------------------------------------------------------!
                if (printout) then
                   open(unit=35,file=firefile,status='old',position='append',action='write')
-                  write(unit=35,fmt='(5(i6,1x),1(5x,l1,1x),52(es12.3,1x))')                &
+                  write(unit=35,fmt='(5(i6,1x),1(5x,l1,1x),50(es12.3,1x))')                &
                              current_time%year,current_time%month,current_time%date,iwhen  &
                             ,isi,night,apy_area,cgrid%landfrac(ipy),fragn,lu_area          &
                             ,cpoly%seitimes(isei,isi)%hdi,cpoly%flashtimes(iflash,isi)%c2g &
                             ,nat_ign_rate,anth_ign_rate,total_ignition,bfuel_d0001_tot     &
                             ,bfuel_d0010_tot,bfuel_d0100_tot,bfuel_d1000_tot,bherb_tot     &
-                            ,bwoody_tot,cpoly%nesterov_index(isi),moist_bherb,moist_bwoody &
-                            ,moist_bfuel,Mx_i(1),Mx_i(2),rosmax_avg,rosnow_avg,fs_temp_fun &
-                            ,fs_rhv_fun,fs_smpot_fun,fs_wind_fun,fs_iarea,fx_b0001         &
-                            ,fx_b0010,fx_b0100,fx_b1000,fx_bherb,fx_bwoody,fx_wn1000       &
-                            ,fx_f_fgc,fx_f_stgc,fx_intensity,fx_tlethal,ft_supp_fun        &
-                            ,ft_wthr_fun,ft_fuel_fun,ft_frag_fun,ft_temp_fun,ft_rhv_fun    &
-                            ,ft_smpot_fun,ft_wind_fun,ft_suppress,ft_decay_fun             &
-                            ,burnt_area_step,cpoly%burnt_area(isi),cpoly%fire_density(isi)
+                            ,bwoody_tot,nesterov_avg,fdivpd_avg,moist_bherb_avg            &
+                            ,moist_bwoody_avg,moist_bfuel_avg,Mx_i(1),Mx_i(2),rosfwd_avg   &
+                            ,rosbwd_avg,fs_iarea_avg,fx_b0001,fx_b0010,fx_b0100,fx_b1000   &
+                            ,fx_bherb,fx_bwoody,fx_wn1000,fx_f_fgc,fx_f_stgc,fx_duration   &
+                            ,fx_intensity,fx_tlethal,fp_temp_fun,fp_rhv_fun,fp_smpot_fun   &
+                            ,fp_wind_fun,suppressibility,fp_wild_fun,fp_fuel_fun           &
+                            ,fp_cntg_fun,prob_persist,burnt_area_step                      &
+                            ,cpoly%burnt_area(isi),cpoly%fire_density(isi)                 &
+                            ,cpoly%fire_extinction(isi)
                   close(unit=35,status='keep')
                end if
                !---------------------------------------------------------------------------!
@@ -1975,8 +2405,9 @@ module fire
 
    !=======================================================================================!
    !=======================================================================================!
-   !      This function calculates the maximum spread rate, using the A18's revision of    !
-   ! the R72 fire spread model, using "very dry" moisture conditions as defined by SB05.   !
+   !      This function calculates the forward spread rate, using the A18's revision of    !
+   ! the R72 fire spread model.  If needed, it is possible to obtain the maximum rate of   !
+   ! spread  using maximum winds and "very dry" moisture conditions as defined by SB05.    !
    !                                                                                       !
    ! References:                                                                           !
    !                                                                                       !
@@ -1996,14 +2427,16 @@ module fire
    !    Fort Collins, CO, U.S.A. doi:10.2737/RMRS-GTR-153 (SB05).                          !
    !                                                                                       !
    !---------------------------------------------------------------------------------------!
-   real function find_rosmax(isi,bfuel_d0001,bfuel_d0010,bfuel_d0100,bfuel_d1000           &
-                            ,bherb,bwoody)
+   subroutine rate_of_spread(isi                                                           &
+                            ,bfuel_d0001,bfuel_d0010,bfuel_d0100,bfuel_d1000,bherb,bwoody  &
+                            ,moist_b0001,moist_b0010,moist_b0100,moist_b1000,moist_bherb   &
+                            ,moist_bwoody,can_wind,use_max,g_Umax,rosfwd)
       use disturb_coms, only : n_fst         & ! intent(in)
                              , n_fcl         & ! intent(in)
                              , n_sbmax       & ! intent(in)
                              , n_sbins       & ! intent(in)
-                             , fr_sigma_ij   & ! intent(in)
                              , fr_moist_ij   & ! intent(in)
+                             , fr_sigma_ij   & ! intent(in)
                              , fr_sgclss_ij  & ! intent(in)
                              , fr_ST         & ! intent(in)
                              , fr_dead_j     & ! intent(in)
@@ -2043,8 +2476,19 @@ module fire
       real   , intent(in)            :: bfuel_d1000  !  1000-hr dead fuel load  [   kgC/m2]
       real   , intent(in)            :: bherb        !  Herbaceous fuel load    [   kgC/m2]
       real   , intent(in)            :: bwoody       !  Living Woody fuel load  [   kgC/m2]
+      real   , intent(in)            :: moist_b0001  ! 1-hr fuel moisture       [      ---]
+      real   , intent(in)            :: moist_b0010  ! 10-hr fuel moisture      [      ---]
+      real   , intent(in)            :: moist_b0100  ! 100-hr fuel moisture     [      ---]
+      real   , intent(in)            :: moist_b1000  ! 1000-hr fuel moisture    [      ---]
+      real   , intent(in)            :: moist_bherb  ! Herb. fuel moisture      [      ---]
+      real   , intent(in)            :: moist_bwoody ! Woody fuel moisture      [      ---]
+      real   , intent(in)            :: can_wind     ! Canopy air space wind    [      m/s]
+      logical, intent(in)            :: use_max      ! Find maximum spread      [      T|F]
+      real   , intent(out)           :: g_Umax       ! Max. wind (corrected)    [      m/s]
+      real   , intent(out)           :: rosfwd       ! Forward rate of spread   [      m/s]
       !----- Local variables (by fuel class and status). ----------------------------------!
       real, dimension(n_fst,n_fcl)   :: wood_ij      ! Fuel load                [   kgB/m2]
+      real, dimension(n_fst,n_fcl)   :: moist_ij     ! Fuel moisture            [      ---]
       real, dimension(n_fst,n_fcl)   :: fai_ij       ! Fuel area index          [  m2_f/m2]
       real, dimension(n_fst,n_fcl)   :: fwgt_ij      ! Weighting factor         [       --]
       real, dimension(n_fst,n_fcl)   :: wnod_ij      ! Net fuel load            [   kgB/m2]
@@ -2086,10 +2530,9 @@ module fire
       real                           :: g_EE         ! Aux. variable            [       --]
       real                           :: g_xi         ! Propagating flux ratio   [       --]
       real                           :: g_Ir         ! Reaction intensity       [     W/m2]
-      real                           :: g_Umax       ! Max. wind (corrected)    [      m/s]
       real                           :: g_HeatSink   ! Heat sink                [     J/m3]
       real                           :: g_psiw       ! R72's wind factor        [       --]
-      real                           :: g_ROSmax_w0  ! Max. ROS (no wind)       [      m/s]
+      real                           :: g_ros_w0     ! rate of spread (no wind) [      m/s]
       !----- Additional local variables. --------------------------------------------------!
       integer                        :: i            ! Counter                  [       --]
       integer                        :: j            ! Counter                  [       --]
@@ -2100,6 +2543,7 @@ module fire
       character(len= 3), parameter   :: fmth = '(a)'
       character(len=21), parameter   :: fmtt = '(a,1x,i4.4,2(a,i2.2))'
       character(len= 9), parameter   :: fmti = '(a,1x,i5)'
+      character(len= 9), parameter   :: fmtl = '(a,1x,l1)'
       character(len=13), parameter   :: fmte = '(a,1x,es10.3)'
       !----- External functions. ----------------------------------------------------------!
       logical, external              :: isnan_real   ! Number is NaN            [      T|F]
@@ -2117,6 +2561,19 @@ module fire
          wood_i(i) = sum(wood_ij(i,:))
       end do
       g_wood = sum(wood_i)
+      !------------------------------------------------------------------------------------!
+
+
+      !------------------------------------------------------------------------------------!
+      !       Define fuel moisture.                                                        !
+      !------------------------------------------------------------------------------------!
+      if (use_max) then
+         moist_ij(:,:) = fr_moist_ij(:,:)
+      else
+         moist_ij(1,:) = (/  moist_b0001,  moist_b0010,  moist_b0100,  moist_b1000         &
+                          ,  moist_bherb, moist_bwoody /)
+         moist_ij(2,:) = moist_ij(1,:)
+      end if
       !------------------------------------------------------------------------------------!
 
 
@@ -2235,7 +2692,7 @@ module fire
          end do
       end do
       !----- Fine dead fuel moisture. -----------------------------------------------------!
-      mf_dead = sum(fr_moist_ij(1,:)*wnod_ij(1,:)*epsil_ij(1,:))                           &
+      mf_dead = sum(moist_ij(1,:)*wnod_ij(1,:)*epsil_ij(1,:))                              &
               / sum(wnod_ij(1,:)*epsil_ij(1,:))
       !----- Find the dead-to-live load ratio (or use dummy in case live load is 0). ------!
       if (wnod_i(2) > tiny_num) then
@@ -2249,13 +2706,13 @@ module fire
                    , fr_mxl_aa(1) + fr_mxl_aa(2) * g_W * (1. - mf_dead/fr_Mxdead) )
       !----- Fuel moisture. ---------------------------------------------------------------!
       do i=1,n_fst
-         moist_i(i) = sum(fr_moist_ij(i,:)*fwgt_ij(i,:))
+         moist_i(i) = sum(moist_ij(i,:)*fwgt_ij(i,:))
       end do
       !----- Relative moisture. -----------------------------------------------------------!
       do i=1,n_fst
          !----- Moisture by status and class. ---------------------------------------------!
          do j=1,n_fcl
-            rmoist_ij(i,j) = min(1.,fr_moist_ij(i,j)/Mx_i(i))
+            rmoist_ij(i,j) = min(1.,moist_ij(i,j)/Mx_i(i))
          end do
          !---------------------------------------------------------------------------------!
 
@@ -2337,7 +2794,7 @@ module fire
 
 
       !----- Heat of pre-ignition [ J/kg]. ------------------------------------------------!
-      Qig_ij(:,:) = fr_Qig_aa(1) + fr_Qig_aa(2) * fr_moist_ij(:,:)
+      Qig_ij(:,:) = fr_Qig_aa(1) + fr_Qig_aa(2) * moist_ij(:,:)
       !------------------------------------------------------------------------------------!
 
 
@@ -2354,21 +2811,25 @@ module fire
 
 
       !------------------------------------------------------------------------------------!
-      !     Find the wind factor based on R72, assuming the maximum possible wind.         !
+      !     Find the wind factor based on R72, but capping at the maximum wind.            !
       !------------------------------------------------------------------------------------!
-      g_psiw = g_CC * g_Umax ** g_BB / g_beta ** g_EE
+      if (use_max) then
+         g_psiw = g_CC * g_Umax ** g_BB / g_beta ** g_EE
+      else
+         g_psiw = g_CC * min(can_wind,g_Umax) ** g_BB / g_beta ** g_EE
+      end if
       !------------------------------------------------------------------------------------!
 
 
       !------------------------------------------------------------------------------------!
-      !     Find the maximum rate of spread.                                               !
+      !     Find the forward rate of spread.                                               !
       !------------------------------------------------------------------------------------!
-      !----- Maximum rate of spread in the absence of wind  [m/s]. ------------------------!
-      g_ROSmax_w0 = g_Ir * g_xi / g_HeatSink
-      !----- Maximum rate of spread                         [m/s]. ------------------------!
-      find_rosmax = g_ROSmax_w0 * (1. + g_psiw)
+      !----- Forward rate of spread in the absence of wind  [m/s]. ------------------------!
+      g_ros_w0 = g_Ir * g_xi / g_HeatSink
+      !----- Forward rate of spread                         [m/s]. ------------------------!
+      rosfwd   = g_ros_w0 * (1. + g_psiw)
       !----- Make rate of spread bounded. -------------------------------------------------!
-      if (isnan_real(find_rosmax) .or. (find_rosmax < - almost_zero)) then
+      if (isnan_real(rosfwd) .or. (rosfwd < - almost_zero)) then
          write(unit=*,fmt=fmth) '---------------------------------------------------------'
          write(unit=*,fmt=fmth) '  Incorrect rate of spread detected in FIRESTARTER.'
          write(unit=*,fmt=fmth) '---------------------------------------------------------'
@@ -2382,6 +2843,14 @@ module fire
          write(unit=*,fmt=fmte) ' BFUEL_D1000     =',bfuel_d1000
          write(unit=*,fmt=fmte) ' BHERB           =',bherb
          write(unit=*,fmt=fmte) ' BWOODY          =',bwoody
+         write(unit=*,fmt=fmte) ' MOIST_B0001     =',moist_b0001
+         write(unit=*,fmt=fmte) ' MOIST_B0010     =',moist_b0010
+         write(unit=*,fmt=fmte) ' MOIST_B0100     =',moist_b0100
+         write(unit=*,fmt=fmte) ' MOIST_B1000     =',moist_b1000
+         write(unit=*,fmt=fmte) ' MOIST_BHERB     =',moist_bherb
+         write(unit=*,fmt=fmte) ' MOIST_BWOODY    =',moist_bwoody
+         write(unit=*,fmt=fmte) ' CAN_WIND        =',can_wind
+         write(unit=*,fmt=fmtl) ' USE_MAX         =',use_max
          write(unit=*,fmt=fmte) ' G_FAI           =',g_fai
          write(unit=*,fmt=fmte) ' G_WOOD          =',g_wood
          write(unit=*,fmt=fmte) ' G_WNOD          =',g_wnod
@@ -2406,18 +2875,18 @@ module fire
          write(unit=*,fmt=fmte) ' G_EE            =',g_EE
          write(unit=*,fmt=fmte) ' G_HEATSINK      =',g_HeatSink
          write(unit=*,fmt=fmte) ' G_PSIW          =',g_psiw
-         write(unit=*,fmt=fmte) ' G_ROSMAX_W0     =',g_ROSmax_w0
-         write(unit=*,fmt=fmte) ' ROSMAX          =',find_rosmax
+         write(unit=*,fmt=fmte) ' G_ROS_W0        =',g_ros_w0
+         write(unit=*,fmt=fmte) ' ROSFWD          =',rosfwd
          write(unit=*,fmt=fmth) '---------------------------------------------------------'
          call fatal_error('Invalid rate of spread in FIRESTARTER.'                         &
-                         ,'find_rosmax','fire.f90')
-      else if (find_rosmax < almost_zero) then
-         find_rosmax = 0.0
+                         ,'rate_of_spread','fire.f90')
+      else if (rosfwd < almost_zero) then
+         rosfwd = 0.0
       end if
       !------------------------------------------------------------------------------------!
 
       return
-   end function find_rosmax
+   end subroutine rate_of_spread
    !=======================================================================================!
    !=======================================================================================!
 

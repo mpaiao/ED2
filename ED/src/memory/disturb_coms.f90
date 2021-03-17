@@ -77,17 +77,23 @@ module disturb_coms
 
 
    !----- Dimensionless parameter controlling speed of fire spread. -----------------------!
-   real :: fire_parameter
-   
+   real    :: fire_parameter
    !----- Fractions of fast and structural carbon and nitrogen lost through combustion. ---!
-   real :: fe_combusted_fast_c
-   real :: fe_combusted_struct_c
-   real :: fe_combusted_fast_n
-   real :: fe_combusted_struct_n
+   real    :: fe_combusted_fast_c
+   real    :: fe_combusted_struct_c
+   real    :: fe_combusted_fast_n
+   real    :: fe_combusted_struct_n
    !---- Maximum height for non-grass cohort to be considered part of fuel. ---------------!
-   real :: fuel_height_max
+   real    :: fuel_height_max
    !---- Flag: only allow burning in polygons with some anthropogenic activity? (T|F) -----!
    logical :: fe_anth_ignt_only
+   !---- Flag: use VPD-based fire danger index for fuel moisture (false = use Nesterov). --!
+   logical :: fe_use_fdivpd
+   !---- Exponent power to relate VPD-based FDI with fuel moisture. -----------------------!
+   real    :: fe_fdivpd_exp
+   !---------------------------------------------------------------------------------------!
+
+
 
    !---------------------------------------------------------------------------------------!
    !     Anthropogenic disturbance.  1 means that anthropogenic disturbances will be       !
@@ -316,6 +322,9 @@ module disturb_coms
    real(kind=4) :: fh_f0100      ! Fraction of struct. C that is 100-hr fuel   [        --]
    real(kind=4) :: fh_f1000      ! Fraction of struct. C that is 1000-hr fuel  [        --]
    real(kind=4) :: fh_pcpg_ni0   ! Precipitation rate above which NI is reset  [   kg/m2/s]
+   real(kind=4) :: fh_pcpg_edi   ! Decay rate for Druke's VPD-based index      [   m2 s/kg]
+   real(kind=4) :: fh_pcpg_win   ! Running average window for precipitation*   [       day]
+   !* This number must be greater than or equal to 1.
    !----- Ignition parameters. ------------------------------------------------------------!
    real(kind=4) :: fi_cg_ignp    ! Cloud-to-ground ignition probability        [       ---]
    real(kind=4) :: fi_lu_ignd    ! Land use ignition density                   [    1/m2/s]
@@ -341,6 +350,7 @@ module disturb_coms
    real(kind=4) :: fs_temp_exp   ! Exponent for temperature                    [       ---]
    real(kind=4) :: fs_lbr_slp    ! Slope of the length-breadth ratio           [       ---]
    real(kind=4) :: fs_lbr_exp    ! Exponential factor for wind                 [       s/m]
+   real(kind=4) :: fs_bck_exp    ! Exp. fact. for backward rate of spread      [       s/m]
    real(kind=4) :: fs_gw_infty   ! Value of g(W) at maximum wind speed         [       ---]
    !----- Fire intensity parameters. ------------------------------------------------------!
    real(kind=4) :: fx_a0001      ! Moist. sens. parameter (1-hr fuel)          [   1/degC2]

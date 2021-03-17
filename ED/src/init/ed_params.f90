@@ -809,7 +809,7 @@ end subroutine init_ff_coms
 !==========================================================================================!
 !==========================================================================================!
 subroutine init_disturb_params
-
+   use ed_max_dims  , only : undef_real                ! ! intent(in)
    use disturb_coms , only : treefall_disturbance_rate & ! intent(in)
                            , include_fire              & ! intent(in)
                            , n_fst                     & ! intent(in)
@@ -826,17 +826,21 @@ subroutine init_disturb_params
                            , fire_dryness_threshold    & ! intent(out)
                            , fire_smoist_depth         & ! intent(out)
                            , fuel_height_max           & ! intent(out)
+                           , fe_anth_ignt_only         & ! intent(out)
                            , fe_combusted_fast_c       & ! intent(out)
                            , fe_combusted_struct_c     & ! intent(out)
                            , fe_combusted_fast_n       & ! intent(out)
                            , fe_combusted_struct_n     & ! intent(out)
-                           , fe_anth_ignt_only         & ! intent(out)
+                           , fe_fdivpd_exp             & ! intent(out)
+                           , fe_use_fdivpd             & ! intent(out)
                            , n_sbins                   & ! intent(out)
                            , fh_grid                   & ! intent(out)
                            , fh_f0001                  & ! intent(out)
                            , fh_f0010                  & ! intent(out)
                            , fh_f0100                  & ! intent(out)
                            , fh_pcpg_ni0               & ! intent(out)
+                           , fh_pcpg_edi               & ! intent(out)
+                           , fh_pcpg_win               & ! intent(out)
                            , fi_sf_maxage              & ! intent(out)
                            , fi_cg_ignp                & ! intent(out)
                            , fi_lu_ignd                & ! intent(out)
@@ -854,6 +858,7 @@ subroutine init_disturb_params
                            , fs_temp_lwr               & ! intent(out)
                            , fs_temp_upr               & ! intent(out)
                            , fs_temp_exp               & ! intent(out)
+                           , fs_bck_exp                & ! intent(out)
                            , fs_lbr_slp                & ! intent(out)
                            , fs_lbr_exp                & ! intent(out)
                            , fx_a0001                  & ! intent(out)
@@ -1004,6 +1009,25 @@ subroutine init_disturb_params
 
 
 
+   !---------------------------------------------------------------------------------------!
+   !       Flag to use the VPD-based fire danger index (K19) or the original Nesterov      !
+   ! index (T10) to compute fuel moisture.                                                 !
+   !                                                                                       !
+   ! References:                                                                           !
+   ! 
+   ! Druke  M, Forkel M, von Bloh W, Sakschewski B, Cardoso M, Bustamante M, Kurths J,
+   !    Thonicke K. 2019. Improving the LPJmL4-SPITFIRE vegetation--fire model for South
+   !    America using satellite data. Geosci. Model Dev., 12: 5029-5054.
+   !    doi:10.5194/gmd-12-5029-2019 (D19).
+   !                                                                                       !
+   ! Thonicke K, Spessa A, Prentice IC, Harrison SP, Dong L, Carmona-Moreno C. 2010. The   !
+   !    influence of vegetation, fire spread and fire behaviour on biomass burning and     !
+   !    trace gas emissions: results from a process-based model. Biogeosciences, 7:        !
+   !    1991-2011. doi:10.5194/bg-7-1991-2010 (T10).                                       !
+   !---------------------------------------------------------------------------------------!
+   fe_use_fdivpd = .true.
+   !---------------------------------------------------------------------------------------!
+
 
 
    !---------------------------------------------------------------------------------------!
@@ -1038,6 +1062,10 @@ subroutine init_disturb_params
    fh_f0100      = 0.210
    !-----  Precipitation rate above which NI is reset  [   kg/m2/s] -----------------------!
    fh_pcpg_ni0   = 3. / day_sec
+   !-----  Decay rate for Druke's VPD-based index      [   m2 s/kg] -----------------------!
+   fh_pcpg_edi   = -2. * day_sec
+   !-----  Running average window for precipitation    [       day] -----------------------!
+   fh_pcpg_win   = 30. ! This number should be greater than or equal to 1.
    !.......................................................................................!
    !      Fraction of struct. C that is 1000-hr fuel is defined after XML, so the total    !
    ! does not exceed 1.                                                                    !
@@ -1086,6 +1114,8 @@ subroutine init_disturb_params
    fs_lbr_slp    = 10.
    !------  Exponential factor for wind                 [       s/m] ----------------------!
    fs_lbr_exp    = -0.06
+   !------  Exp. fact. for backward rate of spread      [       s/m] ----------------------!
+   fs_bck_exp    = -0.012
    !---------------------------------------------------------------------------------------!
    !    Fire intensity parameters.                                                         !
    !---------------------------------------------------------------------------------------!
@@ -1261,6 +1291,13 @@ subroutine init_disturb_params
    !---------------------------------------------------------------------------------------!
 
 
+   !---------------------------------------------------------------------------------------!
+   !      Exponential factor for VPD-based FDI to retrieve fuel moisture.  Currently       !
+   ! assume that fuel moisture drops below the fire moisture of extinction when FDI is     !
+   ! greater than 1/6.                                                                     !
+   !---------------------------------------------------------------------------------------!
+   fe_fdivpd_exp = 6. * log(fr_Mxdead)
+   !---------------------------------------------------------------------------------------!
 
 
    !----- Minimum plantation fraction to consider the site a plantation. ------------------!
@@ -4975,6 +5012,7 @@ subroutine init_pft_mort_params()
                              , fire_s_max                 & ! intent(out)
                              , fire_s_inter               & ! intent(out)
                              , fire_s_slope               & ! intent(out)
+                             , alpha_fdivpd               & ! intent(out)
                              , fscorch                    & ! intent(out)
                              , fx_rck_pft                 & ! intent(out)
                              , fx_pck_pft                 & ! intent(out)
@@ -5393,6 +5431,27 @@ subroutine init_pft_mort_params()
    fire_s_slope(:) = -1.0
    !---------------------------------------------------------------------------------------!
 
+
+
+
+   !---------------------------------------------------------------------------------------!
+   !     Parameter associated with the LPJmL4 VPD-based fire danger index (D19).  Note:    !
+   ! D19 only provided numbers for tropical broadleaf evergreen trees, tropical broadleaf  !
+   ! raingreen trees and tropical herbs.  For other PFTs, the values are just initial      !
+   ! guesses.                                                                              !
+   !                                                                                       !
+   ! Reference:                                                                            !
+   ! Druke  M, Forkel M, von Bloh W, Sakschewski B, Cardoso M, Bustamante M, Kurths J,     !
+   !    Thonicke K. 2019. Improving the LPJmL4-SPITFIRE vegetation--fire model for South   !
+   !    America using satellite data. Geosci. Model Dev., 12: 5029-5054.                   !
+   !    doi:10.5194/gmd-12-5029-2019 (D19).                                                !
+   !---------------------------------------------------------------------------------------!
+   alpha_fdivpd(:) = merge( 1.1299                                                         &
+                          , merge( merge( 1.2135, 22.4181, is_savannah(:) )                &
+                                 , 1.2135                                                  &
+                                 , is_tropical (:)                          )              &
+                          , is_grass (:)                                                  )
+   !---------------------------------------------------------------------------------------!
 
 
 
@@ -7831,6 +7890,7 @@ subroutine init_derived_params_after_xml()
                                    , fire_s_max                & ! intent(in)
                                    , fire_s_inter              & ! intent(in)
                                    , fire_s_slope              & ! intent(in)
+                                   , alpha_fdivpd              & ! intent(in)
                                    , fscorch                   & ! intent(in)
                                    , fx_rck_pft                & ! intent(in)
                                    , fx_pck_pft                & ! intent(in)
@@ -7970,7 +8030,8 @@ subroutine init_derived_params_after_xml()
                                    , wood_backscatter_tir      & ! intent(out)
                                    , phi1                      & ! intent(out)
                                    , phi2                      & ! intent(out)
-                                   , mu_bar                    ! ! intent(out)
+                                   , mu_bar                    & ! intent(out)
+                                   , eproj_light               ! ! intent(out)
    use rk4_coms             , only : effarea_heat              & ! intent(in)
                                    , effarea_evap              & ! intent(in)
                                    , effarea_transp            ! ! intent(in)
@@ -7998,27 +8059,27 @@ subroutine init_derived_params_after_xml()
                                    , radto_max                 & ! intent(out)
                                    , vm0_wgt                   & ! intent(out)
                                    , sla_wgt                   ! ! intent(out)
-   use disturb_coms         , only : fi_lu_exp                 & ! intent(in)
+   use disturb_coms         , only : fh_f0001                  & ! intent(in)
+                                   , fh_f0010                  & ! intent(in)
+                                   , fh_f0100                  & ! intent(in)
+                                   , fi_lu_exp                 & ! intent(in)
                                    , fi_lu_upr                 & ! intent(in)
+                                   , fs_lbr_slp                & ! intent(in)
                                    , fs_rhv_lwr                & ! intent(in)
                                    , fs_rhv_upr                & ! intent(in)
                                    , fs_smpot_lwr              & ! intent(in)
                                    , fs_smpot_upr              & ! intent(in)
                                    , fs_temp_lwr               & ! intent(in)
                                    , fs_temp_upr               & ! intent(in)
-                                   , fs_lbr_slp                & ! intent(in)
                                    , ft_fint_lwr               & ! intent(in)
                                    , ft_fint_upr               & ! intent(in)
-                                   , fh_f0001                  & ! intent(in)
-                                   , fh_f0010                  & ! intent(in)
-                                   , fh_f0100                  & ! intent(in)
+                                   , fh_f1000                  & ! intent(out)
                                    , fi_lu_off                 & ! intent(out)
+                                   , fs_gw_infty               & ! intent(out)
                                    , fs_rhv_dti                & ! intent(out)
                                    , fs_smpot_dti              & ! intent(out)
                                    , fs_temp_dti               & ! intent(out)
-                                   , fs_gw_infty               & ! intent(out)
-                                   , ft_fint_dti               & ! intent(out)
-                                   , fh_f1000                  ! ! intent(out)
+                                   , ft_fint_dti               ! ! intent(out)
    use farq_leuning         , only : arrhenius                 & ! function
                                    , collatz                   ! ! function
    use plant_hydro          , only : psi2rwc                   & ! function
@@ -8186,7 +8247,7 @@ subroutine init_derived_params_after_xml()
 
 
    !---------------------------------------------------------------------------------------!
-   !     Derived HESFIRE parameters.                                                       !
+   !     Derived FIRESTARTER parameters.                                                   !
    !---------------------------------------------------------------------------------------!
    !------ Offset for the land use ignition effect. ---------------------------------------!
    fi_lu_off = fi_lu_upr / (1. + fi_lu_exp)
@@ -8763,6 +8824,12 @@ subroutine init_derived_params_after_xml()
 
 
 
+   !---------------------------------------------------------------------------------------!
+   !     Find average extinction coefficient based on the orientation factor functions and !
+   ! the average optical depth. (inverse of Equation S96 of L19 using cos Z = mu_bar).     !
+   !---------------------------------------------------------------------------------------!
+   eproj_light(:) = sngloff( ( phi1(:) + phi2(:) * mu_bar(:) ) / mu_bar(:),tiny_num8)
+   !---------------------------------------------------------------------------------------!
 
 
 
@@ -9421,7 +9488,7 @@ subroutine init_derived_params_after_xml()
    !----- Print trait coefficients. -------------------------------------------------------!
    if (print_zero_table) then
       open (unit=19,file=trim(strat_file),status='replace',action='write')
-      write(unit=19,fmt='(105(1x,a))') '          PFT','     TROPICAL','        GRASS'      &
+      write(unit=19,fmt='(107(1x,a))') '          PFT','     TROPICAL','        GRASS'      &
                                       ,'      CONIFER','     SAVANNAH','        LIANA'     &
                                       ,'       R_BANG','          RHO','          SLA'     &
                                       ,'          SRA','    ROOT_BETA','          VM0'     &
@@ -9432,33 +9499,34 @@ subroutine init_derived_params_after_xml()
                                       ,'    SEED_MORT',' TFALL_S_GTHT','  FELL_S_GTHV'     &
                                       ,'  FELL_S_LTHV','  SKID_S_GTHV','  SKID_S_LTHV'     &
                                       ,'   FIRE_S_MIN','   FIRE_S_MAX',' FIRE_S_INTER'     &
-                                      ,' FIRE_S_SLOPE', '     FSCORCH','   FX_RCK_PFT'     &
-                                      ,'   FX_PCK_PFT','     ST_FRACT','      R_FRACT'     &
-                                      ,'       R_CV50','  NONLOC_DISP','    SEED_RAIN'     &
-                                      ,'     EFF_HEAT','     EFF_EVAP','   EFF_TRANSP'     &
-                                      ,'   LTRANS_VIS',' LREFLECT_VIS','   WTRANS_VIS'     &
-                                      ,' WREFLECT_VIS','   LTRANS_NIR',' LREFLECT_NIR'     &
-                                      ,'   WTRANS_NIR',' WREFLECT_NIR','   LEMISS_TIR'     &
-                                      ,'   WEMISS_TIR','  ORIENT_FACT','    LSCAT_VIS'     &
-                                      ,'   LBSCAT_VIS','    WSCAT_VIS','   WBSCAT_VIS'     &
-                                      ,'    LSCAT_NIR','   LBSCAT_NIR','    WSCAT_NIR'     &
-                                      ,'   WBSCAT_NIR','   LBSCAT_TIR','   WBSCAT_TIR'     &
-                                      ,'         PHI1','         PHI2','       MU_BAR'     &
-                                      ,'        CLEAF','        CSAPW','        CDEAD'     &
-                                      ,'        CBARK','     C2N_LEAF','     C2N_STEM'     &
-                                      ,'  C2N_STORAGE','  C2N_RECRUIT',' LEAF_SHED_RT'     &
-                                      ,' LEAF_GROW_RT','  VESSEL_CURL',' LEAF_H2O_CAP'     &
-                                      ,' WOOD_H2O_CAP',' LEAF_H2O_SAT',' WOOD_H2O_SAT'     &
-                                      ,' LEAF_RWC_MIN',' WOOD_RWC_MIN','SMALL_RWC_MIN'     &
-                                      ,' LEAF_PSI_MIN',' WOOD_PSI_MIN','SMALL_PSI_MIN'     &
-                                      ,' LEAF_PSI_OSM',' WOOD_PSI_OSM',' LEAF_ELA_MOD'     &
-                                      ,' WOOD_ELA_MOD',' LEAF_PSI_TLP',' WOOD_PSI_TLP'     &
-                                      ,'    WOOD_KMAX','    WOOD_KEXP','   WOOD_PSI50'     &
-                                      ,' STOMA_LAMBDA','   STOMA_BETA','  STOMA_PSI_B'     &
-                                      ,'  STOMA_PSI_C',' HIGH_PSI_THR','  LOW_PSI_THR'
+                                      ,' FIRE_S_SLOPE',' ALPHA_FDIVPD','     FSCORCH'      &
+                                      ,'   FX_RCK_PFT','   FX_PCK_PFT','     ST_FRACT'     &
+                                      ,'      R_FRACT','       R_CV50','  NONLOC_DISP'     &
+                                      ,'    SEED_RAIN','     EFF_HEAT','     EFF_EVAP'     &
+                                      ,'   EFF_TRANSP','   LTRANS_VIS',' LREFLECT_VIS'     &
+                                      ,'   WTRANS_VIS',' WREFLECT_VIS','   LTRANS_NIR'     &
+                                      ,' LREFLECT_NIR','   WTRANS_NIR',' WREFLECT_NIR'     &
+                                      ,'   LEMISS_TIR','   WEMISS_TIR','  ORIENT_FACT'     &
+                                      ,'    LSCAT_VIS','   LBSCAT_VIS','    WSCAT_VIS'     &
+                                      ,'   WBSCAT_VIS','    LSCAT_NIR','   LBSCAT_NIR'     &
+                                      ,'    WSCAT_NIR','   WBSCAT_NIR','   LBSCAT_TIR'     &
+                                      ,'   WBSCAT_TIR','         PHI1','         PHI2'     &
+                                      ,'       MU_BAR','  EPROJ_LIGHT','        CLEAF'     &
+                                      ,'        CSAPW','        CDEAD','        CBARK'     &
+                                      ,'     C2N_LEAF','     C2N_STEM','  C2N_STORAGE'     &
+                                      ,'  C2N_RECRUIT',' LEAF_SHED_RT',' LEAF_GROW_RT'     &
+                                      ,'  VESSEL_CURL',' LEAF_H2O_CAP',' WOOD_H2O_CAP'     &
+                                      ,' LEAF_H2O_SAT',' WOOD_H2O_SAT',' LEAF_RWC_MIN'     &
+                                      ,' WOOD_RWC_MIN','SMALL_RWC_MIN',' LEAF_PSI_MIN'     &
+                                      ,' WOOD_PSI_MIN','SMALL_PSI_MIN',' LEAF_PSI_OSM'     &
+                                      ,' WOOD_PSI_OSM',' LEAF_ELA_MOD',' WOOD_ELA_MOD'     &
+                                      ,' LEAF_PSI_TLP',' WOOD_PSI_TLP','    WOOD_KMAX'     &
+                                      ,'    WOOD_KEXP','   WOOD_PSI50',' STOMA_LAMBDA'     &
+                                      ,'   STOMA_BETA','  STOMA_PSI_B','  STOMA_PSI_C'     &
+                                      ,' HIGH_PSI_THR','  LOW_PSI_THR'
 
       do ipft=1,n_pft
-         write (unit=19,fmt='(9x,i5,6(13x,l1),96(1x,f13.6),2(1x,i13))')                    &
+         write (unit=19,fmt='(9x,i5,6(13x,l1),98(1x,f13.6),2(1x,i13))')                    &
                         ipft,is_tropical(ipft),is_grass(ipft),is_conifer(ipft)             &
                        ,is_savannah(ipft),is_liana(ipft),r_bang(ipft),rho(ipft),SLA(ipft)  &
                        ,SRA(ipft),root_beta(ipft),Vm0(ipft),dark_respiration_factor(ipft)  &
@@ -9469,10 +9537,10 @@ subroutine init_derived_params_after_xml()
                        ,mort3(ipft),seedling_mortality(ipft),treefall_s_ltht(ipft)         &
                        ,felling_s_gtharv(ipft),felling_s_ltharv(ipft),skid_s_gtharv(ipft)  &
                        ,skid_s_ltharv(ipft),fire_s_min(ipft),fire_s_max(ipft)              &
-                       ,fire_s_inter(ipft),fire_s_slope(ipft),fscorch(ipft)                &
-                       ,fx_rck_pft(ipft),fx_pck_pft(ipft),st_fract(ipft),r_fract(ipft)     &
-                       ,r_cv50(ipft),nonlocal_dispersal(ipft),seed_rain(ipft)              &
-                       ,effarea_heat,effarea_evap,effarea_transp(ipft)                     &
+                       ,fire_s_inter(ipft),fire_s_slope(ipft),alpha_fdivpd(ipft)           &
+                       ,fscorch(ipft),fx_rck_pft(ipft),fx_pck_pft(ipft),st_fract(ipft)     &
+                       ,r_fract(ipft),r_cv50(ipft),nonlocal_dispersal(ipft)                &
+                       ,seed_rain(ipft),effarea_heat,effarea_evap,effarea_transp(ipft)     &
                        ,leaf_trans_vis(ipft),leaf_reflect_vis(ipft),wood_trans_vis(ipft)   &
                        ,wood_reflect_vis(ipft),leaf_trans_nir(ipft),leaf_reflect_nir(ipft) &
                        ,wood_trans_nir(ipft),wood_reflect_nir(ipft),leaf_emiss_tir(ipft)   &
@@ -9482,18 +9550,19 @@ subroutine init_derived_params_after_xml()
                        ,leaf_scatter_nir(ipft),leaf_backscatter_nir(ipft)                  &
                        ,wood_scatter_nir(ipft),wood_backscatter_nir(ipft)                  &
                        ,leaf_backscatter_tir(ipft),wood_backscatter_tir(ipft)              &
-                       ,phi1(ipft),phi2(ipft),mu_bar(ipft),cleaf(ipft),csapw(ipft)         &
-                       ,cdead(ipft),cbark(ipft),c2n_leaf(ipft),c2n_stem(ipft),c2n_storage  &
-                       ,c2n_recruit(ipft),leaf_shed_rate(ipft),leaf_grow_rate(ipft)        &
-                       ,vessel_curl_factor(ipft),leaf_water_cap(ipft),wood_water_cap(ipft) &
-                       ,leaf_water_sat(ipft),wood_water_sat(ipft),leaf_rwc_min(ipft)       &
-                       ,wood_rwc_min(ipft),small_rwc_min(ipft),leaf_psi_min(ipft)          &
-                       ,wood_psi_min(ipft),small_psi_min(ipft),leaf_psi_osmotic(ipft)      &
-                       ,wood_psi_osmotic(ipft),leaf_elastic_mod(ipft)                      &
-                       ,wood_elastic_mod(ipft),leaf_psi_tlp(ipft),wood_psi_tlp(ipft)       &
-                       ,wood_Kmax(ipft),wood_Kexp(ipft),wood_psi50(ipft)                   &
-                       ,stoma_lambda(ipft),stoma_beta(ipft),stoma_psi_b(ipft)              &
-                       ,stoma_psi_c(ipft),high_psi_threshold(ipft),low_psi_threshold(ipft)
+                       ,phi1(ipft),phi2(ipft),mu_bar(ipft),eproj_light(ipft)               &
+                       ,cleaf(ipft),csapw(ipft),cdead(ipft),cbark(ipft),c2n_leaf(ipft)     &
+                       ,c2n_stem(ipft),c2n_storage,c2n_recruit(ipft),leaf_shed_rate(ipft)  &
+                       ,leaf_grow_rate(ipft),vessel_curl_factor(ipft),leaf_water_cap(ipft) &
+                       ,wood_water_cap(ipft),leaf_water_sat(ipft),wood_water_sat(ipft)     &
+                       ,leaf_rwc_min(ipft),wood_rwc_min(ipft),small_rwc_min(ipft)          &
+                       ,leaf_psi_min(ipft),wood_psi_min(ipft),small_psi_min(ipft)          &
+                       ,leaf_psi_osmotic(ipft),wood_psi_osmotic(ipft)                      &
+                       ,leaf_elastic_mod(ipft),wood_elastic_mod(ipft),leaf_psi_tlp(ipft)   &
+                       ,wood_psi_tlp(ipft),wood_Kmax(ipft),wood_Kexp(ipft)                 &
+                       ,wood_psi50(ipft),stoma_lambda(ipft),stoma_beta(ipft)               &
+                       ,stoma_psi_b(ipft),stoma_psi_c(ipft),high_psi_threshold(ipft)       &
+                       ,low_psi_threshold(ipft)
       end do
       close(unit=19,status='keep')
    end if

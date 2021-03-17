@@ -10,6 +10,8 @@ here=$(pwd)
 moi=$(whoami)
 #----- Description of this simulation, used to create unique job names. -------------------#
 desc=$(basename ${here})
+#----- Source path for ED code and executable. --------------------------------------------#
+srcpath="${HOME}/EDBRAMS/ED"
 #----- Select main file system path. ------------------------------------------------------#
 ordinateur=$(hostname -s)
 case ${ordinateur} in
@@ -64,10 +66,11 @@ dateh="01"    # Day
 timeh="0000"  # Hour
 #----- Default tolerance. -----------------------------------------------------------------#
 toldef="0.01"
-#----- Executable names. ------------------------------------------------------------------#
-execname="ed_2.2-opt"             # Normal executable, for most queues
 #----- Initialisation scripts. ------------------------------------------------------------#
-initrc="${HOME}/.bashrc"          # Initialisation script for most nodes
+initrc="${HOME}/.bashrc"         # Initialisation script for most nodes
+#----- Executable names. ------------------------------------------------------------------#
+execname="ed_2.2-opt"            # Normal executable, for most queues
+checkexec=true                   # Check executable
 #----- Settings for this group of polygons. -----------------------------------------------#
 init_only=true                   # Run model initialisation only?
                                  #    This can be useful when the initialisation step
@@ -150,11 +153,30 @@ echo "Number of polygons: ${npolys}..."
 # script.                                                                                  #
 #------------------------------------------------------------------------------------------#
 exec_full="${here}/executable/${execname}"
-if [ ! -s ${exec_full} ]
+exec_src="${srcpath}/build/${execname}"
+if [[ ! -s ${exec_full} ]]
 then
    echo "Executable file : ${exec_full} is not in the executable directory"
    echo "Copy the executable to the file before running this script!"
    exit 99
+elif ${checkexec}
+then
+   #----- Check whether the executable is up to date. -------------------------------------#
+   idiff=$(diff ${exec_full} ${exec_src} 2> /dev/null | wc -l)
+   if [[ ${idiff} -gt 0 ]]
+   then
+      #----- Executable is not up to date, warn user and offer to update it. --------------#
+      echo "Executable ${exec_full} is not the same as the most recently compiled file."
+      echo "Most recent: ${exec_src}."
+      echo "Do you want to update the executable? [y/N]"
+      read update
+      update=$(echo ${update} | tr '[:upper:]' '[:lower:]')
+      case "${update}" in
+         y*) rsync - Putv ${exec_src} ${exec_full} ;;
+      esac
+      #------------------------------------------------------------------------------------#
+   fi
+   #---------------------------------------------------------------------------------------#
 fi
 #------------------------------------------------------------------------------------------#
 

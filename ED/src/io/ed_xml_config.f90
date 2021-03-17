@@ -614,6 +614,8 @@ recursive subroutine read_ed_xml_config(filename)
            if(texist) fire_s_inter(myPFT) = sngloff(rval,tiny_offset)
            call getConfigREAL  ('fire_s_slope','pft',i,rval,texist)
            if(texist) fire_s_slope(myPFT) = sngloff(rval,tiny_offset)
+           call getConfigREAL  ('alpha_fdivpd','pft',i,rval,texist)
+           if(texist) alpha_fdivpd(myPFT) = sngloff(rval,tiny_offset)
            call getConfigREAL  ('fscorch','pft',i,rval,texist)
            if(texist) fscorch   (myPFT) = sngloff(rval,tiny_offset)
            call getConfigREAL  ('fx_rck_pft','pft',i,rval,texist)
@@ -1460,6 +1462,10 @@ recursive subroutine read_ed_xml_config(filename)
         if(texist) fe_combusted_struct_n = sngloff(rval,tiny_offset)
         call getConfigINT  ('fe_anth_ignt_only','disturbance',i,ival,texist)
         if(texist) fe_anth_ignt_only = ival == 1
+        call getConfigREAL  ('fe_fdivpd_exp','disturbance',i,rval,texist)
+        if(texist) fe_fdivpd_exp = sngloff(rval,tiny_offset)
+        call getConfigINT  ('fe_use_fdivpd','disturbance',i,ival,texist)
+        if(texist) fe_use_fdivpd = ival == 1
 
         !! FIRESTARTER - Global
         call getConfigREAL  ('fh_grid'     ,'disturbance',i,rval,texist)
@@ -1472,6 +1478,10 @@ recursive subroutine read_ed_xml_config(filename)
         if(texist) fh_f0100      = sngloff(rval,tiny_offset)
         call getConfigREAL  ('fh_pcpg_ni0' ,'disturbance',i,rval,texist)
         if(texist) fh_pcpg_ni0   = sngloff(rval,tiny_offset)
+        call getConfigREAL  ('fh_pcpg_edi' ,'disturbance',i,rval,texist)
+        if(texist) fh_pcpg_edi   = sngloff(rval,tiny_offset)
+        call getConfigREAL  ('fh_pcpg_win' ,'disturbance',i,rval,texist)
+        if(texist) fh_pcpg_win   = sngloff(rval,tiny_offset)
 
 
         !! FIRESTARTER - Ignitions
@@ -1515,6 +1525,8 @@ recursive subroutine read_ed_xml_config(filename)
         if(texist) fs_lbr_slp   = sngloff(rval,tiny_offset)
         call getConfigREAL  ('fs_lbr_exp'  ,'disturbance',i,rval,texist)
         if(texist) fs_lbr_exp   = sngloff(rval,tiny_offset)
+        call getConfigREAL  ('fs_bck_exp'  ,'disturbance',i,rval,texist)
+        if(texist) fs_bck_exp   = sngloff(rval,tiny_offset)
 
         !! --- SPITFIRE: Intensity
         call getConfigREAL  ('fx_a0001'    ,'disturbance',i,rval,texist)
@@ -2201,6 +2213,7 @@ subroutine write_ed_xml_config
         call putConfigREAL("fire_s_max"        ,fire_s_max   (i))
         call putConfigREAL("fire_s_inter"      ,fire_s_inter (i))
         call putConfigREAL("fire_s_slope"      ,fire_s_slope (i))
+        call putConfigREAL("alpha_fdivpd"      ,alpha_fdivpd (i))
         call putConfigREAL("fscorch"           ,fscorch      (i))
         call putConfigREAL("fx_rck_pft"        ,fx_rck_pft   (i))
         call putConfigREAL("fx_pck_pft"        ,fx_pck_pft   (i))
@@ -2571,18 +2584,27 @@ subroutine write_ed_xml_config
      call putConfigREAL("fe_combusted_struct_c" ,fe_combusted_struct_c )
      call putConfigREAL("fe_combusted_fast_n"   ,fe_combusted_fast_n   )
      call putConfigREAL("fe_combusted_struct_n" ,fe_combusted_struct_n )
+     call putConfigREAL("fe_fdivpd_exp"         ,fe_fdivpd_exp         )
      if (fe_anth_ignt_only) then
         ival = 1
      else
         ival = 0
      end if
      call putConfigINT ("fe_anth_ignt_only"     ,ival                  )
+     if (fe_use_fdivpd) then
+        ival = 1
+     else
+        ival = 0
+     end if
+     call putConfigINT ("fe_use_fdivpd"         ,ival                  )
      ! --- FIRESTARTER: Global
      call putConfigREAL("fh_grid"               ,fh_grid               )
      call putConfigREAL("fh_f0001"              ,fh_f0001              )
      call putConfigREAL("fh_f0010"              ,fh_f0010              )
      call putConfigREAL("fh_f0100"              ,fh_f0100              )
      call putConfigREAL("fh_pcpg_ni0"           ,fh_pcpg_ni0           )
+     call putConfigREAL("fh_pcpg_edi"           ,fh_pcpg_edi           )
+     call putConfigREAL("fh_pcpg_win"           ,fh_pcpg_win           )
      ! --- FIRESTARTER: Ignitions
      call putConfigREAL("fi_cg_ignp"            ,fi_cg_ignp            )
      call putConfigREAL("fi_lu_ignd"            ,fi_lu_ignd            )
@@ -2604,6 +2626,7 @@ subroutine write_ed_xml_config
      call putConfigREAL("fs_temp_exp"           ,fs_temp_exp           )
      call putConfigREAL("fs_lbr_slp"            ,fs_lbr_slp            )
      call putConfigREAL("fs_lbr_exp"            ,fs_lbr_exp            )
+     call putConfigREAL("fs_bck_exp"            ,fs_bck_exp            )
      ! --- SPITFIRE: Intensity
      call putConfigReal("fx_a0001"              ,fx_a0001              )
      call putConfigReal("fx_a0010"              ,fx_a0010              )

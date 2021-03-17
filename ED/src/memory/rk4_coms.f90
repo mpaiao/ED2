@@ -278,6 +278,7 @@ module rk4_coms
       real(kind=8) :: rmean_can_temp
       real(kind=8) :: rmean_can_tdew
       real(kind=8) :: rmean_can_rhv
+      real(kind=8) :: rmean_can_vpdef
       real(kind=8) :: rmean_can_ekin
       real(kind=8) :: rmean_gnd_water
       real(kind=8) :: rmean_gnd_mstpot
@@ -1150,6 +1151,7 @@ module rk4_coms
       y%rmean_can_tdew                 = 0.d0
       y%rmean_can_ekin                 = 0.d0
       y%rmean_can_rhv                  = 0.d0
+      y%rmean_can_vpdef                = 0.d0
       y%rmean_gnd_water                = 0.d0
       y%rmean_gnd_mstpot               = 0.d0
       y%rmean_gnd_wetness              = 0.d0

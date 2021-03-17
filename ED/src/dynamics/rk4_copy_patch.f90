@@ -603,6 +603,7 @@ module rk4_copy_patch
       targetp%rmean_can_temp    = 0.d0
       targetp%rmean_can_tdew    = 0.d0
       targetp%rmean_can_rhv     = 0.d0
+      targetp%rmean_can_vpdef   = 0.d0
       targetp%rmean_can_ekin    = 0.d0
       targetp%rmean_gnd_water   = 0.d0
       targetp%rmean_gnd_mstpot  = 0.d0
@@ -742,6 +743,7 @@ module rk4_copy_patch
       targetp%rmean_can_temp    = sourcep%rmean_can_temp
       targetp%rmean_can_tdew    = sourcep%rmean_can_tdew
       targetp%rmean_can_rhv     = sourcep%rmean_can_rhv
+      targetp%rmean_can_vpdef   = sourcep%rmean_can_vpdef
       targetp%rmean_can_ekin    = sourcep%rmean_can_ekin
       targetp%rmean_gnd_water   = sourcep%rmean_gnd_water
       targetp%rmean_gnd_mstpot  = sourcep%rmean_gnd_mstpot
@@ -1259,6 +1261,10 @@ module rk4_copy_patch
       !----- Daily average canopy air space dewpoint temperature. -------------------------!
       csite%today_can_tdew   (ipa) = csite%today_can_tdew(ipa)                             &
                                    + sngloff(initp%rmean_can_tdew,tiny_offset)             &
+                                   * dtlsm_o_day_sec
+      !----- Daily average canopy air space vapour pressure deficit. ----------------------!
+      csite%today_can_vpdef  (ipa) = csite%today_can_vpdef(ipa)                            &
+                                   + sngloff(initp%rmean_can_vpdef,tiny_offset)            &
                                    * dtlsm_o_day_sec
       !----- Average wind speed.  Integrate kinetic energy to get average wind. -----------!
       csite%today_can_vels   (ipa) = csite%today_can_vels(ipa)                             &
@@ -2130,6 +2136,8 @@ module rk4_copy_patch
                                     + csite%ground_shv        (ipa) * dtlsm_o_frqsum
       csite%fmean_can_ggnd    (ipa) = csite%fmean_can_ggnd    (ipa)                        &
                                     + csite%ggnet             (ipa) * dtlsm_o_frqsum
+      csite%fmean_snowfac     (ipa) = csite%fmean_snowfac     (ipa)                        &
+                                    + csite%snowfac           (ipa) * dtlsm_o_frqsum
       !------------------------------------------------------------------------------------!
       !       Snow/pounding layers.  We keep track of the total, not individual layers.    !
       ! Energy will be integrated as an extensive variable, we will convert it by the      !

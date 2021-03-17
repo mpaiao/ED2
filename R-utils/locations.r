@@ -61,7 +61,7 @@ locations <<- function(where,here=getwd(),yearbeg=1500,yearend=2008,monthbeg=1,d
       pathrst  = file.path(here,ici,"histo",ici)
       pathout  = file.path(pathroot,"epost")
 
-   }else if( ( substring(ici,1,2) %in% c("ta") )
+   }else if( ( substring(ici,1,2) %in% c("ta","ti","tl") )
            & ( ( substring(ici,7,7) %in% "_"     ) | ( nchar(ici) == 6 ) ) 
            ){
       #---- Regional based name. ----------------------------------------------------------#
@@ -570,8 +570,8 @@ simul.description <<- function(ici,testpoi,iata=TRUE,max.char=66){
    #----- ivegt.dynamics is the flag for vegetation dynamics. -----------------------------#
    flagvar[["ivegt.dynamics"]]  = list( descr   = "Vegetation dynamics"
                                       , numeric = TRUE
-                                      , values  = seq(from=0,to=2,by=1)
-                                      , names   = c("OFF","ON","Multi")
+                                      , values  = c(0,1,2,99)
+                                      , names   = c("OFF","ON","Multi","Bare")
                                       )#end list
    #----- iphen.scheme is the phenology scheme for tropical broadleaf trees. --------------#
    flagvar[["iphen.scheme"]]    = list( descr   = "Phenology scheme"
@@ -634,13 +634,13 @@ simul.description <<- function(ici,testpoi,iata=TRUE,max.char=66){
                                       )#end list
    #----- irad.drought is the rainfall response. ------------------------------------------#
    flagvar[["irain.drought"]]    = list( descr  = "Rainfall"
-                                      , numeric = TRUE
+                                       , numeric = TRUE
                                        , values = seq(from=0,to=1,by=1)
                                        , names  = c("Normal","2010 drought")
                                        )#end list
    #----- Photosynthesis parameters. ------------------------------------------------------#
    flagvar[["iphysiol"]]         = list( descr  = "Photosynthesis"
-                                      , numeric = TRUE
+                                       , numeric = TRUE
                                        , values = seq(from=0,to=3,by=1)
                                        , names  = c("Arrhenius (no Jmax/TPmax)"
                                                    ,"Arrenhius (with Jmax/TPmax)"
@@ -650,13 +650,13 @@ simul.description <<- function(ici,testpoi,iata=TRUE,max.char=66){
                                        )#end list
    #----- Grass type. ---------------------------------------------------------------------#
    flagvar[["igrass"]]           = list( descr  = "Grass scheme"
-                                      , numeric = TRUE
+                                       , numeric = TRUE
                                        , values = c(0,1)
                                        , names  = c("ED-1","Swann")
                                        )#end list
    #----- Grass type. ---------------------------------------------------------------------#
    flagvar[["isoilbc"]]          = list( descr  = "Soil Bnd. Cond."
-                                      , numeric = TRUE
+                                       , numeric = TRUE
                                        , values = c(0,1,2,3,4)
                                        , names  = c( "Bedrock"
                                                    , "Free drainage"
@@ -667,7 +667,7 @@ simul.description <<- function(ici,testpoi,iata=TRUE,max.char=66){
                                        )#end list
    #----- Grass type. ---------------------------------------------------------------------#
    flagvar[["ipercol"]]          = list( descr  = "Percolation"
-                                      , numeric = TRUE
+                                       , numeric = TRUE
                                        , values = c(0,1,2)
                                        , names  = c( "Walko et al. (2000)"
                                                    , "Anderson (1976)"
@@ -682,11 +682,12 @@ simul.description <<- function(ici,testpoi,iata=TRUE,max.char=66){
    #----- Fire model. ---------------------------------------------------------------------#
    flagvar[["include.fire"]]     = list( descr   = "Fire model"
                                        , numeric = TRUE
-                                       , values  = c(0,1,2,3)
+                                       , values  = c(0,1,2,3,4)
                                        , names   = c( "Off"
                                                     , "ED-1.0 type"
                                                     , "Default ED-2.1"
-                                                    , "Understory fire"
+                                                    , "EMBERFIRE"
+                                                    , "FIRESTARTER"
                                                     )#end c
                                        )#end list
    #----- Energy budget type. -------------------------------------------------------------#
@@ -1785,6 +1786,14 @@ if (file.exists(file.path(srcdir,"amzbr_poi.csv"))){
 }#end if (file.exists(file.path(srcdir,"amzbr_poi.csv")))
 if (file.exists(file.path(srcdir,"amzif_poi.csv"))){
    amzlist <<- read.csv( file             = file.path(srcdir,"amzif_poi.csv")
+                       , header           = TRUE
+                       , stringsAsFactors = FALSE
+                       )#end read.csv
+   poilist <<- merge(poilist,amzlist,all=TRUE)
+}#end if (file.exists(file.path(srcdir,"amzif_poi.csv")))
+npoi    <<- nrow(poilist)
+if (file.exists(file.path(srcdir,"amzlu_poi.csv"))){
+   amzlist <<- read.csv( file             = file.path(srcdir,"amzlu_poi.csv")
                        , header           = TRUE
                        , stringsAsFactors = FALSE
                        )#end read.csv

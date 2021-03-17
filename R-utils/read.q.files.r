@@ -570,6 +570,12 @@ read.q.files <<- function( datum
       emean$leaf.gbw        [m] =   mymont$MMEAN.LEAF.GBW.PY * day.sec
       emean$leaf.gsw        [m] =   mymont$MMEAN.LEAF.GSW.PY * day.sec
       emean$wood.gbw        [m] =   mymont$MMEAN.WOOD.GBW.PY * day.sec
+      #----- Snowpack/flooding variables. -------------------------------------------------#
+      emean$sfcw.mass       [m] =   mymont$MMEAN.SFCW.MASS.PY
+      emean$sfcw.temp       [m] =   mymont$MMEAN.SFCW.TEMP.PY  - t00
+      emean$sfcw.fliq       [m] =   mymont$MMEAN.SFCW.FLIQ.PY
+      emean$sfcw.depth      [m] =   mymont$MMEAN.SFCW.DEPTH.PY
+      emean$sfcw.cover      [m] =   mymont$MMEAN.SNOWFAC.PY
       #------------------------------------------------------------------------------------#
 
 
@@ -599,7 +605,7 @@ read.q.files <<- function( datum
       # to TRUE because we may have layers that were not resolved at all, and they shall   #
       # remain undefined.                                                                  #
       #------------------------------------------------------------------------------------#
-      soil.temp.lyr      = apply( X      = mymont$MMEAN.SOIL.TEMP.PA   * soil.area - t00
+      soil.temp.lyr      = apply( X      = ( mymont$MMEAN.SOIL.TEMP.PA - t00 )  * soil.area
                                 , MARGIN = 2
                                 , FUN    = sum
                                 , na.rm  = FALSE
@@ -823,27 +829,33 @@ read.q.files <<- function( datum
 
       #------ For soils, we must account for different soil depths. -----------------------#
       for (h in sequence(ndcycle)){
+         odim            = dim(mymont$QMEAN.SOIL.TEMP.PA)[-2]
+         soil.temp.pa    = mymont$QMEAN.SOIL.TEMP.PA [,h,] - t00
+         soil.water.pa   = mymont$QMEAN.SOIL.WATER.PA[,h,]
+         soil.temp.pa    = array(soil.temp.pa ,dim=odim)
+         soil.water.pa   = array(soil.water.pa,dim=odim)
+         soil.mstpot.pa  = soil.water.pa * (-1.) * grav * wdns * 1.e-6
+         soil.wetness.pa = ( ( soil.water.pa - soilcp.pa)
+                           / ( soilpo.pa     - soilcp.pa) )
+
+
          #----- Populate data structure by hour of the day. -------------------------------#
-         soil.temp.lyr    = apply( X      = mymont$QMEAN.SOIL.TEMP.PA[,h,]   * soil.area
-                                          - t00
+         soil.temp.lyr    = apply( X      = soil.temp.pa   * soil.area
                                  , MARGIN = 2
                                  , FUN    = sum
                                  , na.rm  = FALSE
                                  )#end apply
-         soil.water.lyr   = apply( X      = mymont$QMEAN.SOIL.WATER.PA[,h,]  * soil.area
+         soil.water.lyr   = apply( X      = soil.water.pa  * soil.area
                                  , MARGIN = 2
                                  , FUN    = sum
                                  , na.rm  = FALSE
                                  )#end apply
-         soil.mstpot.lyr  = apply( X      = mymont$QMEAN.SOIL.MSTPOT.PA[,h,] * soil.area
-                                          * (-1.) * grav * wdns * 1.e-6
+         soil.mstpot.lyr  = apply( X      = soil.mstpot.pa * soil.area
                                  , MARGIN = 2
                                  , FUN    = sum
                                  , na.rm  = FALSE
                                  )#end apply
-         soil.wetness.lyr = ( ( mymont$QMEAN.SOIL.WATER.PA[,h,] - soilcp.pa)
-                            / ( soilpo.pa                       - soilcp.pa) )
-         soil.wetness.lyr = apply( X      = soil.wetness.lyr * soil.area
+         soil.wetness.lyr = apply( X      = soil.wetness.pa * soil.area
                                  , MARGIN = 2
                                  , FUN    = sum
                                  , na.rm  = FALSE
@@ -1753,6 +1765,7 @@ read.q.files <<- function( datum
          laiconow            = NA_real_
          waiconow            = NA_real_
          taiconow            = NA_real_
+         agvolumeconow       = NA_real_
          gppconow            = NA_real_
          leaf.respconow      = NA_real_
          stem.respconow      = NA_real_
@@ -1910,6 +1923,11 @@ read.q.files <<- function( datum
       patch$rshort.gnd   [[plab]] =   mymont$MMEAN.RSHORT.GND.PA
       patch$par.gnd      [[plab]] =   mymont$MMEAN.PAR.GND.PA     * Watts.2.Ein * 1e6
       patch$rnet         [[plab]] =   mymont$MMEAN.RNET.PA
+      patch$sfcw.temp    [[plab]] =   mymont$MMEAN.SFCW.TEMP.PA - t00
+      patch$sfcw.fliq    [[plab]] =   mymont$MMEAN.SFCW.FLIQ.PA
+      patch$sfcw.mass    [[plab]] =   mymont$MMEAN.SFCW.MASS.PA
+      patch$sfcw.depth   [[plab]] =   mymont$MMEAN.SFCW.DEPTH.PA
+      patch$sfcw.cover   [[plab]] =   mymont$MMEAN.SNOWFAC.PA
       #----- Find soil averages. ----------------------------------------------------------#
       soil.temp.lyr                  = mymont$MMEAN.SOIL.TEMP.PA  * soil.mask - t00
       soil.water.lyr                 = mymont$MMEAN.SOIL.WATER.PA * soil.mask

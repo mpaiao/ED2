@@ -881,6 +881,8 @@ module rk4_misc
       integer                         :: ico
       real(kind=8)                    :: tfact
       real(kind=8)                    :: can_pvap
+      real(kind=8)                    :: can_psat
+      real(kind=8)                    :: can_vpdef
       real(kind=8)                    :: can_tdew
       real(kind=8)                    :: fm_depth8
       real(kind=8)                    :: fm_depthi8
@@ -952,9 +954,13 @@ module rk4_misc
       !----- Canopy air space relative humidity. ------------------------------------------!
       initp%rmean_can_rhv       = initp%rmean_can_rhv  + initp%can_rhv  * tfact
       !----- Canopy air space dewpoint temperature. ---------------------------------------!
-      can_pvap                  = initp%can_rhv * eslif8(initp%can_temp)
+      can_psat                  = eslif8(initp%can_temp)
+      can_pvap                  = initp%can_rhv * can_psat
       can_tdew                  = tslif8(can_pvap)
       initp%rmean_can_tdew      = initp%rmean_can_tdew + can_tdew       * tfact
+      !----- Canopy air space vapour pressure deficit. ------------------------------------!
+      can_vpdef                 = max(0.d0,can_psat - can_pvap)
+      initp%rmean_can_vpdef     = initp%rmean_can_vpdef + can_vpdef     * tfact
       !----- Average wind speed.  Integrate kinetic energy to get average wind. -----------!
       if (rk4aux(ibuff)%any_resolvable) then
          !----- At least one resolvable cohort. Set canopy wind based on the tallest one. -!
