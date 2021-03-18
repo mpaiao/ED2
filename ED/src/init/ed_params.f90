@@ -8828,7 +8828,11 @@ subroutine init_derived_params_after_xml()
    !     Find average extinction coefficient based on the orientation factor functions and !
    ! the average optical depth. (inverse of Equation S96 of L19 using cos Z = mu_bar).     !
    !---------------------------------------------------------------------------------------!
-   eproj_light(:) = sngloff( ( phi1(:) + phi2(:) * mu_bar(:) ) / mu_bar(:),tiny_num8)
+   do ipft=1,n_pft
+      eproj_light(ipft) = sngloff( ( phi1(ipft) + phi2(ipft) * mu_bar(ipft) )              &
+                                 / mu_bar(ipft)                                            &
+                                 , tiny_num8                                  )
+   end do
    !---------------------------------------------------------------------------------------!
 
 
