@@ -22295,7 +22295,7 @@ module ed_state_vars
          nvar=nvar+1
          call vtable_edio_r(npts,cpoly%fire_density                                        &
                            ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
-                           ,'FIRE_DENSITY :21:hist') 
+                           ,'FIRE_DENSITY :21:hist:dail') 
          call metadata_edio(nvar,igr,'Instantaneous fire count density','[1/m2]','(isi)')
       end if
 
@@ -22303,7 +22303,7 @@ module ed_state_vars
          nvar=nvar+1
          call vtable_edio_r(npts,cpoly%fire_extinction                                     &
                            ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
-                           ,'FIRE_EXTINCTION :21:hist') 
+                           ,'FIRE_EXTINCTION :21:hist:dail') 
          call metadata_edio(nvar,igr,'Instantaneous fire extinction rate','[1/day]','(isi)')
       end if
 
@@ -22311,7 +22311,7 @@ module ed_state_vars
          nvar=nvar+1
          call vtable_edio_r(npts,cpoly%fire_intensity                                      &
                            ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
-                           ,'FIRE_INTENSITY :21:hist') 
+                           ,'FIRE_INTENSITY :21:hist:dail') 
          call metadata_edio(nvar,igr,'Instantaneous fire intensity','[W/m]','(isi)')
       end if
 
@@ -22319,7 +22319,7 @@ module ed_state_vars
          nvar=nvar+1
          call vtable_edio_r(npts,cpoly%fire_tlethal                                        &
                            ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
-                           ,'FIRE_TLETHAL :21:hist') 
+                           ,'FIRE_TLETHAL :21:hist:dail') 
          call metadata_edio(nvar,igr,'Instantaneous duration of lethal heating'            &
                            ,'[s]','(isi)')
       end if
@@ -22328,7 +22328,7 @@ module ed_state_vars
          nvar=nvar+1
          call vtable_edio_r(npts,cpoly%fire_spread                                         &
                            ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
-                           ,'FIRE_SPREAD :21:hist') 
+                           ,'FIRE_SPREAD :21:hist:dail') 
          call metadata_edio(nvar,igr,'Instantaneous fire spread rate','[m/s]','(isi)')
       end if
 
@@ -22336,7 +22336,7 @@ module ed_state_vars
          nvar=nvar+1
          call vtable_edio_r(npts,cpoly%burnt_area                                          &
                            ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
-                           ,'BURNT_AREA :21:hist:mont:dcyc') 
+                           ,'BURNT_AREA :21:hist:dail:mont:dcyc') 
          call metadata_edio(nvar,igr,'Burnt area','[m2_burnt/m2]','(isi)')
       end if
 
@@ -22344,7 +22344,7 @@ module ed_state_vars
          nvar=nvar+1
          call vtable_edio_r(npts,cpoly%ignition_rate                                       &
                            ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
-                           ,'IGNITION_RATE :21:hist:mont:dcyc') 
+                           ,'IGNITION_RATE :21:hist:dail') 
          call metadata_edio(nvar,igr,'Ignition rate','[  1/m2/s]','(isi)') 
       end if
 
@@ -22352,7 +22352,7 @@ module ed_state_vars
          nvar=nvar+1
          call vtable_edio_r(npts,cpoly%fire_f_bherb                                        &
                            ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
-                           ,'FIRE_F_BHERB :21:hist:mont:dcyc') 
+                           ,'FIRE_F_BHERB :21:hist:dail') 
          call metadata_edio(nvar,igr                                                       &
                            ,'Combusted fraction of herbaceous fuels'                       &
                            ,'[   0-1]','NA')
@@ -22362,7 +22362,7 @@ module ed_state_vars
          nvar=nvar+1
          call vtable_edio_r(npts,cpoly%fire_f_bwoody                                       &
                            ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
-                           ,'FIRE_F_BWOODY :21:hist:mont:dcyc') 
+                           ,'FIRE_F_BWOODY :21:hist:dail') 
          call metadata_edio(nvar,igr                                                       &
                            ,'Combusted fraction of living woody fuels'                     &
                            ,'[   0-1]','NA')
@@ -22372,7 +22372,7 @@ module ed_state_vars
          nvar=nvar+1
          call vtable_edio_r(npts,cpoly%fire_f_fgc                                          &
                            ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
-                           ,'FIRE_F_FGC :21:hist:mont:dcyc') 
+                           ,'FIRE_F_FGC :21:hist:dail') 
          call metadata_edio(nvar,igr                                                       &
                            ,'Combusted fraction of fast carbon'                            &
                            ,'[   0-1]','NA')
@@ -22382,7 +22382,7 @@ module ed_state_vars
          nvar=nvar+1
          call vtable_edio_r(npts,cpoly%fire_f_stgc                                         &
                            ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
-                           ,'FIRE_F_STGC :21:hist:mont:dcyc') 
+                           ,'FIRE_F_STGC :21:hist:dail') 
          call metadata_edio(nvar,igr                                                       &
                            ,'Combusted fraction of structural carbon'                      &
                            ,'[   0-1]','NA')

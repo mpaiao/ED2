@@ -1970,8 +1970,8 @@ theme[[n]] = list( vnam      = c(        "gpp", "plant.resp",  "het.resp",      
                                 ,        "npp",        "nep")
                  , desc      = c(        "GPP","Plant resp.","Het. resp.","Ecos. Resp."
                                 ,        "NPP",        "NEP")
-                 , colour    = c(  "darkgreen",       "gold",   "purple3",  "orangered"
-                                ,"chartreuse3","dodgerblue3")
+                 , colour    = c(    "#009E73",    "#F0E442",   "#332288",    "#882255"
+                                ,    "#56B4E9",    "#0072B2")
                  , lwd       = c(          2.5,          2.5,         2.5,          2.5
                                 ,          2.5,          2.5)
                  , type      = "o"
@@ -1995,8 +1995,8 @@ theme[[n]] = list( vnam      = c(   "rshort",      "rlong","rshort.gnd",    "qwf
                                 ,   "hflxca")
                  , desc      = c(  "Down SW",    "Down LW", "Abs. Grnd",   "'Latent'"
                                 , "Sensible")
-                 , colour    = c("goldenrod","chartreuse4",   "purple4","dodgerblue3"
-                                ,"firebrick")
+                 , colour    = c(  "#E69F00",    "#56B4E9",   "#332288",    "#0072B2"
+                                ,  "#882255")
                  , lwd       = c(        2.5,          2.5,         2.5,          2.5
                                         ,2.5)
                  , type      = "o"
@@ -2020,8 +2020,8 @@ theme[[n]] = list( vnam      = c(        "wflxgc",         "wflxca",        "wfl
                                 ,        "wflxwc",         "transp")
                  , desc      = c("Ground->Canopy",    "Canopy->Atm",  "Leaf->Canopy"
                                 ,  "Wood->Canopy",  "Transpiration")
-                 , colour    = c(       "#3B24B3",        "#2996CC",       "#A3CC52"
-                                ,       "#990F0F",        "#306614")
+                 , colour    = c(       "#332288",        "#0072B2",       "#56B4E9"
+                                ,       "#882255",        "#009E73")
                  , lwd       = c(             2.5,              2.5,             2.5
                                 ,             2.5,              2.5)
                  , type      = "o"
@@ -2045,8 +2045,8 @@ theme[[n]] = list( vnam      = c(        "hflxgc",         "hflxca",        "hfl
                                 ,        "hflxwc")
                  , desc      = c("Ground->Canopy",    "Canopy->Atm",  "Leaf->Canopy"
                                 ,  "Wood->Canopy")
-                 , colour    = c(       "#3B24B3",        "#2996CC",       "#A3CC52"
-                                ,       "#990F0F")
+                 , colour    = c(       "#332288",        "#0072B2",       "#56B4E9"
+                                ,       "#882255",        "#009E73")
                  , lwd       = c(             2.5,              2.5,             2.5
                                 ,             2.5)
                  , type      = "o"
@@ -2070,8 +2070,8 @@ theme[[n]] = list( vnam      = c(     "atm.temp",  "can.temp",  "leaf.temp"
                                 ,    "wood.temp",  "gnd.temp")
                  , desc      = c(   "Atmosphere","Canopy air",       "Leaf"
                                 ,         "Wood",    "Ground")
-                 , colour    = c(  "deepskyblue",    "grey45","chartreuse4"
-                                ,"darkgoldenrod", "orangered")
+                 , colour    = c(      "#56B4E9",    "grey45",    "#009E73"
+                                ,      "#882255",   "#332288")
                  , lwd       = c(            2.5,         2.5,          2.5
                                 ,            2.5,         2.5)
                  , type      = "o"
@@ -2093,7 +2093,7 @@ theme[[n]] = list( vnam      = c(     "atm.temp",  "can.temp",  "leaf.temp"
 n          = n + 1
 theme[[n]] = list( vnam      = c(    "atm.shv",   "can.shv",      "gnd.shv")
                  , desc      = c( "Atmosphere","Canopy air",       "Ground")
-                 , colour    = c("deepskyblue", "slateblue","darkgoldenrod")
+                 , colour    = c(    "#56B4E9",   "#0072B2",      "#332288")
                  , lwd       = c(          2.5,         2.5,            2.5)
                  , type      = "o"
                  , plog      = FALSE
@@ -2114,7 +2114,7 @@ theme[[n]] = list( vnam      = c(    "atm.shv",   "can.shv",      "gnd.shv")
 n          = n + 1
 theme[[n]] = list( vnam      = c(    "atm.co2",    "can.co2")
                  , desc      = c( "Atmosphere", "Canopy air")
-                 , colour    = c("deepskyblue",  "slateblue")
+                 , colour    = c(    "#56B4E9",    "#0072B2")
                  , lwd       = c(2.5,2.5)
                  , type      = "o"
                  , plog      = FALSE
@@ -2135,7 +2135,7 @@ theme[[n]] = list( vnam      = c(    "atm.co2",    "can.co2")
 n          = n + 1
 theme[[n]] = list( vnam      = c(         "rain",      "runoff", "intercepted",   "wshed")
                  , desc      = c("Precipitation","Total runoff","Interception","Dripping")
-                 , colour    = c(   "royalblue4",   "orangered", "chartreuse4", "purple2")
+                 , colour    = c(      "#0072B2",     "#E69F00",     "#009E73", "#332288")
                  , lwd       = c(            2.5,           2.5,           2.5,       2.5)
                  , type      = "o"
                  , plog      = FALSE
@@ -2156,7 +2156,7 @@ theme[[n]] = list( vnam      = c(         "rain",      "runoff", "intercepted", 
 n          = n + 1
 theme[[n]] = list( vnam      = c("npat.global")
                  , desc      = c("Patch count")
-                 , colour    = c(  "orangered")
+                 , colour    = c(    "#D55E00")
                  , lwd       = c(          2.5)
                  , type      = "o"
                  , plog      = FALSE
@@ -2177,7 +2177,7 @@ theme[[n]] = list( vnam      = c("npat.global")
 n          = n + 1
 theme[[n]] = list( vnam      = c( "ncoh.global")
                  , desc      = c("Cohort count")
-                 , colour    = c( "chartreuse4")
+                 , colour    = c(     "#009E73")
                  , lwd       = c(           2.5)
                  , type      = "o"
                  , plog      = FALSE
@@ -2198,7 +2198,7 @@ theme[[n]] = list( vnam      = c( "ncoh.global")
 n          = n + 1
 theme[[n]] = list( vnam      = c(         "workload",                "specwork")
                  , desc      = c("RK4 steps (Total)","Avg. RK4 steps per patch")
-                 , colour    = c(          "purple3",             "chartreuse2")
+                 , colour    = c(          "#56B4E9",                 "#009E73")
                  , lwd       = c(                2.5,                       2.5)
                  , type      = "o"
                  , plog      = TRUE
@@ -2219,7 +2219,7 @@ theme[[n]] = list( vnam      = c(         "workload",                "specwork")
 n          = n + 1
 theme[[n]] = list( vnam      = c(                "rk4step")
                  , desc      = c("Thermodynamic time step")
-                 , colour    = c(            "deepskyblue")
+                 , colour    = c(                "#0072B2")
                  , lwd       = c(                      2.5)
                  , type      = "o"
                  , plog      = TRUE
@@ -2240,7 +2240,7 @@ theme[[n]] = list( vnam      = c(                "rk4step")
 n          = n + 1
 theme[[n]] = list( vnam      = c(     "root.resp",     "stem.resp",     "leaf.resp")
                  , desc      = c(          "Root",          "Stem",          "Leaf")
-                 , colour    = c(       "#DDCC77",       "#E69F00",       "#009E73")
+                 , colour    = c(       "#332288",       "#E69F00",       "#009E73")
                  , lwd       = c(             2.5,             2.5,             2.5)
                  , type      = "o"
                  , plog      = FALSE
@@ -2336,7 +2336,7 @@ theme[[n]] = list( vnam      = c(        "stsc.in",         "fsc.in"
 n          = n + 1
 theme[[n]] = list( vnam      = c(  "atm.vels",            "ustar")
                  , desc      = c("Wind speed","Friction velocity")
-                 , colour    = c("deepskyblue",       "slateblue")
+                 , colour    = c(   "#56B4E9",          "#332288")
                  , lwd       = c(          2.5,               2.5)
                  , type      = "o"
                  , plog      = FALSE
@@ -2388,8 +2388,8 @@ theme[[n]] = list( vnam      = c(       "crop.yield",     "crop.harvest"
                                 ,  "logging.harvest",   "combusted.fuel")
                  , desc      = c(     "Crop (Seeds)",     "Crop (Other)"
                                 ,  "Logging Harvest","Combusted Biomass")
-                 , colour    = c(      "chartreuse3",      "dodgerblue3"
-                                ,        "orangered",        "firebrick")
+                 , colour    = c(          "#009E73",          "#0072B2"
+                                ,          "#E69F00",          "#882255")
                  , lwd       = c(                2.5,                2.5
                                 ,                2.5,                2.5)
                  , type      = "o"
@@ -2411,7 +2411,7 @@ theme[[n]] = list( vnam      = c(       "crop.yield",     "crop.harvest"
 n          = n + 1
 theme[[n]] = list( vnam      = c(    "atm.vpd",    "can.vpd",   "leaf.vpd")
                  , desc      = c( "Atmosphere", "Canopy air",       "Leaf")
-                 , colour    = c("deepskyblue","dodgerblue4","chartreuse3")
+                 , colour    = c(    "#56B4E9",    "#0072B2",    "#009E73")
                  , lwd       = c(          2.5,          2.5,          2.5)
                  , type      = "o"
                  , plog      = FALSE
@@ -2432,7 +2432,7 @@ theme[[n]] = list( vnam      = c(    "atm.vpd",    "can.vpd",   "leaf.vpd")
 n          = n + 1
 theme[[n]] = list( vnam      = c(         "paw")
                  , desc      = c("Pot.Av.Water")
-                 , colour    = c(   "steelblue")
+                 , colour    = c(     "#0072B2")
                  , lwd       = c(           2.5)
                  , type      = "o"
                  , plog      = FALSE
@@ -2453,7 +2453,7 @@ theme[[n]] = list( vnam      = c(         "paw")
 n          = n + 1
 theme[[n]] = list( vnam      = c(         "smpot")
                  , desc      = c("Neg. Potential")
-                 , colour    = c(    "royalblue4")
+                 , colour    = c(       "#0072B2")
                  , lwd       = c(             2.5)
                  , type      = "o"
                  , plog      = FALSE
@@ -2474,7 +2474,7 @@ theme[[n]] = list( vnam      = c(         "smpot")
 n          = n + 1
 theme[[n]] = list( vnam      = c("water.deficit",      "malhi.deficit")
                  , desc      = c(       "ED-2.2","Malhi et al. (2009)")
-                 , colour    = c(    "orangered",               "gold")
+                 , colour    = c(      "#882255",            "#E69F00")
                  , lwd       = c(            2.5,                  2.5)
                  , type      = "o"
                  , plog      = FALSE
@@ -2495,7 +2495,7 @@ theme[[n]] = list( vnam      = c("water.deficit",      "malhi.deficit")
 n          = n + 1
 theme[[n]] = list( vnam      = c(        "nee",   "cflxca",     "cflxst")
                  , desc      = c(        "NEE", "CO2 Flux","CO2 Storage")
-                 , colour    = c("chartreuse4","steelblue",  "orangered")
+                 , colour    = c(    "#009E73",  "#56B4E9",    "#E69F00")
                  , lwd       = c(          2.5,        2.5,          2.5)
                  , type      = "o"
                  , plog      = FALSE
@@ -2518,8 +2518,8 @@ theme[[n]] = list( vnam      = c(         "rshort",  "rshort.beam","rshort.diff"
                                 ,     "rshort.gnd",     "rshortup")
                  , desc      = c("Down Top canopy",         "Beam",    "Diffuse"
                                 ,    "Abs. Ground","Up Top canopy")
-                 , colour    = c(    "deepskyblue","darkgoldenrod",     "grey45"
-                                ,      "firebrick",   "royalblue3")
+                 , colour    = c(        "#56B4E9",      "#E69F00",     "grey45"
+                                ,        "#882255",      "#0072B2")
                  , lwd       = c(              2.5,            2.5,          2.5
                                 ,              2.5,            2.5)
                  , type      = "o"
@@ -2541,7 +2541,7 @@ theme[[n]] = list( vnam      = c(         "rshort",  "rshort.beam","rshort.diff"
 n          = n + 1
 theme[[n]] = list( vnam      = c(          "rlong",  "rlongup",    "rlong.gnd")
                  , desc      = c("Down Top canopy","Upward LW",  "Abs. Ground")
-                 , colour    = c(    "deepskyblue","orangered","darkgoldenrod")
+                 , colour    = c(        "#56B4E9",  "#E69F00",      "#882255")
                  , lwd       = c(              2.5,        2.5,            2.5)
                  , type      = "o"
                  , plog      = FALSE
@@ -2562,7 +2562,7 @@ theme[[n]] = list( vnam      = c(          "rlong",  "rlongup",    "rlong.gnd")
 n          = n + 1
 theme[[n]] = list( vnam      = c(         "albedo", "albedo.par","albedo.nir")
                  , desc      = c("SW Albedo (Net)", "PAR Albedo","NIR Albedo")
-                 , colour    = c(    "deepskyblue","chartreuse3", "orangered")
+                 , colour    = c(        "#56B4E9",    "#009E73",   "#882255")
                  , lwd       = c(              2.5,          2.5,         2.5)
                  , type      = "o"
                  , plog      = FALSE
@@ -2585,8 +2585,8 @@ theme[[n]] = list( vnam      = c(        "par.tot",     "par.beam", "par.diff"
                                 ,        "par.gnd",        "parup")
                  , desc      = c("Down Top canopy",         "Beam",  "Diffuse"
                                 ,    "Abs. Ground","Up Top canopy")
-                 , colour    = c(    "deepskyblue",    "firebrick","slateblue"
-                                ,  "darkgoldenrod",  "chartreuse3")
+                 , colour    = c(        "#56B4E9",      "#882255",  "#332288"
+                                ,        "#E69F00",      "#009E73")
                  , lwd       = c(              2.5,            2.5,        2.5
                                 ,              2.5,            2.5)
                  , type      = "o"
@@ -2608,7 +2608,7 @@ theme[[n]] = list( vnam      = c(        "par.tot",     "par.beam", "par.diff"
 n          = n + 1
 theme[[n]] = list( vnam      = c(       "leaf.gsw",        "leaf.gbw",        "wood.gbw")
                  , desc      = c( "Leaf (Stomata)","Leaf (Bnd. Lyr.)","Wood (Bnd. Lyr.)")
-                 , colour    = c(    "chartreuse4",       "steelblue",          "sienna")
+                 , colour    = c(        "#009E73",         "#56B4E9",         "#882255")
                  , lwd       = c(              2.5,               2.5,               2.5)
                  , type      = "o"
                  , plog      = FALSE
@@ -2629,7 +2629,7 @@ theme[[n]] = list( vnam      = c(       "leaf.gsw",        "leaf.gbw",        "w
 n          = n + 1
 theme[[n]] = list( vnam      = c(                "vm0")
                  , desc      = c( "Max. Carboxylation")
-                 , colour    = c(         "dodgerblue")
+                 , colour    = c(            "#0072B2")
                  , lwd       = c(                  2.5)
                  , type      = "o"
                  , plog      = FALSE
@@ -2650,7 +2650,7 @@ theme[[n]] = list( vnam      = c(                "vm0")
 n          = n + 1
 theme[[n]] = list( vnam      = c(                "sla")
                  , desc      = c( "Specific leaf area")
-                 , colour    = c(        "forestgreen")
+                 , colour    = c(            "#009E73")
                  , lwd       = c(                  2.5)
                  , type      = "o"
                  , plog      = FALSE
@@ -2671,7 +2671,7 @@ theme[[n]] = list( vnam      = c(                "sla")
 n          = n + 1
 theme[[n]] = list( vnam      = c(         "llspan")
                  , desc      = c( "Leaf longevity")
-                 , colour    = c(        "purple2")
+                 , colour    = c(        "#332288")
                  , lwd       = c(              2.5)
                  , type      = "o"
                  , plog      = FALSE
@@ -2696,15 +2696,144 @@ theme[[n]] = list( vnam      = c(          "veg.height",           "can.depth"
                  , desc      = c(   "Vegetation height",        "Canopy depth"
                                 , "Displacement height","Vegetation Roughness"
                                 ,       "Net roughness")
-                 , colour    = c(         "deepskyblue",           "firebrick"
-                                ,           "slateblue",       "darkgoldenrod"
-                                ,         "chartreuse3")
+                 , colour    = c(             "#56B4E9",             "#882255"
+                                ,             "#332288",             "#E69F00"
+                                ,             "#009E73")
                  , lwd       = c(2.5,2.5,2.5,2.5,2.5)
                  , type      = "o"
                  , plog      = FALSE
                  , prefix    = "can.struct"
                  , title     = "Canopy structure"
                  , unit      = untab$m
+                 , legpos    = "topleft"
+                 , emean     = TRUE
+                 , mmean     = TRUE
+                 , qmean     = FALSE
+                 , ymean     = TRUE
+                 , stack     = FALSE
+                 , emean.lim = c(NA,NA)
+                 , mmean.lim = c(NA,NA)
+                 , qmean.lim = c(NA,NA)
+                 , ymean.lim = c(NA,NA)
+                 )#end list
+n          = n + 1
+theme[[n]] = list( vnam      = c(      "fire.intensity")
+                 , desc      = c(      "Fire intensity")
+                 , colour    = c(             "#882255")
+                 , lwd       = c(2.5)
+                 , type      = "o"
+                 , plog      = FALSE
+                 , prefix    = "fire.intensity"
+                 , title     = "Fire intensity"
+                 , unit      = untab$kwom
+                 , legpos    = "topleft"
+                 , emean     = TRUE
+                 , mmean     = TRUE
+                 , qmean     = FALSE
+                 , ymean     = TRUE
+                 , stack     = FALSE
+                 , emean.lim = c(NA,NA)
+                 , mmean.lim = c(NA,NA)
+                 , qmean.lim = c(NA,NA)
+                 , ymean.lim = c(NA,NA)
+                 )#end list
+n          = n + 1
+theme[[n]] = list( vnam      = c(      "fire.ignition")
+                 , desc      = c(      "Fire ignition")
+                 , colour    = c(            "#882255")
+                 , lwd       = c(2.5)
+                 , type      = "o"
+                 , plog      = FALSE
+                 , prefix    = "fire.ignition"
+                 , title     = "Fire ignition rate"
+                 , unit      = untab$oneokm2omo
+                 , legpos    = "topleft"
+                 , emean     = TRUE
+                 , mmean     = TRUE
+                 , qmean     = FALSE
+                 , ymean     = TRUE
+                 , stack     = FALSE
+                 , emean.lim = c(NA,NA)
+                 , mmean.lim = c(NA,NA)
+                 , qmean.lim = c(NA,NA)
+                 , ymean.lim = c(NA,NA)
+                 )#end list
+n          = n + 1
+theme[[n]] = list( vnam      = c(      "fire.extinction")
+                 , desc      = c(      "Fire extinction")
+                 , colour    = c(              "#0072B2")
+                 , lwd       = c(2.5)
+                 , type      = "o"
+                 , plog      = FALSE
+                 , prefix    = "fire.extinction"
+                 , title     = "Fire extinction rate"
+                 , unit      = untab$oneoday
+                 , legpos    = "topleft"
+                 , emean     = TRUE
+                 , mmean     = TRUE
+                 , qmean     = FALSE
+                 , ymean     = TRUE
+                 , stack     = FALSE
+                 , emean.lim = c(NA,NA)
+                 , mmean.lim = c(NA,NA)
+                 , qmean.lim = c(NA,NA)
+                 , ymean.lim = c(NA,NA)
+                 )#end list
+n          = n + 1
+theme[[n]] = list( vnam      = c(      "fire.spread")
+                 , desc      = c(      "Fire spread")
+                 , colour    = c(          "#332288")
+                 , lwd       = c(2.5)
+                 , type      = "o"
+                 , plog      = FALSE
+                 , prefix    = "fire.spread"
+                 , title     = "Fire spread rate"
+                 , unit      = untab$momin
+                 , legpos    = "topleft"
+                 , emean     = TRUE
+                 , mmean     = TRUE
+                 , qmean     = FALSE
+                 , ymean     = TRUE
+                 , stack     = FALSE
+                 , emean.lim = c(NA,NA)
+                 , mmean.lim = c(NA,NA)
+                 , qmean.lim = c(NA,NA)
+                 , ymean.lim = c(NA,NA)
+                 )#end list
+n          = n + 1
+theme[[n]] = list( vnam      = c(     "fire.f.bherb",    "fire.f.bwoody"
+                                ,       "fire.f.fgc",      "fire.f.stgc")
+                 , desc      = c(       "Herbaceous",     "Woody (live)"
+                                ,      "Fine litter","Structural litter")
+                 , colour    = c(          "#009E73",          "#E69F00"
+                                ,          "#56B4E9",          "#332288")
+                 , lwd       = c(2.5,2.5,2.5,2.5)
+                 , type      = "o"
+                 , plog      = FALSE
+                 , prefix    = "fire.consumption"
+                 , title     = "Relative fuel consumption"
+                 , unit      = untab$pc
+                 , legpos    = "topleft"
+                 , emean     = TRUE
+                 , mmean     = TRUE
+                 , qmean     = FALSE
+                 , ymean     = TRUE
+                 , stack     = FALSE
+                 , emean.lim = c(NA,NA)
+                 , mmean.lim = c(NA,NA)
+                 , qmean.lim = c(NA,NA)
+                 , ymean.lim = c(NA,NA)
+                 )#end list
+n          = n + 1
+theme[[n]] = list( vnam      = c(          "burnt.area")
+                 , desc      = c(          "Burnt area")
+                 , colour    = c(             "#D55E00")
+                 , lwd       = c(2.5)
+                 , type      = "o"
+                 , plog      = FALSE
+                 , prefix    = "burnt.area"
+                 , title     = "burnt.area"
+                 , unit      = untab$pc
                  , legpos    = "topleft"
                  , emean     = TRUE
                  , mmean     = TRUE

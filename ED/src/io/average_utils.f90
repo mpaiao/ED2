@@ -4152,7 +4152,8 @@ module average_utils
                               , patchtype    ! ! structure
       use ed_max_dims  , only : n_dbh        & ! intent(in)
                               , n_pft        ! ! intent(in)
-      use consts_coms  , only : yr_day       ! ! intent(in)
+      use consts_coms  , only : yr_day       & ! intent(in)
+                              , tiny_num     ! ! intent(in)
       use ed_misc_coms , only : current_time & ! intent(in)
                               , simtime      ! ! structure
       implicit none
@@ -4940,9 +4941,6 @@ module average_utils
             cpoly%mmean_fire_intensity (isi) = cpoly%mmean_fire_intensity (isi)            &
                                              + cpoly%fire_intensity       (isi)            &
                                              * ndaysi
-            cpoly%mmean_fire_tlethal   (isi) = cpoly%mmean_fire_tlethal   (isi)            &
-                                             + cpoly%fire_tlethal         (isi)            &
-                                             * ndaysi
             cpoly%mmean_fire_spread    (isi) = cpoly%mmean_fire_spread    (isi)            &
                                              + cpoly%fire_spread          (isi)            &
                                              * ndaysi
@@ -4952,8 +4950,8 @@ module average_utils
             cpoly%mmean_fire_f_bherb   (isi) = cpoly%mmean_fire_f_bherb   (isi)            &
                                              + cpoly%fire_f_bherb         (isi)            &
                                              * ndaysi
-            cpoly%mmean_fire_f_bwoody   (isi) = cpoly%mmean_fire_f_bwoody   (isi)            &
-                                             + cpoly%fire_f_bwoody         (isi)            &
+            cpoly%mmean_fire_f_bwoody  (isi) = cpoly%mmean_fire_f_bwoody   (isi)           &
+                                             + cpoly%fire_f_bwoody         (isi)           &
                                              * ndaysi
             cpoly%mmean_fire_f_fgc     (isi) = cpoly%mmean_fire_f_fgc     (isi)            &
                                              + cpoly%fire_f_fgc           (isi)            &
@@ -4961,6 +4959,19 @@ module average_utils
             cpoly%mmean_fire_f_stgc    (isi) = cpoly%mmean_fire_f_stgc    (isi)            &
                                              + cpoly%fire_f_stgc          (isi)            &
                                              * ndaysi
+            !------------------------------------------------------------------------------!
+
+
+
+            !------------------------------------------------------------------------------!
+            !       Integrate the inverse of lethal duration of fire, because the value    !
+            ! goes to infinity for no fires.                                               !
+            !------------------------------------------------------------------------------!
+            if (cpoly%fire_tlethal(isi) > tiny_num) then
+               cpoly%mmean_fire_tlethal (isi) = cpoly%mmean_fire_tlethal(isi)              &
+                                              + 1. / cpoly%fire_tlethal (isi)              &
+                                              * ndaysi
+            end if
             !------------------------------------------------------------------------------!
 
 
@@ -5764,6 +5775,7 @@ module average_utils
       use soil_coms            , only : tiny_sfcwater_mass & ! intent(in)
                                       , soil               ! ! intent(in)
       use consts_coms          , only : t00                & ! intent(in)
+                                      , tiny_num           & ! intent(in)
                                       , wdns               ! ! intent(in)
       implicit none
       !----- Arguments. -------------------------------------------------------------------!
@@ -5833,6 +5845,19 @@ module average_utils
             cpoly%mmean_atm_rhos(isi) = idealdenssh ( cpoly%mmean_atm_prss  (isi)          &
                                                     , cpoly%mmean_atm_temp  (isi)          &
                                                     , cpoly%mmean_atm_shv   (isi) )
+            !------------------------------------------------------------------------------!
+
+
+            !------------------------------------------------------------------------------!
+            !       We integrated the inverse of lethal duration of fire, because the      !
+            ! values go to infinity when there is no fire.  We now convert the integrated  !
+            ! value back to time units.                                                    !
+            !------------------------------------------------------------------------------!
+            if (cpoly%mmean_fire_tlethal(isi) > tiny_num) then
+               cpoly%mmean_fire_tlethal (isi) = 1. / cpoly%mmean_fire_tlethal(isi)
+            else
+               cpoly%mmean_fire_tlethal (isi) = 0.
+            end if
             !------------------------------------------------------------------------------!
 
 
@@ -5993,9 +6018,6 @@ module average_utils
             cgrid%mmean_fire_intensity (ipy) = cgrid%mmean_fire_intensity (ipy)            &
                                              + cpoly%mmean_fire_intensity (isi)            &
                                              * site_wgt
-            cgrid%mmean_fire_tlethal   (ipy) = cgrid%mmean_fire_tlethal   (ipy)            &
-                                             + cpoly%mmean_fire_tlethal   (isi)            &
-                                             * site_wgt
             cgrid%mmean_fire_spread    (ipy) = cgrid%mmean_fire_spread    (ipy)            &
                                              + cpoly%mmean_fire_spread    (isi)            &
                                              * site_wgt
@@ -6015,7 +6037,32 @@ module average_utils
                                              + cpoly%mmean_fire_f_stgc    (isi)            &
                                              * site_wgt
             !------------------------------------------------------------------------------!
+
+
+            !------------------------------------------------------------------------------!
+            !       Integrate the inverse of lethal duration of fire, because the values   !
+            ! go to infinity when there is no fire.  We convert it back to time outside    !
+            ! the loop.                                                                    !
+            !------------------------------------------------------------------------------!
+            if (cpoly%mmean_fire_tlethal(isi) > tiny_num) then
+               cgrid%mmean_fire_tlethal(ipy) = cgrid%mmean_fire_tlethal     (ipy)          &
+                                             + 1. / cpoly%mmean_fire_tlethal(isi)          &
+                                             * site_wgt
+            end if
+            !------------------------------------------------------------------------------!
          end do siteloop
+         !---------------------------------------------------------------------------------!
+
+
+
+         !---------------------------------------------------------------------------------!
+         !     Convert lethal time back to time units.                                     !
+         !---------------------------------------------------------------------------------!
+         if (cgrid%mmean_fire_tlethal(ipy) > tiny_num) then
+            cgrid%mmean_fire_tlethal(ipy) = 1. / cgrid%mmean_fire_tlethal(ipy)
+         else
+            cgrid%mmean_fire_tlethal(ipy) = 0.
+         end if
          !---------------------------------------------------------------------------------!
 
 

@@ -35,6 +35,7 @@ module fire
                                , wdnsi                  & ! intent(in)
                                , day_sec                & ! intent(in)
                                , almost_one             & ! intent(in)
+                               , tiny_num               & ! intent(in)
                                , lnexp_min              & ! intent(in)
                                , lnexp_max              ! ! intent(in)
       implicit none
@@ -357,6 +358,18 @@ module fire
                   cpoly%lambda_fire(imo,isi) = lnexp_max
                else
                   cpoly%lambda_fire(imo,isi) = log( 1.0 / ( 1.0 - cpoly%burnt_area(isi) ) )
+               end if
+               !---------------------------------------------------------------------------!
+
+
+               !---------------------------------------------------------------------------!
+               !     We have integrated the inverse of lethal heating duration. Here we    !
+               ! invert it so the values become intuitive for fire survivorship.           !
+               !---------------------------------------------------------------------------!
+               if (cpoly%avg_fire_tlethal(imo,isi) > tiny_num) then
+                  !----- Integrate monthly data before inverting. -------------------------!
+                  cpoly%avg_fire_tlethal(imo,isi) = 1. / cpoly%avg_fire_tlethal(imo,isi)
+                  !------------------------------------------------------------------------!
                end if
                !---------------------------------------------------------------------------!
 
@@ -2247,6 +2260,14 @@ module fire
                !---------------------------------------------------------------------------!
 
 
+               !---------------------------------------------------------------------------!
+               !       Lethal time is averaged using the inverse time, to account for      !
+               ! periods with no fires.                                                    !
+               !---------------------------------------------------------------------------!
+               if (fx_tlethal > tiny_num) then
+                  cpoly%fire_tlethal(isi) = cpoly%fire_tlethal(isi) + 0.5 / fx_tlethal
+               end if
+               !---------------------------------------------------------------------------!
 
 
                !---------------------------------------------------------------------------!
@@ -2280,13 +2301,10 @@ module fire
 
 
             !------------------------------------------------------------------------------!
-            !       Update the average fire intensity and lethal heating duration.         !
+            !       Update the average fire intensity and fire consumption.                !
             !------------------------------------------------------------------------------!
             cpoly%avg_fire_intensity(imonth,isi) = cpoly%avg_fire_intensity(imonth,isi)    &
                                                  + cpoly%fire_intensity           (isi)    &
-                                                 * ndaysi
-            cpoly%avg_fire_tlethal  (imonth,isi) = cpoly%avg_fire_tlethal  (imonth,isi)    &
-                                                 + cpoly%fire_tlethal             (isi)    &
                                                  * ndaysi
             cpoly%avg_fire_f_bherb  (imonth,isi) = cpoly%avg_fire_f_bherb  (imonth,isi)    &
                                                  + cpoly%fire_f_bherb             (isi)    &
@@ -2300,6 +2318,28 @@ module fire
             cpoly%avg_fire_f_stgc   (imonth,isi) = cpoly%avg_fire_f_stgc   (imonth,isi)    &
                                                  + cpoly%fire_f_stgc              (isi)    &
                                                  * ndaysi
+            !------------------------------------------------------------------------------!
+
+
+
+            !------------------------------------------------------------------------------!
+            !     Integrate lethal heating duration. We use the inverse so we account for  !
+            ! times with no fire (when time should go to infinity).  We correct the        !
+            ! averaged values at subroutine fire_frequency.  We fix the instantaneous      !
+            ! value here though.                                                           !
+            !------------------------------------------------------------------------------!
+            if (cpoly%fire_tlethal(isi) > tiny_num) then
+               !----- Integrate monthly data before inverting. ----------------------------!
+               cpoly%avg_fire_tlethal(imonth,isi) = cpoly%avg_fire_tlethal(imonth,isi)     &
+                                                  + cpoly%fire_tlethal           (isi)     &
+                                                  * ndaysi
+               !---------------------------------------------------------------------------!
+
+
+               !------ Invert instantaneous lethal heating duration. ----------------------!
+               cpoly%fire_tlethal(isi) = 1. / cpoly%fire_tlethal(isi)
+               !---------------------------------------------------------------------------!
+            end if
             !------------------------------------------------------------------------------!
 
 
