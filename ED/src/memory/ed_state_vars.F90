@@ -18670,7 +18670,7 @@ module ed_state_vars
       end if
       if (associated(cgrid%mmean_ignition_rate   )) then
          nvar = nvar+1
-         call vtable_edio_r(npts,cgrid%mmean_fire_spread                                   &
+         call vtable_edio_r(npts,cgrid%mmean_ignition_rate                                 &
                            ,nvar,igr,init,cgrid%pyglob_id,var_len,var_len_global,max_ptrs  &
                            ,'MMEAN_IGNITION_RATE_PY  :11:'//trim(eorq_keys))
          call metadata_edio(nvar,igr                                                       &
