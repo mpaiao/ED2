@@ -51,8 +51,7 @@ module vegetation_dynamics
       use fire                 , only : fire_frequency                & ! sub-routine
                                       , integ_fire_danger             & ! sub-routine
                                       , integ_emberfire               & ! sub-routine
-                                      , integ_firestarter             & ! sub-routine
-                                      , reset_daily_fire              ! ! sub-routine
+                                      , integ_firestarter             ! ! sub-routine
       use budget_utils         , only : ed_init_budget                ! ! sub-routine
       implicit none
       !----- Arguments. -------------------------------------------------------------------!
@@ -144,16 +143,6 @@ module vegetation_dynamics
 
             !----- Update the fire disturbance rates. -------------------------------------!
             call fire_frequency(cgrid)
-            !------------------------------------------------------------------------------!
-
-            !------------------------------------------------------------------------------!
-            !     Reset fire data for current month (only if running EMBERFIRE or          !
-            ! FIRESTARTER).                                                                !
-            !------------------------------------------------------------------------------!
-            select case (include_fire)
-            case (3,4)
-               call reset_daily_fire(cgrid)
-            end select
             !------------------------------------------------------------------------------!
          end if
          !---------------------------------------------------------------------------------!

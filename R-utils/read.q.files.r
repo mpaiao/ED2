@@ -577,16 +577,19 @@ read.q.files <<- function( datum
       emean$sfcw.depth      [m] =   mymont$MMEAN.SFCW.DEPTH.PY
       emean$sfcw.cover      [m] =   mymont$MMEAN.SNOWFAC.PY
       #----- Fire variables. --------------------------------------------------------------#
+      emean$fire.density    [m] =   mymont$MMEAN.FIRE.DENSITY.PY   * 1.e6
       emean$fire.intensity  [m] =   mymont$MMEAN.FIRE.INTENSITY.PY * 1.e-3
-      emean$fire.ignition   [m] =   mymont$MMEAN.FIRE.IGNITION.RATE.PY * 1.e6 * mondays
-      emean$fire.extinction [m] =   mymont$MMEAN.FIRE.EXTINCTION.PY
+      emean$fire.ignition   [m] =   mymont$MMEAN.IGNITION.RATE.PY * 1.e6 * mondays * day.sec
+      emean$fire.extinction [m] =   100. * (1. - exp(-mymont$MMEAN.FIRE.EXTINCTION.PY))
       emean$fire.spread     [m] =   mymont$MMEAN.FIRE.SPREAD.PY  * min.sec
       emean$fire.tlethal    [m] =   mymont$MMEAN.FIRE.TLETHAL.PY / min.sec
       emean$fire.f.bherb    [m] =   mymont$MMEAN.FIRE.F.BHERB.PY  * 100.
-      emean$fire.f.woody    [m] =   mymont$MMEAN.FIRE.F.BWOODY.PY * 100.
+      emean$fire.f.bwoody   [m] =   mymont$MMEAN.FIRE.F.BWOODY.PY * 100.
       emean$fire.f.fgc      [m] =   mymont$MMEAN.FIRE.F.FGC.PY    * 100.
       emean$fire.f.stgc     [m] =   mymont$MMEAN.FIRE.F.STGC.PY   * 100.
-      emean$burnt.area      [m] =   mymont$MMEAN.BURNT.AREA       * 100.
+      emean$burnt.area      [m] =   weighted.mean( x = mymont$BURNT.AREA * 100.
+                                                 , w = areasi
+                                                 )#end weigthed.mean
       #------------------------------------------------------------------------------------#
 
 

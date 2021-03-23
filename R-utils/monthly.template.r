@@ -177,13 +177,14 @@ create.monthly <<- function(ntimes,montha,yeara,inpref,slz.min){
    emean$crop.harvest            = rep(NA_real_,times=ntimes)
    emean$logging.harvest         = rep(NA_real_,times=ntimes)
    emean$combusted.fuel          = rep(NA_real_,times=ntimes)
+   emean$fire.density            = rep(NA_real_,times=ntimes)
    emean$fire.intensity          = rep(NA_real_,times=ntimes)
    emean$fire.ignition           = rep(NA_real_,times=ntimes)
    emean$fire.extinction         = rep(NA_real_,times=ntimes)
    emean$fire.spread             = rep(NA_real_,times=ntimes)
    emean$fire.tlethal            = rep(NA_real_,times=ntimes)
    emean$fire.f.bherb            = rep(NA_real_,times=ntimes)
-   emean$fire.f.woody            = rep(NA_real_,times=ntimes)
+   emean$fire.f.bwoody           = rep(NA_real_,times=ntimes)
    emean$fire.f.fgc              = rep(NA_real_,times=ntimes)
    emean$fire.f.stgc             = rep(NA_real_,times=ntimes)
    emean$burnt.area              = rep(NA_real_,times=ntimes)
@@ -1266,13 +1267,14 @@ update.monthly <<- function(new.ntimes,old.datum,montha,yeara,inpref,slz.min){
    new.datum$emean$crop.harvest      [idx ] = old.datum$emean$crop.harvest        [sel ]
    new.datum$emean$logging.harvest   [idx ] = old.datum$emean$logging.harvest     [sel ]
    new.datum$emean$combusted.fuel    [idx ] = old.datum$emean$combusted.fuel      [sel ]
+   new.datum$emean$fire.density      [idx ] = old.datum$emean$fire.density        [sel ]
    new.datum$emean$fire.intensity    [idx ] = old.datum$emean$fire.intensity      [sel ]
    new.datum$emean$fire.ignition     [idx ] = old.datum$emean$fire.ignition       [sel ]
    new.datum$emean$fire.extinction   [idx ] = old.datum$emean$fire.extinction     [sel ]
    new.datum$emean$fire.spread       [idx ] = old.datum$emean$fire.spread         [sel ]
    new.datum$emean$fire.tlethal      [idx ] = old.datum$emean$fire.tlethal        [sel ]
    new.datum$emean$fire.f.bherb      [idx ] = old.datum$emean$fire.f.bherb        [sel ]
-   new.datum$emean$fire.f.woody      [idx ] = old.datum$emean$fire.f.woody        [sel ]
+   new.datum$emean$fire.f.bwoody     [idx ] = old.datum$emean$fire.f.bwoody       [sel ]
    new.datum$emean$fire.f.fgc        [idx ] = old.datum$emean$fire.f.fgc          [sel ]
    new.datum$emean$fire.f.stgc       [idx ] = old.datum$emean$fire.f.stgc         [sel ]
    new.datum$emean$burnt.area        [idx ] = old.datum$emean$burnt.area          [sel ]

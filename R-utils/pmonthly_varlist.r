@@ -2738,6 +2738,27 @@ theme[[n]] = list( vnam      = c(      "fire.intensity")
                  , ymean.lim = c(NA,NA)
                  )#end list
 n          = n + 1
+theme[[n]] = list( vnam      = c(      "fire.density")
+                 , desc      = c("Fire count density")
+                 , colour    = c(           "#882255")
+                 , lwd       = c(2.5)
+                 , type      = "o"
+                 , plog      = FALSE
+                 , prefix    = "fire.density"
+                 , title     = "Fire count density"
+                 , unit      = untab$oneokm2
+                 , legpos    = "topleft"
+                 , emean     = TRUE
+                 , mmean     = TRUE
+                 , qmean     = FALSE
+                 , ymean     = TRUE
+                 , stack     = FALSE
+                 , emean.lim = c(NA,NA)
+                 , mmean.lim = c(NA,NA)
+                 , qmean.lim = c(NA,NA)
+                 , ymean.lim = c(NA,NA)
+                 )#end list
+n          = n + 1
 theme[[n]] = list( vnam      = c(      "fire.ignition")
                  , desc      = c(      "Fire ignition")
                  , colour    = c(            "#882255")
@@ -2759,15 +2780,15 @@ theme[[n]] = list( vnam      = c(      "fire.ignition")
                  , ymean.lim = c(NA,NA)
                  )#end list
 n          = n + 1
-theme[[n]] = list( vnam      = c(      "fire.extinction")
-                 , desc      = c(      "Fire extinction")
-                 , colour    = c(              "#0072B2")
+theme[[n]] = list( vnam      = c("fire.extinction")
+                 , desc      = c("Fire extinction")
+                 , colour    = c(        "#0072B2")
                  , lwd       = c(2.5)
                  , type      = "o"
                  , plog      = FALSE
                  , prefix    = "fire.extinction"
                  , title     = "Fire extinction rate"
-                 , unit      = untab$oneoday
+                 , unit      = untab$pcoday
                  , legpos    = "topleft"
                  , emean     = TRUE
                  , mmean     = TRUE
@@ -2832,7 +2853,7 @@ theme[[n]] = list( vnam      = c(          "burnt.area")
                  , type      = "o"
                  , plog      = FALSE
                  , prefix    = "burnt.area"
-                 , title     = "burnt.area"
+                 , title     = "Burnt area"
                  , unit      = untab$pc
                  , legpos    = "topleft"
                  , emean     = TRUE

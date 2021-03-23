@@ -370,6 +370,10 @@ module fire
                   !----- Integrate monthly data before inverting. -------------------------!
                   cpoly%avg_fire_tlethal(imo,isi) = 1. / cpoly%avg_fire_tlethal(imo,isi)
                   !------------------------------------------------------------------------!
+               else
+                  !----- No fires, set value to zero. -------------------------------------!
+                  cpoly%avg_fire_tlethal(imo,isi) = 0.
+                  !------------------------------------------------------------------------!
                end if
                !---------------------------------------------------------------------------!
 
@@ -1382,7 +1386,7 @@ module fire
       real              , external  :: bpow01         ! Power funct. for [0-1]    [    ---]
       !----- Local parameters. ------------------------------------------------------------!
       character(len=23) , parameter :: firefile = 'firestarter_details.txt'
-      logical           , parameter :: printout = .false.
+      logical           , parameter :: printout = .true.
       !----- Locally saved variables. -----------------------------------------------------!
       logical           , save      :: first_time = .true.
       !------------------------------------------------------------------------------------!

@@ -11,6 +11,7 @@ subroutine ed_coup_driver()
                                    , edgrid_g              ! ! subroutine
    use ed_init              , only : read_obstime          ! ! subroutine
    use ed_misc_coms         , only : fast_diagnostics      & ! intent(in)
+                                   , current_time          & ! intent(in)
                                    , iyeara                & ! intent(in)
                                    , imontha               & ! intent(in)
                                    , idatea                & ! intent(in)
@@ -47,6 +48,8 @@ subroutine ed_coup_driver()
    use budget_utils         , only : ed_init_budget        ! ! sub-routine
    use ed_type_init         , only : ed_init_viable        ! ! sub-routine
    use soil_respiration     , only : zero_litter_inputs    ! ! sub-routine
+   use disturb_coms         , only : include_fire          ! ! intent(in)
+   use fire                 , only : reset_daily_fire      ! ! sub-routine
 
    implicit none
    !----- Local variables. ----------------------------------------------------------------!
@@ -63,7 +66,9 @@ subroutine ed_coup_driver()
    integer                     :: jd2
    integer                     :: ierr
    integer                     :: igr
-   integer                     :: ping 
+   integer                     :: ping
+   logical                     :: new_day
+   logical                     :: new_month
    real                        :: wtime1
    real                        :: wtime2
    real                        :: wtime_start     ! wall time
@@ -350,13 +355,23 @@ subroutine ed_coup_driver()
          call ed_init_viable(edgrid_g(ifm))
       end do
    case ('HISTORY')
-      new_day         = current_time%time < dtlsm
+      new_day   = current_time%time < dtlsm
+      new_month = current_time%date == 1  .and. new_day
       do ifm=1,ngrids
          call flag_stable_cohorts(edgrid_g(ifm),.true.)
-         call ed_init_viable(edgrid_g(ifm))      
+         call ed_init_viable(edgrid_g(ifm))
+         !----- Reset litter pools if it is a new day. ------------------------------------!
          if (new_day) then
             call zero_litter_inputs(edgrid_g(ifm))
          end if
+         !----- Reset fire variables if this is a new month (EMBERFIRE/FIRESTARTER only). -!
+         if (new_month) then
+            select case (include_fire)
+            case (3,4)
+               call reset_daily_fire(edgrid_g(ifm))
+            end select
+         end if
+         !---------------------------------------------------------------------------------!
       end do
    end select
    !---------------------------------------------------------------------------------------!

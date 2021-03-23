@@ -186,8 +186,10 @@ subroutine ed_coup_model(ifm)
    use average_utils       , only : update_ed_yearly_vars       & ! sub-routine
                                   , integrate_ed_fmean_met_vars & ! sub-routine
                                   , zero_ed_fmean_vars          ! ! sub-routine
+   use disturb_coms        , only : include_fire                ! ! intent(in)
    use edio                , only : ed_output                   ! ! sub-routine
    use euler_driver        , only : euler_timestep              ! ! sub-routine
+   use fire                , only : reset_daily_fire            ! ! sub-routine
    use heun_driver         , only : heun_timestep               ! ! sub-routine
    use hybrid_driver       , only : hybrid_timestep             ! ! sub-routine
    use lsm_hyd             , only : updateHydroParms            & ! sub-routine
@@ -506,6 +508,21 @@ subroutine ed_coup_model(ifm)
          do ifm=1,ngrids
             call zero_litter_inputs(edgrid_g(ifm))
          end do
+      end if
+      !------------------------------------------------------------------------------------!
+
+
+      !------------------------------------------------------------------------------------!
+      !     Reset fire data for current month (only if running EMBERFIRE or                !
+      ! FIRESTARTER).                                                                      !
+      !------------------------------------------------------------------------------------!
+      if (new_month) then
+         select case (include_fire)
+         case (3,4)
+            do ifm=1,ngrids
+               call reset_daily_fire(cgrid)
+            end do
+         end select
       end if
       !------------------------------------------------------------------------------------!
 

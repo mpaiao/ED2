@@ -75,10 +75,12 @@ subroutine ed_model()
                                   , zero_ed_fmean_vars          & ! sub-routine
                                   , integrate_ed_fmean_met_vars & ! sub-routine
                                   , zero_ed_yearly_vars         ! ! sub-routine
+   use disturb_coms        , only : include_fire                ! ! intent(in)
    use edio                , only : ed_output                   ! ! sub-routine
    use ed_met_driver       , only : read_met_drivers            & ! sub-routine
                                   , update_met_drivers          ! ! sub-routine
    use euler_driver        , only : euler_timestep              ! ! sub-routine
+   use fire                , only : reset_daily_fire            ! ! sub-routine
    use heun_driver         , only : heun_timestep               ! ! sub-routine
    use hybrid_driver       , only : hybrid_timestep             ! ! sub-routine
    use lsm_hyd             , only : updateHydroParms            & ! sub-routine
@@ -249,6 +251,9 @@ subroutine ed_model()
    !     after writing the output so they are meaningful in the output.  Because history   !
    !     files are written before the inputs are reset, the inputs would be double-counted !
    !     in the second day of simulation.                                                  !
+   ! 4.  Fire variables (EMBERFIRE and FIRESTARTER only), in case the history file is at   !
+   !     midnight UTC at day 1 of any month (monthly time step).  The rationale is similar !
+   !     to the litter input, and resetting here avoids double counting burnt area.        !
    !---------------------------------------------------------------------------------------!
    select case (trim(runtype))
    case ('INITIAL')
@@ -257,13 +262,23 @@ subroutine ed_model()
          call ed_init_viable(edgrid_g(ifm))
       end do
    case ('HISTORY')
-      new_day         = current_time%time < dtlsm
+      new_day   = current_time%time < dtlsm
+      new_month = current_time%date == 1  .and. new_day
       do ifm=1,ngrids
          call flag_stable_cohorts(edgrid_g(ifm),.true.)
-         call ed_init_viable(edgrid_g(ifm))      
+         call ed_init_viable(edgrid_g(ifm))
+         !----- Reset litter pools if it is a new day. ------------------------------------!
          if (new_day) then
             call zero_litter_inputs(edgrid_g(ifm))
          end if
+         !----- Reset fire variables if this is a new month (EMBERFIRE/FIRESTARTER only). -!
+         if (new_month) then
+            select case (include_fire)
+            case (3,4)
+               call reset_daily_fire(edgrid_g(ifm))
+            end select
+         end if
+         !---------------------------------------------------------------------------------!
       end do
    end select
    !---------------------------------------------------------------------------------------!
@@ -597,6 +612,22 @@ subroutine ed_model()
          do ifm=1,ngrids
             call zero_litter_inputs(edgrid_g(ifm))
          end do
+      end if
+      !------------------------------------------------------------------------------------!
+
+
+
+      !------------------------------------------------------------------------------------!
+      !     Reset fire data for current month (only if running EMBERFIRE or                !
+      ! FIRESTARTER).                                                                      !
+      !------------------------------------------------------------------------------------!
+      if (new_month) then
+         select case (include_fire)
+         case (3,4)
+            do ifm=1,ngrids
+               call reset_daily_fire(edgrid_g(ifm))
+            end do
+         end select
       end if
       !------------------------------------------------------------------------------------!
 
