@@ -80,7 +80,8 @@ subroutine ed_model()
    use ed_met_driver       , only : read_met_drivers            & ! sub-routine
                                   , update_met_drivers          ! ! sub-routine
    use euler_driver        , only : euler_timestep              ! ! sub-routine
-   use fire                , only : reset_daily_fire            ! ! sub-routine
+   use fire                , only : reset_monthly_fire          & ! sub-routine
+                                  , reset_yearly_fire           ! ! sub-routine
    use heun_driver         , only : heun_timestep               ! ! sub-routine
    use hybrid_driver       , only : hybrid_timestep             ! ! sub-routine
    use lsm_hyd             , only : updateHydroParms            & ! sub-routine
@@ -264,6 +265,7 @@ subroutine ed_model()
    case ('HISTORY')
       new_day   = current_time%time < dtlsm
       new_month = current_time%date == 1  .and. new_day
+      new_year  = current_time%month == month_yrstep .and. new_month
       do ifm=1,ngrids
          call flag_stable_cohorts(edgrid_g(ifm),.true.)
          call ed_init_viable(edgrid_g(ifm))
@@ -271,13 +273,21 @@ subroutine ed_model()
          if (new_day) then
             call zero_litter_inputs(edgrid_g(ifm))
          end if
-         !----- Reset fire variables if this is a new month (EMBERFIRE/FIRESTARTER only). -!
-         if (new_month) then
-            select case (include_fire)
-            case (3,4)
-               call reset_daily_fire(edgrid_g(ifm))
-            end select
-         end if
+         !----- EMBERFIRE/FIRESTARTER check.  We may need to reset variables. -------------!
+         select case (include_fire)
+         case (3,4)
+            !----- Reset monthly fire variables if this is a new month. -------------------!
+            if (new_month) then
+               call reset_monthly_fire(edgrid_g(ifm))
+            end if
+            !------------------------------------------------------------------------------!
+
+            !----- Reset yearly fire variables if this is a new year. ---------------------!
+            if (new_year) then
+               call reset_yearly_fire(edgrid_g(ifm))
+            end if
+            !------------------------------------------------------------------------------!
+         end select
          !---------------------------------------------------------------------------------!
       end do
    end select
@@ -616,19 +626,28 @@ subroutine ed_model()
       !------------------------------------------------------------------------------------!
 
 
-
       !------------------------------------------------------------------------------------!
-      !     Reset fire data for current month (only if running EMBERFIRE or                !
-      ! FIRESTARTER).                                                                      !
+      !     Reset fire data for current month and current year (only if running EMBERFIRE  !
+      ! or FIRESTARTER).                                                                   !
       !------------------------------------------------------------------------------------!
-      if (new_month) then
-         select case (include_fire)
-         case (3,4)
+      select case (include_fire)
+      case (3,4)
+         !------ New month, reset monthly vectors/matrices. -------------------------------!
+         if (new_month) then
             do ifm=1,ngrids
-               call reset_daily_fire(edgrid_g(ifm))
+               call reset_monthly_fire(edgrid_g(ifm))
             end do
-         end select
-      end if
+         end if
+         !---------------------------------------------------------------------------------!
+
+         !------ New month, reset monthly vectors/matrices. -------------------------------!
+         if (new_year) then
+            do ifm=1,ngrids
+               call reset_yearly_fire(edgrid_g(ifm))
+            end do
+         end if
+         !---------------------------------------------------------------------------------!
+      end select
       !------------------------------------------------------------------------------------!
 
 

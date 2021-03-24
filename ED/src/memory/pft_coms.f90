@@ -499,6 +499,7 @@ module pft_coms
    ! damage (SPITFIRE).                                                                    !
    !---------------------------------------------------------------------------------------!
    real, dimension(n_pft) :: fscorch
+   real, dimension(n_pft) :: escorch
    real, dimension(n_pft) :: fx_rck_pft
    real, dimension(n_pft) :: fx_pck_pft
    !---------------------------------------------------------------------------------------!

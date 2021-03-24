@@ -377,7 +377,7 @@ module disturb_coms
    real(kind=4) :: fx_c1000_ds   ! 1000-hr fuel consump. factor: slope/dry     [       ---]
    real(kind=4) :: fx_c1000_mi   ! 1000-hr fuel consump. factor: inter./moist  [       ---]
    real(kind=4) :: fx_c1000_ms   ! 1000-hr fuel consump. factor: slope/moist   [       ---]
-   !----- Termination parameters. ---------------------------------------------------------!
+  !----- Termination parameters. ---------------------------------------------------------!
    real(kind=4) :: ft_fint_lwr   ! Lower bound for fire intensity              [       W/m]
    real(kind=4) :: ft_fint_upr   ! Upper bound for fire intensity              [       W/m]
    real(kind=4) :: ft_fint_exp   ! Exponent for fire intensity                 [       ---]

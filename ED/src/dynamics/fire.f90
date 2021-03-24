@@ -61,6 +61,7 @@ module fire
       real                           :: mean_gndwater_si
       real                           :: mean_fuel_si
       real                           :: lnexp
+      real                           :: fire_lethal_now
       !----- Local parameters. ------------------------------------------------------------!
       character(len=18) , parameter  :: firefile = 'edfire_details.txt'
       logical           , parameter  :: printout = .false.
@@ -342,37 +343,77 @@ module fire
                !---------------------------------------------------------------------------!
                cpoly%avg_monthly_accp(imo,isi) = 0.
                !---------------------------------------------------------------------------!
-
-
                !----- Loop over patches. --------------------------------------------------!
-               resetloop_4: do ipa=1,csite%npatches
+               patchloop_4: do ipa=1,csite%npatches
                   !----- Reset the ground water for next month. ---------------------------!
                   csite%avg_monthly_gndwater(ipa) = 0.
                   !------------------------------------------------------------------------!
-               end do resetloop_4
+               end do patchloop_4
                !---------------------------------------------------------------------------!
 
 
-               !----- Use burnt area to find disturbance rate. ----------------------------!
-               if (cpoly%burnt_area(isi) >= almost_one) then
-                  cpoly%lambda_fire(imo,isi) = lnexp_max
-               else
-                  cpoly%lambda_fire(imo,isi) = log( 1.0 / ( 1.0 - cpoly%burnt_area(isi) ) )
+
+               !---------------------------------------------------------------------------!
+               !     Find fire-related mortality rates for this month (needed only when    !
+               ! fires occurred).                                                          !
+               !---------------------------------------------------------------------------!
+               if (cpoly%avg_burnt_area(imo,isi) > tiny_num) then
+                  !----- Loop over patches. -----------------------------------------------!
+                  patchmort_4: do ipa=1,csite%npatches
+                     cpatch => csite%patch(ipa)
+
+                     !------ Loop over cohorts. -------------------------------------------!
+                     cohortmort_4: do ico=1,cpatch%ncohorts
+                        !------------------------------------------------------------------!
+                        !      Find the fire lethality rate for this month.  We do this by !
+                        ! calculating the     !
+                        !------------------------------------------------------------------!
+                        fire_lethal_now = cpatch%fire_lethal_rate(13,ico)                  &
+                                        / cpoly%avg_burnt_area(imo,isi)
+                        if (fire_lethal_now > almost_one) then
+                           cpatch%fire_lethal_rate(imo,ico) = lnexp_max
+                        else
+                           cpatch%fire_lethal_rate(imo,ico) = 12.                          &
+                                                            * log(1./(1.-fire_lethal_now))
+                           cpatch%fire_lethal_rate(imo,ico) =                              &
+                                         min( lnexp_max, cpatch%fire_lethal_rate(imo,ico) )
+                        end if
+                        !------------------------------------------------------------------!
+                     end do cohortmort_4
+                     !---------------------------------------------------------------------!
+                  end do patchmort_4
+                  !------------------------------------------------------------------------!
                end if
                !---------------------------------------------------------------------------!
 
 
+
+
                !---------------------------------------------------------------------------!
-               !     We have integrated the inverse of lethal heating duration. Here we    !
-               ! invert it so the values become intuitive for fire survivorship.           !
+               !     Use the ratio between burnt area and previously burnt area to define  !
+               ! the fire disturbance rate (so the average is conserved).                  !
                !---------------------------------------------------------------------------!
-               if (cpoly%avg_fire_tlethal(imo,isi) > tiny_num) then
-                  !----- Integrate monthly data before inverting. -------------------------!
-                  cpoly%avg_fire_tlethal(imo,isi) = 1. / cpoly%avg_fire_tlethal(imo,isi)
+               if (cpoly%avg_burnt_area(imo,isi) <= tiny_num) then
+                  !----- No fire (skip calculation to avoid singularity). -----------------!
+                  cpoly%lambda_fire(imo,isi) = 0.0
+                  !------------------------------------------------------------------------!
+               else if (cpoly%burnt_area(isi) >= almost_one) then
+                  !------------------------------------------------------------------------!
+                  !       The entire grid cell burned this month, assume maximum           !
+                  ! disturbance rate.                                                      !
+                  !------------------------------------------------------------------------!
+                  cpoly%lambda_fire(imo,isi) = lnexp_max
                   !------------------------------------------------------------------------!
                else
-                  !----- No fires, set value to zero. -------------------------------------!
-                  cpoly%avg_fire_tlethal(imo,isi) = 0.
+                  !------------------------------------------------------------------------!
+                  !      Compute the disturbance rate based on the new burnt area relative !
+                  ! to the area not previously burnt.                                      !
+                  !------------------------------------------------------------------------!
+                  cpoly%lambda_fire(imo,isi) = 12.                                         &
+                                             * log( ( 1. - cpoly%burnt_area(isi)           &
+                                                         + cpoly%avg_burnt_area(imo,isi) ) &
+                                                  / ( 1. - cpoly%burnt_area(isi) ) )
+                  cpoly%lambda_fire(imo,isi) = min(lnexp_max,cpoly%lambda_fire(imo,isi))
                   !------------------------------------------------------------------------!
                end if
                !---------------------------------------------------------------------------!
@@ -2230,11 +2271,28 @@ module fire
 
 
                !---------------------------------------------------------------------------!
-               !      Add burnt area from this step.                                       !
+               !      Add burnt area from this step, then calculate the mortality          !
+               ! associated with this time step.                                           !
                !---------------------------------------------------------------------------!
                if (cgrid%landfrac(ipy) > tiny_num) then
+                  !----- Integrate area. --------------------------------------------------!
                   cpoly%burnt_area(isi) = cpoly%burnt_area(isi)                            &
                                         + burnt_area_step / cgrid%landfrac(ipy)
+                  !------------------------------------------------------------------------!
+
+
+
+                  !----- Integrate monthly burnt area. ------------------------------------!
+                  cpoly%avg_burnt_area(imonth,isi) = cpoly%avg_burnt_area(imonth,isi)      &
+                                                   + burnt_area_step / cgrid%landfrac(ipy)
+                  !------------------------------------------------------------------------!
+
+
+
+                  !----- Integrate mortality. ---------------------------------------------!
+                  call integ_fire_lethality( cpoly,isi,fx_intensity,fx_tlethal             &
+                                           , burnt_area_step / cgrid%landfrac(ipy) )
+                  !------------------------------------------------------------------------!
                end if
                !---------------------------------------------------------------------------!
 
@@ -2333,15 +2391,12 @@ module fire
             ! value here though.                                                           !
             !------------------------------------------------------------------------------!
             if (cpoly%fire_tlethal(isi) > tiny_num) then
-               !----- Integrate monthly data before inverting. ----------------------------!
-               cpoly%avg_fire_tlethal(imonth,isi) = cpoly%avg_fire_tlethal(imonth,isi)     &
-                                                  + cpoly%fire_tlethal           (isi)     &
-                                                  * ndaysi
-               !---------------------------------------------------------------------------!
-
-
                !------ Invert instantaneous lethal heating duration. ----------------------!
                cpoly%fire_tlethal(isi) = 1. / cpoly%fire_tlethal(isi)
+               !---------------------------------------------------------------------------!
+            else
+               !------ No fire. -----------------------------------------------------------!
+               cpoly%fire_tlethal(isi) = 0.
                !---------------------------------------------------------------------------!
             end if
             !------------------------------------------------------------------------------!
@@ -2369,14 +2424,152 @@ module fire
 
    !=======================================================================================!
    !=======================================================================================!
-   !       Sub-routine that resets the fire-related variables when using fire models that  !
-   ! require daily or sub-daily integration.  Currently this applies to INCLUDE_FIRE = 3   !
-   ! (EMBERFIRE) or INCLUDE_FIRE = 4 (FIRESTARTER).                                        !
+   !     This subroutine integrates fire lethality (i.e., fire mortality given that there  !
+   ! was fire) when running FIRESTARTER.                                                   !
    !---------------------------------------------------------------------------------------!
-   subroutine reset_daily_fire(cgrid)
+   subroutine integ_fire_lethality(cpoly,isi,fx_intensity,fx_tlethal,burnt_area_step)
+      use disturb_coms , only : fx_tlc_slope  & ! intent(in)
+                              , fx_pmtau_di   & ! intent(in)
+                              , fx_pmtau_ds   ! ! intent(in)
+      use ed_state_vars, only : polygontype   & ! structure
+                              , sitetype      & ! structure
+                              , patchtype     ! ! structure
+      use ed_max_dims  , only : n_pft         & ! intent(in)
+                              , n_dist_types  ! ! intent(in)
+      use consts_coms  , only : lnexp_max     & ! intent(in)
+                              , tiny_num      & ! intent(in)
+                              , almost_one    ! ! intent(in)
+      use pft_coms     , only : escorch       & ! intent(in)
+                              , fscorch       & ! intent(in)
+                              , fx_rck_pft    & ! intent(in)
+                              , fx_pck_pft    ! ! intent(in)
+      use allometry    , only : h2crownbh     ! ! function
+      implicit none
+      !----- Arguments. -------------------------------------------------------------------!
+      type(polygontype), target      :: cpoly
+      integer          , intent(in)  :: isi
+      real             , intent(in)  :: fx_intensity
+      real             , intent(in)  :: fx_tlethal
+      real             , intent(in)  :: burnt_area_step
+      !----- Local variables. -------------------------------------------------------------!
+      type(sitetype)   , pointer     :: csite
+      type(patchtype)  , pointer     :: cpatch
+      integer                        :: ipa
+      integer                        :: ico
+      integer                        :: ipft
+      real                           :: scorch_height
+      real                           :: crown_damage
+      real                           :: pmtau
+      real                           :: pmck
+      real                           :: p_mort
+      real                           :: tlethal_crit
+      real                           :: chbase
+      real                           :: clength
+      !------------------------------------------------------------------------------------!
+
+
+      !------ Alias for current site. -----------------------------------------------------!
+      csite => cpoly%site(isi)
+      !------------------------------------------------------------------------------------!
+
+
+      !------------------------------------------------------------------------------------!
+      !     Loop through patches.                                                          !
+      !------------------------------------------------------------------------------------!
+      patch_loop: do ipa=1,csite%npatches
+         cpatch => csite%patch(ipa)
+
+         !---------------------------------------------------------------------------------!
+         !     Loop through cohorts.                                                       !
+         !---------------------------------------------------------------------------------!
+         cohort_loop: do ico=1,cpatch%ncohorts
+            !------ Handy aliases. --------------------------------------------------------!
+            ipft = cpatch%pft(ico)
+            !------------------------------------------------------------------------------!
+
+
+            !------ Scorch height [m]. ----------------------------------------------------!
+            scorch_height = fscorch(ipft) * fx_intensity ** escorch(ipft)
+            !------------------------------------------------------------------------------!
+
+
+            !------ Compute fire damage from scorch height relative to cohort height. -----!
+            chbase       = h2crownbh(cpatch%hite(ico),ipft)
+            clength      = cpatch%hite(ico) - chbase
+            crown_damage = ( scorch_height - chbase ) / clength
+            crown_damage = max( 0., crown_damage )
+            !------------------------------------------------------------------------------!
+
+
+            !------ Find critical duration of lethal heating. -----------------------------!
+            tlethal_crit = fx_tlc_slope * cpatch%thbark(ico) * cpatch%thbark(ico)
+            !------------------------------------------------------------------------------!
+
+
+            !------------------------------------------------------------------------------!
+            !      Find the mortality probability due to cambial damage.  Check the        !
+            ! critical fire duration to avoid singularities.                               !
+            !------------------------------------------------------------------------------!
+            if ( tlethal_crit > tiny_num ) then
+               !------ Find the tl:tc ratio. ----------------------------------------------!
+               pmtau = fx_pmtau_di + fx_pmtau_ds * fx_tlethal / tlethal_crit
+               pmtau = max(0.,min(1., pmtau))
+               !---------------------------------------------------------------------------!
+            else if (fx_intensity > tiny_num) then
+               !------ Critical duration is zero, assume maximum mortality. ---------------!
+               pmtau = 1.0
+               !---------------------------------------------------------------------------!
+            else
+               !------ No fire, no fire mortality... --------------------------------------!
+               pmtau = 0.0
+               !---------------------------------------------------------------------------!
+            end if
+            !------------------------------------------------------------------------------!
+
+
+            !------ Find the mortality probability due to crown damage. -------------------!
+            pmck = fx_rck_pft(ipft) * crown_damage ** fx_pck_pft(ipft)
+            pmck = max(0.,min(1.,pmck))
+            !------------------------------------------------------------------------------!
+
+
+            !------ Find the probability of mortality. ------------------------------------!
+            p_mort = max(0.,min(1.,pmtau + pmck - pmtau * pmck))
+            !------------------------------------------------------------------------------!
+
+
+            !------ Integrate lethality probability due to fire. --------------------------!
+            cpatch%fire_lethal_rate(13,ico) = cpatch%fire_lethal_rate(13,ico)              &
+                                            + p_mort * burnt_area_step
+            cpatch%fire_lethal_prob   (ico) = cpatch%fire_lethal_prob   (ico)              &
+                                            + p_mort * burnt_area_step
+            !------------------------------------------------------------------------------!
+         end do cohort_loop
+         !---------------------------------------------------------------------------------!
+      end do patch_loop
+      !------------------------------------------------------------------------------------!
+
+      return
+   end subroutine integ_fire_lethality
+   !=======================================================================================!
+   !=======================================================================================!
+
+
+
+
+
+
+   !=======================================================================================!
+   !=======================================================================================!
+   !       Sub-routine that resets the monthly fire-related variables when using fire      !
+   ! models that require daily or sub-daily integration.  Currently this applies to        !
+   ! INCLUDE_FIRE = 3 (EMBERFIRE) or INCLUDE_FIRE = 4 (FIRESTARTER).                       !
+   !---------------------------------------------------------------------------------------!
+   subroutine reset_monthly_fire(cgrid)
       use ed_state_vars , only : edtype                 & ! structure
                                , polygontype            & ! structure
-                               , sitetype               ! ! structure
+                               , sitetype               & ! structure
+                               , patchtype              ! ! structure
       use ed_misc_coms  , only : current_time           ! ! intent(in)
       implicit none
       !----- Arguments --------------------------------------------------------------------!
@@ -2384,9 +2577,11 @@ module fire
       !----- Local variables --------------------------------------------------------------!
       type(polygontype) , pointer    :: cpoly
       type(sitetype)    , pointer    :: csite
+      type(patchtype)   , pointer    :: cpatch
       integer                        :: ipy
       integer                        :: isi
       integer                        :: ipa
+      integer                        :: ico
       integer                        :: imo
       !------------------------------------------------------------------------------------!
 
@@ -2408,27 +2603,29 @@ module fire
 
             !---- Loop over all sites. ----------------------------------------------------!
             patchloop: do ipa=1,csite%npatches
+               cpatch => csite%patch(ipa)
+
+
                !----- Reset the ground water for next month. ------------------------------!
                csite%avg_monthly_gndwater(ipa) = 0.
                !---------------------------------------------------------------------------!
-            end do patchloop
-            !------------------------------------------------------------------------------!
 
-            !----- Reset fire disturbance rates. ------------------------------------------!
-            cpoly%lambda_fire       (imo,isi) = 0.0
-            cpoly%avg_fire_intensity(imo,isi) = 0.0
-            cpoly%avg_fire_tlethal  (imo,isi) = 0.0
-            cpoly%avg_fire_f_bherb  (imo,isi) = 0.0
-            cpoly%avg_fire_f_bwoody (imo,isi) = 0.0
-            cpoly%avg_fire_f_fgc    (imo,isi) = 0.0
-            cpoly%avg_fire_f_stgc   (imo,isi) = 0.0
+
+
+               !---------------------------------------------------------------------------!
+               !     Reset fire lethality by month.                                        !
+               !---------------------------------------------------------------------------!
+               cohortloop: do ico=1,cpatch%ncohorts
+                  cpatch%fire_lethal_rate(13,ico) = 0.0
+               end do cohortloop
+               !---------------------------------------------------------------------------!
+            end do patchloop
             !------------------------------------------------------------------------------!
 
 
             !------ Resetting these variables just to play it safe. -----------------------!
             cpoly%fire_intensity         (isi) = 0.0
             cpoly%fire_spread            (isi) = 0.0
-            cpoly%burnt_area             (isi) = 0.0
             cpoly%ignition_rate          (isi) = 0.0
             !------------------------------------------------------------------------------!
          end do siteloop
@@ -2438,10 +2635,87 @@ module fire
 
 
       return
-   end subroutine reset_daily_fire
+   end subroutine reset_monthly_fire
    !=======================================================================================!
    !=======================================================================================!
 
+
+
+
+
+
+
+   !=======================================================================================!
+   !=======================================================================================!
+   !       Sub-routine that resets the monthly fire-related variables when using fire      !
+   ! models that require daily or sub-daily integration.  Currently this applies to        !
+   ! INCLUDE_FIRE = 3 (EMBERFIRE) or INCLUDE_FIRE = 4 (FIRESTARTER).                       !
+   !---------------------------------------------------------------------------------------!
+   subroutine reset_yearly_fire(cgrid)
+      use ed_state_vars , only : edtype                 & ! structure
+                               , polygontype            & ! structure
+                               , sitetype               & ! structure
+                               , patchtype              ! ! structure
+      implicit none
+      !----- Arguments --------------------------------------------------------------------!
+      type(edtype)      , target     :: cgrid
+      !----- Local variables --------------------------------------------------------------!
+      type(polygontype) , pointer    :: cpoly
+      type(sitetype)    , pointer    :: csite
+      type(patchtype)   , pointer    :: cpatch
+      integer                        :: ipy
+      integer                        :: isi
+      integer                        :: ipa
+      integer                        :: ico
+      !------------------------------------------------------------------------------------!
+
+
+      !----- Loop over polygons and sites. ------------------------------------------------!
+      polyloop: do ipy = 1,cgrid%npolygons
+         cpoly => cgrid%polygon(ipy)
+
+         !---- Loop over all sites. -------------------------------------------------------!
+         siteloop: do isi = 1,cpoly%nsites
+            csite => cpoly%site(isi)
+
+            !----- Reset burnt area. ------------------------------------------------------!
+            cpoly%burnt_area(isi) = 0.0
+            !------------------------------------------------------------------------------!
+
+
+
+            !----- Reset fire disturbance rates. ------------------------------------------!
+            cpoly%lambda_fire       (:,isi) = 0.0
+            cpoly%avg_burnt_area    (:,isi) = 0.0
+            cpoly%avg_fire_intensity(:,isi) = 0.0
+            cpoly%avg_fire_f_bherb  (:,isi) = 0.0
+            cpoly%avg_fire_f_bwoody (:,isi) = 0.0
+            cpoly%avg_fire_f_fgc    (:,isi) = 0.0
+            cpoly%avg_fire_f_stgc   (:,isi) = 0.0
+            !------------------------------------------------------------------------------!
+
+
+            !---- Loop over all patches. --------------------------------------------------!
+            patchloop: do ipa=1,csite%npatches
+               cpatch => csite%patch(ipa)
+               !----- Loop over all cohorts. ----------------------------------------------!
+               cohortloop: do ico=1,cpatch%ncohorts
+                  cpatch%fire_lethal_prob  (ico) = 0.0
+                  cpatch%fire_lethal_rate(:,ico) = 0.0
+               end do cohortloop
+               !---------------------------------------------------------------------------!
+            end do patchloop
+            !------------------------------------------------------------------------------!
+         end do siteloop
+         !---------------------------------------------------------------------------------!
+      end do polyloop
+      !------------------------------------------------------------------------------------!
+
+
+      return
+   end subroutine reset_yearly_fire
+   !=======================================================================================!
+   !=======================================================================================!
 
 
 

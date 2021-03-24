@@ -568,6 +568,19 @@ tspftdbh[[n]]     = list( vnam     = "dimort"
                         , scsout   = TRUE
                         )#end list
 n                 = n + 1
+tspftdbh[[n]]     = list( vnam     = "fire.lethal"
+                        , desc     = "Fire lethality rate"
+                        , e.unit   = untab$pcpopoyr
+                        , i.unit   = untab$pcpopoyr
+                        , plog     = FALSE
+                        , pft      = TRUE
+                        , pftdbh   = TRUE
+                        , sas      = FALSE
+                        , bar.plot = FALSE
+                        , stack    = FALSE
+                        , scsout   = TRUE
+                        )#end list
+n                 = n + 1
 tspftdbh[[n]]     = list( vnam     = "recr"
                         , desc     = "Recruitment rate"
                         , e.unit   = untab$pcpopoyr

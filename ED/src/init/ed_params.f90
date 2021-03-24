@@ -5013,6 +5013,7 @@ subroutine init_pft_mort_params()
                              , fire_s_inter               & ! intent(out)
                              , fire_s_slope               & ! intent(out)
                              , alpha_fdivpd               & ! intent(out)
+                             , escorch                    & ! intent(out)
                              , fscorch                    & ! intent(out)
                              , fx_rck_pft                 & ! intent(out)
                              , fx_pck_pft                 & ! intent(out)
@@ -5456,8 +5457,8 @@ subroutine init_pft_mort_params()
 
 
    !---------------------------------------------------------------------------------------!
-   !    Scorch height parameter.  This parameter will be used to define the scorch height  !
-   ! from fire line intensity.  Values are assumed the same as (T10).                      !
+   !    Scorch height parameters.  These parameters will be used to define the scorch      !
+   ! height from fire line intensity.  Values are assumed the same as (T10).               !
    !                                                                                       !
    ! References:                                                                           !
    !                                                                                       !
@@ -5467,6 +5468,7 @@ subroutine init_pft_mort_params()
    !    trace gas emissions: results from a process-based model. Biogeosciences, 7:        !
    !    1991-2011. doi:10.5194/bg-7-1991-2010 (T10).                                       !
    !---------------------------------------------------------------------------------------!
+   escorch(:) = twothirds
    fscorch(:) = merge( 0.10                                                                &
                      , merge( merge( 0.1                                                   &
                                    , merge( 0.061, 0.1487, is_savannah(:) )                &
@@ -5474,6 +5476,8 @@ subroutine init_pft_mort_params()
                             , merge( 0.1, 0.094, is_conifer(:) )                           &
                             , is_tropical (:) )                                            &
                      , is_grass (:)                                                       )
+   !----- T10 model uses MW/m, whereas ED2 uses W/m.  Correct scorch height accordingly. --!
+   fscorch(:) = fscorch(:) * 0.001 ** escorch(:)
    !---------------------------------------------------------------------------------------!
 
 

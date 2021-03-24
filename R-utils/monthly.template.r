@@ -463,6 +463,7 @@ create.monthly <<- function(ntimes,montha,yeara,inpref,slz.min){
    emean$acc.hydmort             = rep(NA_real_,times=ntimes)
    emean$acc.dimort              = rep(NA_real_,times=ntimes)
    emean$acc.recr                = rep(NA_real_,times=ntimes)
+   emean$fire.lethal             = rep(NA_real_,times=ntimes)
    emean$last.1yr.change         = rep(NA_real_,times=ntimes)
    emean$last.2yr.change         = rep(NA_real_,times=ntimes)
    emean$last.3yr.change         = rep(NA_real_,times=ntimes)
@@ -610,6 +611,7 @@ create.monthly <<- function(ntimes,montha,yeara,inpref,slz.min){
    szpft$dimort            = array(data=NA_real_,dim=c(ntimes,ndbh+1,npft+1))
    szpft$ncbmort           = array(data=NA_real_,dim=c(ntimes,ndbh+1,npft+1))
    szpft$hydmort           = array(data=NA_real_,dim=c(ntimes,ndbh+1,npft+1))
+   szpft$fire.lethal       = array(data=NA_real_,dim=c(ntimes,ndbh+1,npft+1))
    szpft$growth            = array(data=NA_real_,dim=c(ntimes,ndbh+1,npft+1))
    szpft$recr              = array(data=NA_real_,dim=c(ntimes,ndbh+1,npft+1))
    szpft$change            = array(data=NA_real_,dim=c(ntimes,ndbh+1,npft+1))
@@ -998,6 +1000,7 @@ create.monthly <<- function(ntimes,montha,yeara,inpref,slz.min){
    patch$ncbmort          = list()
    patch$hydmort          = list()
    patch$dimort           = list()
+   patch$fire.lethal      = list()
    patch$agb.mort         = list()
    patch$agb.ncbmort      = list()
    patch$agb.hydmort      = list()
@@ -1164,6 +1167,7 @@ create.monthly <<- function(ntimes,montha,yeara,inpref,slz.min){
    cohort$dimort         = list()
    cohort$ncbmort        = list()
    cohort$hydmort        = list()
+   cohort$fire.lethal    = list()
    cohort$recruit        = list()
    cohort$growth         = list()
    cohort$agb.growth     = list()
@@ -1547,6 +1551,7 @@ update.monthly <<- function(new.ntimes,old.datum,montha,yeara,inpref,slz.min){
    new.datum$emean$last.1yr.hydmort  [idx ] = old.datum$emean$last.1yr.hydmort    [sel ]
    new.datum$emean$last.2yr.hydmort  [idx ] = old.datum$emean$last.2yr.hydmort    [sel ]
    new.datum$emean$last.3yr.hydmort  [idx ] = old.datum$emean$last.3yr.hydmort    [sel ]
+   new.datum$emean$fire.lethal       [idx ] = old.datum$emean$fire.lethal         [sel ]
    new.datum$emean$agb.change        [idx ] = old.datum$emean$agb.change          [sel ]
    new.datum$emean$acc.change        [idx ] = old.datum$emean$acc.change          [sel ]
    new.datum$emean$acc.growth        [idx ] = old.datum$emean$acc.growth          [sel ]
@@ -1658,6 +1663,7 @@ update.monthly <<- function(new.ntimes,old.datum,montha,yeara,inpref,slz.min){
    new.datum$szpft$dimort         [idx,,] = old.datum$szpft$dimort          [sel,,]
    new.datum$szpft$ncbmort        [idx,,] = old.datum$szpft$ncbmort         [sel,,]
    new.datum$szpft$hydmort        [idx,,] = old.datum$szpft$hydmort         [sel,,]
+   new.datum$szpft$fire.lethal    [idx,,] = old.datum$szpft$fire.lethal     [sel,,]
    new.datum$szpft$growth         [idx,,] = old.datum$szpft$growth          [sel,,]
    new.datum$szpft$recr           [idx,,] = old.datum$szpft$recr            [sel,,]
    new.datum$szpft$change         [idx,,] = old.datum$szpft$change          [sel,,]
@@ -2055,6 +2061,7 @@ update.monthly <<- function(new.ntimes,old.datum,montha,yeara,inpref,slz.min){
    new.datum$patch$ncbmort          = old.datum$patch$ncbmort
    new.datum$patch$hydmort          = old.datum$patch$hydmort
    new.datum$patch$dimort           = old.datum$patch$dimort
+   new.datum$patch$fire.lethal      = old.datum$patch$fire.lethal
    new.datum$patch$agb.mort         = old.datum$patch$agb.mort
    new.datum$patch$agb.ncbmort      = old.datum$patch$agb.ncbmort
    new.datum$patch$agb.hydmort      = old.datum$patch$agb.hydmort
@@ -2217,6 +2224,7 @@ update.monthly <<- function(new.ntimes,old.datum,montha,yeara,inpref,slz.min){
    new.datum$cohort$dimort           = old.datum$cohort$dimort
    new.datum$cohort$ncbmort          = old.datum$cohort$ncbmort
    new.datum$cohort$hydmort          = old.datum$cohort$hydmort
+   new.datum$cohort$fire.lethal      = old.datum$cohort$fire.lethal
    new.datum$cohort$recruit          = old.datum$cohort$recruit
    new.datum$cohort$growth           = old.datum$cohort$growth
    new.datum$cohort$agb.growth       = old.datum$cohort$agb.growth

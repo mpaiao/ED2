@@ -189,7 +189,8 @@ subroutine ed_coup_model(ifm)
    use disturb_coms        , only : include_fire                ! ! intent(in)
    use edio                , only : ed_output                   ! ! sub-routine
    use euler_driver        , only : euler_timestep              ! ! sub-routine
-   use fire                , only : reset_daily_fire            ! ! sub-routine
+   use fire                , only : reset_monthly_fire          & ! sub-routine
+                                  , reset_yearly_fire           ! ! sub-routine
    use heun_driver         , only : heun_timestep               ! ! sub-routine
    use hybrid_driver       , only : hybrid_timestep             ! ! sub-routine
    use lsm_hyd             , only : updateHydroParms            & ! sub-routine
@@ -513,17 +514,27 @@ subroutine ed_coup_model(ifm)
 
 
       !------------------------------------------------------------------------------------!
-      !     Reset fire data for current month (only if running EMBERFIRE or                !
-      ! FIRESTARTER).                                                                      !
+      !     Reset fire data for current month and current year (only if running EMBERFIRE  !
+      ! or FIRESTARTER).                                                                   !
       !------------------------------------------------------------------------------------!
-      if (new_month) then
-         select case (include_fire)
-         case (3,4)
+      select case (include_fire)
+      case (3,4)
+         !------ New month, reset monthly vectors/matrices. -------------------------------!
+         if (new_month) then
             do ifm=1,ngrids
-               call reset_daily_fire(cgrid)
+               call reset_monthly_fire(edgrid_g(ifm))
             end do
-         end select
-      end if
+         end if
+         !---------------------------------------------------------------------------------!
+
+         !------ New month, reset monthly vectors/matrices. -------------------------------!
+         if (new_year) then
+            do ifm=1,ngrids
+               call reset_yearly_fire(edgrid_g(ifm))
+            end do
+         end if
+         !---------------------------------------------------------------------------------!
+      end select
       !------------------------------------------------------------------------------------!
 
 

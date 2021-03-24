@@ -1613,6 +1613,17 @@ read.q.files <<- function( datum
          #---------------------------------------------------------------------------------#
 
 
+
+
+         #---------------------------------------------------------------------------------#
+         #      Find fire lethality rate.                                                  #
+         #---------------------------------------------------------------------------------#
+         fire.lethalconow   = mymont$MMEAN.FIRE.LETHAL.CO
+         #---------------------------------------------------------------------------------#
+
+
+
+
          #------ Find the AGB and basal area of the previous month. -----------------------#
          agbcolmon        = agbconow * exp(-agb.growthconow/12.)
          bacolmon         = baconow  * exp(-bsa.growthconow/12.)
@@ -1842,6 +1853,7 @@ read.q.files <<- function( datum
          ncbmortconow        = NA_real_
          hydmortconow        = NA_real_
          dimortconow         = NA_real_
+         fire.lethalconow    = NA_real_
          recruitconow        = NA_real_
          growthconow         = NA_real_
          agb.growthconow     = NA_real_
@@ -1998,92 +2010,93 @@ read.q.files <<- function( datum
       #------------------------------------------------------------------------------------#
       #     Initialise patch-level properties that are derived from cohort-level.          #
       #------------------------------------------------------------------------------------#
-      patch$lai           [[plab]] = rep(0.      ,times=mymont$NPATCHES.GLOBAL)
-      patch$wai           [[plab]] = rep(0.      ,times=mymont$NPATCHES.GLOBAL)
-      patch$agb           [[plab]] = rep(0.      ,times=mymont$NPATCHES.GLOBAL)
-      patch$ba            [[plab]] = rep(0.      ,times=mymont$NPATCHES.GLOBAL)
-      patch$nplant        [[plab]] = rep(0.      ,times=mymont$NPATCHES.GLOBAL)
-      patch$wood.dens     [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
-      patch$vm0           [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
-      patch$llspan        [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
-      patch$sla           [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
-      patch$can.depth     [[plab]] = rep(0.      ,times=mymont$NPATCHES.GLOBAL)
-      patch$can.area      [[plab]] = rep(0.      ,times=mymont$NPATCHES.GLOBAL)
-      patch$sm.stress     [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
-      patch$leaf.temp     [[plab]] = mymont$MMEAN.CAN.TEMP.PA  - t00
-      patch$leaf.water    [[plab]] = rep(0.      ,times=mymont$NPATCHES.GLOBAL)
-      patch$leaf.water.im2[[plab]] = rep(0.      ,times=mymont$NPATCHES.GLOBAL)
-      patch$leaf.vpd      [[plab]] = mymont$MMEAN.CAN.VPDEF.PA * 0.01
-      patch$wood.temp     [[plab]] = mymont$MMEAN.CAN.TEMP.PA  - t00
-      patch$par.leaf      [[plab]] = rep(0.      ,times=mymont$NPATCHES.GLOBAL)
-      patch$par.leaf.beam [[plab]] = rep(0.      ,times=mymont$NPATCHES.GLOBAL)
-      patch$par.leaf.diff [[plab]] = rep(0.      ,times=mymont$NPATCHES.GLOBAL)
-      patch$phap.lpar     [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
-      patch$phap.ltemp    [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
-      patch$phap.lwater   [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
-      patch$phap.lvpd     [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
-      patch$phap.sms      [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
-      patch$phap.lgbw     [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
-      patch$phap.lgsw     [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
-      patch$leaf.gpp      [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
-      patch$leaf.gsw      [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
-      patch$dmin.leaf.psi [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
-      patch$dmax.leaf.psi [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
-      patch$leaf.par      [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
-      patch$leaf.par.beam [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
-      patch$leaf.par.diff [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
-      patch$assim.light   [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
-      patch$assim.rubp    [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
-      patch$assim.co2     [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
-      patch$gpp           [[plab]] = rep(0.      ,times=mymont$NPATCHES.GLOBAL)
-      patch$npp           [[plab]] = rep(0.      ,times=mymont$NPATCHES.GLOBAL)
-      patch$cba           [[plab]] = rep(0.      ,times=mymont$NPATCHES.GLOBAL)
-      patch$plant.resp    [[plab]] = rep(0.      ,times=mymont$NPATCHES.GLOBAL)
-      patch$hflxlc        [[plab]] = rep(0.      ,times=mymont$NPATCHES.GLOBAL)
-      patch$hflxwc        [[plab]] = rep(0.      ,times=mymont$NPATCHES.GLOBAL)
-      patch$wflxlc        [[plab]] = rep(0.      ,times=mymont$NPATCHES.GLOBAL)
-      patch$wflxwc        [[plab]] = rep(0.      ,times=mymont$NPATCHES.GLOBAL)
-      patch$transp        [[plab]] = rep(0.      ,times=mymont$NPATCHES.GLOBAL)
-      patch$soil.resp     [[plab]] = mymont$MMEAN.RH.PA
-      patch$fast.grnd.c   [[plab]] = mymont$MMEAN.FAST.GRND.C.PA
-      patch$fast.soil.c   [[plab]] = mymont$MMEAN.FAST.SOIL.C.PA
-      patch$struct.grnd.c [[plab]] = mymont$MMEAN.STRUCT.GRND.C.PA
-      patch$struct.soil.c [[plab]] = mymont$MMEAN.STRUCT.SOIL.C.PA
-      patch$microbe.soil.c[[plab]] = mymont$MMEAN.MICROBE.SOIL.C.PA
-      patch$slow.soil.c   [[plab]] = mymont$MMEAN.SLOW.SOIL.C.PA
-      patch$passive.soil.c[[plab]] = mymont$MMEAN.PASSIVE.SOIL.C.PA
-      patch$fgc.in        [[plab]] = mymont$MMEAN.FGC.IN.PA
-      patch$fsc.in        [[plab]] = mymont$MMEAN.FSC.IN.PA
-      patch$stgc.in       [[plab]] = mymont$MMEAN.STGC.IN.PA
-      patch$stsc.in       [[plab]] = mymont$MMEAN.STSC.IN.PA
-      patch$soil.temp     [[plab]] = mymont$MMEAN.SOIL.TEMP.PA - t00
-      patch$soil.water    [[plab]] = mymont$MMEAN.SOIL.WATER.PA
-      patch$soil.mstpot   [[plab]] = - mymont$MMEAN.SOIL.MSTPOT.PA * grav * wdns * 1.e-6
+      patch$lai            [[plab]] = rep(0.      ,times=mymont$NPATCHES.GLOBAL)
+      patch$wai            [[plab]] = rep(0.      ,times=mymont$NPATCHES.GLOBAL)
+      patch$agb            [[plab]] = rep(0.      ,times=mymont$NPATCHES.GLOBAL)
+      patch$ba             [[plab]] = rep(0.      ,times=mymont$NPATCHES.GLOBAL)
+      patch$nplant         [[plab]] = rep(0.      ,times=mymont$NPATCHES.GLOBAL)
+      patch$wood.dens      [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$vm0            [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$llspan         [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$sla            [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$can.depth      [[plab]] = rep(0.      ,times=mymont$NPATCHES.GLOBAL)
+      patch$can.area       [[plab]] = rep(0.      ,times=mymont$NPATCHES.GLOBAL)
+      patch$sm.stress      [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$leaf.temp      [[plab]] = mymont$MMEAN.CAN.TEMP.PA  - t00
+      patch$leaf.water     [[plab]] = rep(0.      ,times=mymont$NPATCHES.GLOBAL)
+      patch$leaf.water.im2 [[plab]] = rep(0.      ,times=mymont$NPATCHES.GLOBAL)
+      patch$leaf.vpd       [[plab]] = mymont$MMEAN.CAN.VPDEF.PA * 0.01
+      patch$wood.temp      [[plab]] = mymont$MMEAN.CAN.TEMP.PA  - t00
+      patch$par.leaf       [[plab]] = rep(0.      ,times=mymont$NPATCHES.GLOBAL)
+      patch$par.leaf.beam  [[plab]] = rep(0.      ,times=mymont$NPATCHES.GLOBAL)
+      patch$par.leaf.diff  [[plab]] = rep(0.      ,times=mymont$NPATCHES.GLOBAL)
+      patch$phap.lpar      [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$phap.ltemp     [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$phap.lwater    [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$phap.lvpd      [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$phap.sms       [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$phap.lgbw      [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$phap.lgsw      [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$leaf.gpp       [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$leaf.gsw       [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$dmin.leaf.psi  [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$dmax.leaf.psi  [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$leaf.par       [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$leaf.par.beam  [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$leaf.par.diff  [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$assim.light    [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$assim.rubp     [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$assim.co2      [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$gpp            [[plab]] = rep(0.      ,times=mymont$NPATCHES.GLOBAL)
+      patch$npp            [[plab]] = rep(0.      ,times=mymont$NPATCHES.GLOBAL)
+      patch$cba            [[plab]] = rep(0.      ,times=mymont$NPATCHES.GLOBAL)
+      patch$plant.resp     [[plab]] = rep(0.      ,times=mymont$NPATCHES.GLOBAL)
+      patch$hflxlc         [[plab]] = rep(0.      ,times=mymont$NPATCHES.GLOBAL)
+      patch$hflxwc         [[plab]] = rep(0.      ,times=mymont$NPATCHES.GLOBAL)
+      patch$wflxlc         [[plab]] = rep(0.      ,times=mymont$NPATCHES.GLOBAL)
+      patch$wflxwc         [[plab]] = rep(0.      ,times=mymont$NPATCHES.GLOBAL)
+      patch$transp         [[plab]] = rep(0.      ,times=mymont$NPATCHES.GLOBAL)
+      patch$soil.resp      [[plab]] = mymont$MMEAN.RH.PA
+      patch$fast.grnd.c    [[plab]] = mymont$MMEAN.FAST.GRND.C.PA
+      patch$fast.soil.c    [[plab]] = mymont$MMEAN.FAST.SOIL.C.PA
+      patch$struct.grnd.c  [[plab]] = mymont$MMEAN.STRUCT.GRND.C.PA
+      patch$struct.soil.c  [[plab]] = mymont$MMEAN.STRUCT.SOIL.C.PA
+      patch$microbe.soil.c [[plab]] = mymont$MMEAN.MICROBE.SOIL.C.PA
+      patch$slow.soil.c    [[plab]] = mymont$MMEAN.SLOW.SOIL.C.PA
+      patch$passive.soil.c [[plab]] = mymont$MMEAN.PASSIVE.SOIL.C.PA
+      patch$fgc.in         [[plab]] = mymont$MMEAN.FGC.IN.PA
+      patch$fsc.in         [[plab]] = mymont$MMEAN.FSC.IN.PA
+      patch$stgc.in        [[plab]] = mymont$MMEAN.STGC.IN.PA
+      patch$stsc.in        [[plab]] = mymont$MMEAN.STSC.IN.PA
+      patch$soil.temp      [[plab]] = mymont$MMEAN.SOIL.TEMP.PA - t00
+      patch$soil.water     [[plab]] = mymont$MMEAN.SOIL.WATER.PA
+      patch$soil.mstpot    [[plab]] = - mymont$MMEAN.SOIL.MSTPOT.PA * grav * wdns * 1.e-6
       #------ Demographic rates. ----------------------------------------------------------#
-      patch$growth        [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
-      patch$agb.growth    [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
-      patch$acc.growth    [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
-      patch$bsa.growth    [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
-      patch$mort          [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
-      patch$ncbmort       [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
-      patch$hydmort       [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
-      patch$dimort        [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
-      patch$agb.mort      [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
-      patch$agb.ncbmort   [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
-      patch$agb.hydmort   [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
-      patch$agb.dimort    [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
-      patch$acc.mort      [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
-      patch$acc.ncbmort   [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
-      patch$acc.hydmort   [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
-      patch$acc.dimort    [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
-      patch$bsa.mort      [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
-      patch$bsa.ncbmort   [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
-      patch$bsa.hydmort   [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
-      patch$bsa.dimort    [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
-      patch$recr          [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
-      patch$agb.recr      [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
-      patch$acc.recr      [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
-      patch$bsa.recr      [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$growth         [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$agb.growth     [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$acc.growth     [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$bsa.growth     [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$mort           [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$ncbmort        [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$hydmort        [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$dimort         [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$fire.lethal    [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$agb.mort       [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$agb.ncbmort    [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$agb.hydmort    [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$agb.dimort     [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$acc.mort       [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$acc.ncbmort    [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$acc.hydmort    [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$acc.dimort     [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$bsa.mort       [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$bsa.ncbmort    [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$bsa.hydmort    [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$bsa.dimort     [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$recr           [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$agb.recr       [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$acc.recr       [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
+      patch$bsa.recr       [[plab]] = rep(NA_real_,times=mymont$NPATCHES.GLOBAL)
       #------ Mean diurnal cycle. ---------------------------------------------------------#
       zero.qpatch = matrix(data=0., nrow=mymont$NPATCHES.GLOBAL,ncol=mymont$NDCYC)
       na.qpatch   = matrix(data=NA, nrow=mymont$NPATCHES.GLOBAL,ncol=mymont$NDCYC)
@@ -2575,15 +2588,17 @@ read.q.files <<- function( datum
                #      Find the total number of plants and previous population if the only  #
                # mortality was the mortality we test.                                      #
                #---------------------------------------------------------------------------#
-               survivor                   = sum(nplantconow[psel]                        )
-               previous                   = sum(nplantconow[psel]*exp(mortconow   [psel]))
-               ncb.previous               = sum(nplantconow[psel]*exp(ncbmortconow[psel]))
-               hyd.previous               = sum(nplantconow[psel]*exp(hydmortconow[psel]))
-               di.previous                = sum(nplantconow[psel]*exp(dimortconow [psel]))
-               patch$mort   [[plab]][ipa] = log(previous     / survivor)
-               patch$ncbmort[[plab]][ipa] = log(ncb.previous / survivor)
-               patch$hydmort[[plab]][ipa] = log(hyd.previous / survivor)
-               patch$dimort [[plab]][ipa] = log(di.previous  / survivor)
+               survivor      = sum( nplantconow[psel]                              )
+               previous      = sum( nplantconow[psel] * exp(mortconow       [psel]))
+               ncb.previous  = sum( nplantconow[psel] * exp(ncbmortconow    [psel]))
+               hyd.previous  = sum( nplantconow[psel] * exp(hydmortconow    [psel]))
+               di.previous   = sum( nplantconow[psel] * exp(dimortconow     [psel]))
+               fl.previous   = sum( nplantconow[psel] * exp(fire.lethalconow[psel]))
+               patch$mort       [[plab]][ipa] = log(previous     / survivor)
+               patch$ncbmort    [[plab]][ipa] = log(ncb.previous / survivor)
+               patch$hydmort    [[plab]][ipa] = log(hyd.previous / survivor)
+               patch$dimort     [[plab]][ipa] = log(di.previous  / survivor)
+               patch$fire.lethal[[plab]][ipa] = log(fl.previous  / survivor)
                #---------------------------------------------------------------------------#
 
 
@@ -3655,15 +3670,17 @@ read.q.files <<- function( datum
                #      Find the total number of plants and previous population if the only  #
                # mortality was the mortality we test.                                      #
                #---------------------------------------------------------------------------#
-               survivor             = sum( w.nplant[sel]                          )
-               previous             = sum( w.nplant[sel] * exp(mortconow   [sel]) )
-               ncb.previous         = sum( w.nplant[sel] * exp(ncbmortconow[sel]) )
-               hyd.previous         = sum( w.nplant[sel] * exp(hydmortconow[sel]) )
-               di.previous          = sum( w.nplant[sel] * exp(dimortconow [sel]) )
-               szpft$mort   [m,d,p] = log( previous     / survivor )
-               szpft$ncbmort[m,d,p] = log( ncb.previous / survivor )
-               szpft$hydmort[m,d,p] = log( hyd.previous / survivor )
-               szpft$dimort [m,d,p] = log( di.previous  / survivor )
+               survivor                 = sum( w.nplant[sel]                              )
+               previous                 = sum( w.nplant[sel] * exp(mortconow       [sel]) )
+               ncb.previous             = sum( w.nplant[sel] * exp(ncbmortconow    [sel]) )
+               hyd.previous             = sum( w.nplant[sel] * exp(hydmortconow    [sel]) )
+               di.previous              = sum( w.nplant[sel] * exp(dimortconow     [sel]) )
+               fl.previous              = sum( w.nplant[sel] * exp(fire.lethalconow[sel]) )
+               szpft$mort       [m,d,p] = log( previous     / survivor )
+               szpft$ncbmort    [m,d,p] = log( ncb.previous / survivor )
+               szpft$hydmort    [m,d,p] = log( hyd.previous / survivor )
+               szpft$dimort     [m,d,p] = log( di.previous  / survivor )
+               szpft$fire.lethal[m,d,p] = log( fl.previous  / survivor )
                #---------------------------------------------------------------------------#
 
 
@@ -3908,6 +3925,7 @@ read.q.files <<- function( datum
       emean$etue            [m] = szpft$etue           [m,ndbh+1,npft+1]
       emean$cue             [m] = szpft$cue            [m,ndbh+1,npft+1]
       emean$ecue            [m] = szpft$ecue           [m,ndbh+1,npft+1]
+      emean$fire.lethal     [m] = szpft$fire.lethal    [m,ndbh+1,npft+1]
       emean$agb.growth      [m] = szpft$agb.growth     [m,ndbh+1,npft+1]
       emean$agb.mort        [m] = szpft$agb.mort       [m,ndbh+1,npft+1]
       emean$agb.dimort      [m] = szpft$agb.dimort     [m,ndbh+1,npft+1]
@@ -4280,10 +4298,11 @@ read.q.files <<- function( datum
          cohort$etue         [[clab]] = etueconow
          cohort$demand       [[clab]] = demandconow
          cohort$supply       [[clab]] = supplyconow
-         cohort$mort         [[clab]] = 100. * (1.0 - exp(-mortconow      ))
-         cohort$ncbmort      [[clab]] = 100. * (1.0 - exp(-ncbmortconow   ))
-         cohort$hydmort      [[clab]] = 100. * (1.0 - exp(-hydmortconow   ))
-         cohort$dimort       [[clab]] = 100. * (1.0 - exp(-dimortconow    ))
+         cohort$mort         [[clab]] = 100. * (1.0 - exp(-mortconow       ))
+         cohort$ncbmort      [[clab]] = 100. * (1.0 - exp(-ncbmortconow    ))
+         cohort$hydmort      [[clab]] = 100. * (1.0 - exp(-hydmortconow    ))
+         cohort$dimort       [[clab]] = 100. * (1.0 - exp(-dimortconow     ))
+         cohort$fire.lethal  [[clab]] = 100. * (1.0 - exp(-fire.lethalconow))
          cohort$recruit      [[clab]] = recruitconow
          cohort$growth       [[clab]] = 100. * growthconow
          cohort$agb.growth   [[clab]] = 100. * agb.growthconow

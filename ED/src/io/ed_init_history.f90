@@ -1767,6 +1767,8 @@ module ed_init_history
                         ,'MMEAN_QPCPG_PY            ',dsetrank,iparallel,.false.,foundvar)
          call hdf_getslab_r(cgrid%mmean_dpcpg          (ipy:ipy)                           &
                         ,'MMEAN_DPCPG_PY            ',dsetrank,iparallel,.false.,foundvar)
+         call hdf_getslab_r(cgrid%mmean_burnt_area     (ipy:ipy)                           &
+                        ,'MMEAN_BURNT_AREA_PY       ',dsetrank,iparallel,.false.,foundvar)
          call hdf_getslab_r(cgrid%mmean_fire_density   (ipy:ipy)                           &
                         ,'MMEAN_FIRE_DENSITY_PY     ',dsetrank,iparallel,.false.,foundvar)
          call hdf_getslab_r(cgrid%mmean_fire_extinction(ipy:ipy)                           &
@@ -3367,6 +3369,8 @@ module ed_init_history
                         ,'MMEAN_QPCPG_SI            ',dsetrank,iparallel,.false.,foundvar)
          call hdf_getslab_r(cpoly%mmean_dpcpg                                              &
                         ,'MMEAN_DPCPG_SI            ',dsetrank,iparallel,.false.,foundvar)
+         call hdf_getslab_r(cpoly%mmean_burnt_area                                         &
+                        ,'MMEAN_BURNT_AREA_SI       ',dsetrank,iparallel,.false.,foundvar)
          call hdf_getslab_r(cpoly%mmean_fire_density                                       &
                         ,'MMEAN_FIRE_DENSITY_SI     ',dsetrank,iparallel,.false.,foundvar)
          call hdf_getslab_r(cpoly%mmean_fire_extinction                                    &
@@ -3558,10 +3562,10 @@ module ed_init_history
       memdims (2) = int(cpoly%nsites  ,8)
       memsize (2) = int(cpoly%nsites  ,8)
       memoffs (2) = 0_8
+      call hdf_getslab_r(cpoly%avg_burnt_area                                              &
+                        ,'AVG_BURNT_AREA '       ,dsetrank,iparallel,.true.,foundvar)
       call hdf_getslab_r(cpoly%avg_fire_intensity                                          &
                         ,'AVG_FIRE_INTENSITY '   ,dsetrank,iparallel,.true.,foundvar)
-      call hdf_getslab_r(cpoly%avg_fire_tlethal                                            &
-                        ,'AVG_FIRE_TLETHAL '     ,dsetrank,iparallel,.true.,foundvar)
       call hdf_getslab_r(cpoly%lambda_fire                                                 &
                         ,'LAMBDA_FIRE '          ,dsetrank,iparallel,.true.,foundvar)
       call hdf_getslab_r(cpoly%avg_fire_f_bherb                                            &
@@ -5380,6 +5384,8 @@ module ed_init_history
                         ,'CROWN_AREA_CO             ',dsetrank,iparallel,.true. ,foundvar)
       call hdf_getslab_r(cpatch%cbr_bar                                                    &
                         ,'CBR_BAR                   ',dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_r(cpatch%fire_lethal_prob                                           &
+                        ,'FIRE_LETHAL_PROB          ',dsetrank,iparallel,.true. ,foundvar)
       call hdf_getslab_r(cpatch%leaf_energy                                                &
                         ,'LEAF_ENERGY               ',dsetrank,iparallel,.true. ,foundvar)
       call hdf_getslab_r(cpatch%leaf_temp                                                  &
@@ -5818,6 +5824,8 @@ module ed_init_history
                         ,'MMEAN_ROOT_DROP_CO        ',dsetrank,iparallel,.false.,foundvar)
          call hdf_getslab_r(cpatch%mmean_cb                                                &
                         ,'MMEAN_CB_CO               ',dsetrank,iparallel,.false.,foundvar)
+         call hdf_getslab_r(cpatch%mmean_fire_lethal_rate                                  &
+                        ,'MMEAN_FIRE_LETHAL_RATE_CO ',dsetrank,iparallel,.false.,foundvar)
          call hdf_getslab_r(cpatch%mmean_gpp                                               &
                         ,'MMEAN_GPP_CO              ',dsetrank,iparallel,.false.,foundvar)
          call hdf_getslab_r(cpatch%mmean_npp                                               &
@@ -6085,6 +6093,8 @@ module ed_init_history
                         ,'DDBH_MONTHLY              ',dsetrank,iparallel,.true. ,foundvar)
       call hdf_getslab_r(cpatch%plc_monthly                                                &
                         ,'PLC_MONTHLY               ',dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_r(cpatch%fire_lethal_rate                                           &
+                        ,'FIRE_LETHAL_RATE          ',dsetrank,iparallel,.true. ,foundvar)
       !------------------------------------------------------------------------------------!
       !------------------------------------------------------------------------------------!
       !------------------------------------------------------------------------------------!

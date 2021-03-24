@@ -2270,6 +2270,53 @@ module fuse_fiss_utils
 
 
 
+
+
+
+      !------------------------------------------------------------------------------------!
+      !    Fuse lethality rates.  We use the same definition as mortality rate (although   !
+      ! lethality is defined as mortality given that a fire occurred, as opposed to true   !
+      ! mortality, which would include areas that did not burn).  By definition, mortality !
+      ! rate M for is given by:                                                            !
+      !                                                                                    !
+      !                                    ln(A) - ln(N)                                   !
+      !                               m = ---------------                                  !
+      !                                          dt                                        !
+      !                                                                                    !
+      ! where A is the population that was previously alive, and N is the population that  !
+      ! survived the mortality.  The cohorts represent a group of individuals with the     !
+      ! same size and PFT, so they don't mix new recruits and old plants. Therefore, we    !
+      ! can assume that N is actually nplant.  We don't know A, if the mortality rate is   !
+      ! assumed constant during the interval dt, A = N * exp(m dt).                        !
+      !                                                                                    !
+      ! For fusion we don't really care about dt, so any number will do as long as it is   !
+      ! the same for both cohorts.  With these assumptions, the mortality rate for the     !
+      ! fused cohort mf is:                                                                !
+      !                                                                                    !
+      !  mf   =  ln (Ad+Ar) - ln(Nd+Nr) = ln[Nd*exp(md) + Nr*exp(mr)] - ln[Nd+Nr]          !
+      !                                                                                    !
+      !             / Nd*exp(md) + Nr*exp(mr) \                                            !
+      !  mf   =  ln |-------------------------|                                            !
+      !             \        Nd + Nr          /                                            !
+      !------------------------------------------------------------------------------------!
+      do imon=1,12
+         exp_mort_donc = exp(max(lnexp_min,min(lnexp_max                                   &
+                                              ,cpatch%fire_lethal_rate(imon,donc))))
+         exp_mort_recc = exp(max(lnexp_min,min(lnexp_max                                   &
+                                              ,cpatch%fire_lethal_rate(imon,recc))))
+         cpatch%fire_lethal_rate(imon,recc) = log( exp_mort_recc * rnplant                 &
+                                                 + exp_mort_donc * dnplant )
+      end do
+      !------ Fire mortality probability should be scaled by nplant directly. -------------!
+      cpatch%fire_lethal_rate(13,recc) = cpatch%fire_lethal_rate(13,donc) * dnplant        &
+                                       + cpatch%fire_lethal_rate(13,recc) * rnplant
+      cpatch%fire_lethal_prob   (recc) = cpatch%fire_lethal_prob   (donc) * dnplant        &
+                                       + cpatch%fire_lethal_prob   (recc) * rnplant
+      !------------------------------------------------------------------------------------!
+
+
+
+
       !------------------------------------------------------------------------------------!
       !     Relative carbon balance is also averaged between the cohorts, to avoid wild    !
       ! oscillations in mortality when cohorts are fused.  This is the original method     !
@@ -4006,7 +4053,14 @@ module fuse_fiss_utils
             cpatch%mmean_mort_rate(imty,recc) = log( exp_mort_recc * rnplant               &
                                                    + exp_mort_donc * dnplant )
          end do
-         !------------------------------------------------------------------------------------!
+         !------ Fire lethality rate. -----------------------------------------------------!
+         exp_mort_donc = exp(max(lnexp_min,min(lnexp_max                                   &
+                                              ,cpatch%mmean_fire_lethal_rate(donc))))
+         exp_mort_recc = exp(max(lnexp_min,min(lnexp_max                                   &
+                                              ,cpatch%mmean_fire_lethal_rate(recc))))
+         cpatch%mmean_fire_lethal_rate(recc) = log( exp_mort_recc * rnplant                &
+                                                  + exp_mort_donc * dnplant )
+         !---------------------------------------------------------------------------------!
       end if
       !------------------------------------------------------------------------------------!
 

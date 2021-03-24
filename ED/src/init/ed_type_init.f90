@@ -179,6 +179,7 @@ module ed_type_init
       !------ State variables for new mortality -------------------------------------------!
       cpatch%plc_monthly     (1:13,ico) = 0.
       cpatch%ddbh_monthly    (1:13,ico) = 0.
+      cpatch%fire_lethal_rate(1:13,ico) = 0.
       !------------------------------------------------------------------------------------!
 
 
@@ -403,6 +404,7 @@ module ed_type_init
       cpatch%lint_shv              (ico) = 0.
       cpatch%lint_co2_open         (ico) = 0.
       cpatch%lint_co2_closed       (ico) = 0.
+      cpatch%fire_lethal_prob      (ico) = 0.
       !------------------------------------------------------------------------------------!
 
 
@@ -693,6 +695,7 @@ module ed_type_init
          cpatch%mmean_leaf_drop           (ico) = 0.0
          cpatch%mmean_root_drop           (ico) = 0.0
          cpatch%mmean_cb                  (ico) = 0.0
+         cpatch%mmean_fire_lethal_rate    (ico) = 0.0
          cpatch%mmean_nppleaf             (ico) = 0.0
          cpatch%mmean_nppfroot            (ico) = 0.0
          cpatch%mmean_nppsapwood          (ico) = 0.0
@@ -1786,8 +1789,8 @@ module ed_type_init
       cpoly%fire_f_bwoody                    (:) = 0.0
       cpoly%fire_f_fgc                       (:) = 0.0
       cpoly%fire_f_stgc                      (:) = 0.0
+      cpoly%avg_burnt_area                 (:,:) = 0.0
       cpoly%avg_fire_intensity             (:,:) = 0.0
-      cpoly%avg_fire_tlethal               (:,:) = 0.0
       cpoly%avg_fire_f_bherb               (:,:) = 0.0
       cpoly%avg_fire_f_bwoody              (:,:) = 0.0
       cpoly%avg_fire_f_fgc                 (:,:) = 0.0
@@ -1910,6 +1913,7 @@ module ed_type_init
          cpoly%mmean_pcpg                  (:) = 0.0
          cpoly%mmean_qpcpg                 (:) = 0.0
          cpoly%mmean_dpcpg                 (:) = 0.0
+         cpoly%mmean_burnt_area            (:) = 0.0
          cpoly%mmean_fire_density          (:) = 0.0
          cpoly%mmean_fire_extinction       (:) = 0.0
          cpoly%mmean_fire_intensity        (:) = 0.0
@@ -2665,6 +2669,7 @@ module ed_type_init
             cgrid%mmean_pcpg                 (ipy) = 0.0
             cgrid%mmean_qpcpg                (ipy) = 0.0
             cgrid%mmean_dpcpg                (ipy) = 0.0
+            cgrid%mmean_burnt_area           (ipy) = 0.0
             cgrid%mmean_fire_density         (ipy) = 0.0
             cgrid%mmean_fire_extinction      (ipy) = 0.0
             cgrid%mmean_fire_intensity       (ipy) = 0.0

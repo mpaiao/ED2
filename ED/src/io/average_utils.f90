@@ -5765,6 +5765,8 @@ module average_utils
                                       , polygontype        & ! structure
                                       , sitetype           & ! structure
                                       , patchtype          ! ! structure
+      use ed_misc_coms         , only : simtime            & ! intent(in)
+                                      , current_time       ! ! intent(in)
       use grid_coms            , only : nzg                ! ! intent(in)
       use therm_lib            , only : press2exner        & ! function
                                       , extheta2temp       & ! function
@@ -5784,6 +5786,7 @@ module average_utils
       type(polygontype)                     , pointer :: cpoly
       type(sitetype)                        , pointer :: csite
       type(patchtype)                       , pointer :: cpatch
+      type(simtime)                                   :: lastmonth
       real             , dimension(nzg)               :: cgrid_mmean_soil_hcap
       integer                                         :: ipy
       integer                                         :: isi
@@ -5792,12 +5795,23 @@ module average_utils
       integer                                         :: lsl
       integer                                         :: k
       integer                                         :: nsoil
+      integer                                         :: imo
       real                                            :: can_exner
       real                                            :: atm_exner
       real                                            :: site_area_i
       real                                            :: poly_area_i
       real                                            :: site_wgt
       real                                            :: patch_wgt
+      real                                            :: ndaysi
+      !------------------------------------------------------------------------------------!
+
+
+
+      !------------------------------------------------------------------------------------!
+      !     Find the previous month so we can link the correct monthly averages.           !
+      !------------------------------------------------------------------------------------!
+      call lastmonthdate(current_time,lastmonth,ndaysi)
+      imo = lastmonth%month
       !------------------------------------------------------------------------------------!
 
 
@@ -5858,6 +5872,13 @@ module average_utils
             else
                cpoly%mmean_fire_tlethal (isi) = 0.
             end if
+            !------------------------------------------------------------------------------!
+
+
+            !------------------------------------------------------------------------------!
+            !       Copy the burnt area from the 12-month array.                           !
+            !------------------------------------------------------------------------------!
+            cpoly%mmean_burnt_area(isi) = cpoly%avg_burnt_area(imo,isi)
             !------------------------------------------------------------------------------!
 
 
@@ -5982,6 +6003,14 @@ module average_utils
                      end if
                   end if
                   !------------------------------------------------------------------------!
+
+
+                  !------------------------------------------------------------------------!
+                  !      Copy fire mortality rate from the 12-month array (convert it to   !
+                  ! 1/yr, to be consistent with other mortality rates).                    !
+                  !------------------------------------------------------------------------!
+                  cpatch%mmean_fire_lethal_rate(ico) = cpatch%fire_lethal_rate(imo,ico)
+                  !------------------------------------------------------------------------!
                end do cohortloop
                !---------------------------------------------------------------------------!
 
@@ -6015,6 +6044,9 @@ module average_utils
             !------------------------------------------------------------------------------!
             !      For the following variables, we use the site-level averages.            !
             !------------------------------------------------------------------------------!
+            cgrid%mmean_burnt_area     (ipy) = cgrid%mmean_burnt_area     (ipy)            &
+                                             + cpoly%mmean_burnt_area     (isi)            &
+                                             * site_wgt
             cgrid%mmean_fire_intensity (ipy) = cgrid%mmean_fire_intensity (ipy)            &
                                              + cpoly%mmean_fire_intensity (isi)            &
                                              * site_wgt
@@ -6421,6 +6453,7 @@ module average_utils
          cgrid%mmean_pcpg                 (ipy) = 0.0
          cgrid%mmean_qpcpg                (ipy) = 0.0
          cgrid%mmean_dpcpg                (ipy) = 0.0
+         cgrid%mmean_burnt_area           (ipy) = 0.0
          cgrid%mmean_fire_density         (ipy) = 0.0
          cgrid%mmean_fire_extinction      (ipy) = 0.0
          cgrid%mmean_fire_intensity       (ipy) = 0.0
@@ -6488,6 +6521,7 @@ module average_utils
             cpoly%mmean_pcpg           (isi) = 0.0
             cpoly%mmean_qpcpg          (isi) = 0.0
             cpoly%mmean_dpcpg          (isi) = 0.0
+            cpoly%mmean_burnt_area     (isi) = 0.0
             cpoly%mmean_fire_density   (isi) = 0.0
             cpoly%mmean_fire_extinction(isi) = 0.0
             cpoly%mmean_fire_intensity (isi) = 0.0

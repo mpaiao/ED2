@@ -287,6 +287,14 @@ module ed_state_vars
       real, pointer,dimension(:,:) :: plc_monthly            !(13,ncohorts)
       !<Monthly percentage loss of xylem conductance for past 12 months and the
       !! current month - This is used for hydraulic failure mortality
+      
+      real, pointer,dimension(:)   :: fire_lethal_prob       !(ncohorts)
+      !<Monthly probability of lethality accumulated over the past 12 months
+      !! current month - This is used to calculate survivorship for FIRESTARTER
+      
+      real, pointer,dimension(:,:) :: fire_lethal_rate       !(13,ncohorts)
+      !<Monthly lethality rate due to fire for past 12 months and the
+      !! current month - This is used to report fire lethality for FIRESTARTER
 
       real ,pointer,dimension(:) :: leaf_energy
       !<Leaf internal energy (J/m2 ground)
@@ -773,6 +781,8 @@ module ed_state_vars
       real,pointer,dimension(:)   :: mmean_leaf_drop         !<Leaf drop        [ kgC/pl/yr]
       real,pointer,dimension(:)   :: mmean_root_drop         !<Fine-root drop   [ kgC/pl/yr]
       real,pointer,dimension(:)   :: mmean_cb                !<12-mon C balance [    kgC/pl]
+      !----- Montly means of variables, borrowed from monthly arrays ("avg_"). ------------!
+      real,pointer,dimension(:)   :: mmean_fire_lethal_rate  !<Fire lethality   [      1/yr]
       !----- Daily mean (same units as fast mean). ----------------------------------------!
       real,pointer,dimension(:)     :: dmean_gpp
       real,pointer,dimension(:)     :: dmean_npp
@@ -2546,11 +2556,11 @@ module ed_state_vars
       real,pointer, dimension(:,:) :: lambda_fire
       !<  initialized in create_site !(12,nsites)
 
+      real, pointer, dimension(:,:) :: avg_burnt_area
+      !<Burnt area by month !(12,nsites)
+
       real, pointer, dimension(:,:) :: avg_fire_intensity
       !<Fire intensity [W m-1] !(12,nsites)
-
-      real, pointer, dimension(:,:) :: avg_fire_tlethal
-      !<Duration of lethal bole heating [s] !(12,nsites)
 
       real, pointer,dimension(:,:)  :: avg_monthly_accp
       !<Monthly rainfall [mm/month] for each month over the past 12 months.
@@ -2694,6 +2704,7 @@ module ed_state_vars
       real,pointer,dimension(:) :: mmean_pcpg
       real,pointer,dimension(:) :: mmean_qpcpg
       real,pointer,dimension(:) :: mmean_dpcpg
+      real,pointer,dimension(:) :: mmean_burnt_area
       real,pointer,dimension(:) :: mmean_fire_density
       real,pointer,dimension(:) :: mmean_fire_extinction
       real,pointer,dimension(:) :: mmean_fire_intensity
@@ -3566,6 +3577,7 @@ module ed_state_vars
       real,pointer,dimension(:)     :: mmean_pcpg
       real,pointer,dimension(:)     :: mmean_qpcpg
       real,pointer,dimension(:)     :: mmean_dpcpg
+      real,pointer,dimension(:)     :: mmean_burnt_area
       real,pointer,dimension(:)     :: mmean_fire_density
       real,pointer,dimension(:)     :: mmean_fire_extinction
       real,pointer,dimension(:)     :: mmean_fire_intensity
@@ -4632,6 +4644,7 @@ module ed_state_vars
          allocate(cgrid%mmean_pcpg              (                     npolygons)) 
          allocate(cgrid%mmean_qpcpg             (                     npolygons)) 
          allocate(cgrid%mmean_dpcpg             (                     npolygons)) 
+         allocate(cgrid%mmean_burnt_area        (                     npolygons))
          allocate(cgrid%mmean_fire_density      (                     npolygons))
          allocate(cgrid%mmean_fire_extinction   (                     npolygons))
          allocate(cgrid%mmean_fire_intensity    (                     npolygons))
@@ -4978,8 +4991,8 @@ module ed_state_vars
       allocate(cpoly%today_fire_density            (                          nsites))
       allocate(cpoly%today_fire_extinction         (                          nsites))
       allocate(cpoly%lambda_fire                   (                       12,nsites))
+      allocate(cpoly%avg_burnt_area                (                       12,nsites))
       allocate(cpoly%avg_fire_intensity            (                       12,nsites))
-      allocate(cpoly%avg_fire_tlethal              (                       12,nsites))
       allocate(cpoly%avg_monthly_accp              (                       12,nsites))
       allocate(cpoly%avg_fire_f_bherb              (                       12,nsites))
       allocate(cpoly%avg_fire_f_bwoody             (                       12,nsites))
@@ -5072,6 +5085,7 @@ module ed_state_vars
          allocate(cpoly%mmean_pcpg                 (                          nsites))
          allocate(cpoly%mmean_qpcpg                (                          nsites))
          allocate(cpoly%mmean_dpcpg                (                          nsites))
+         allocate(cpoly%mmean_burnt_area           (                          nsites))
          allocate(cpoly%mmean_fire_density         (                          nsites))
          allocate(cpoly%mmean_fire_extinction      (                          nsites))
          allocate(cpoly%mmean_fire_intensity       (                          nsites))
@@ -5832,6 +5846,8 @@ module ed_state_vars
       allocate(cpatch%cbr_bar                      (                    ncohorts))
       allocate(cpatch%ddbh_monthly                 (                 13,ncohorts))
       allocate(cpatch%plc_monthly                  (                 13,ncohorts))
+      allocate(cpatch%fire_lethal_prob             (                    ncohorts))
+      allocate(cpatch%fire_lethal_rate             (                 13,ncohorts))
       allocate(cpatch%leaf_energy                  (                    ncohorts))
       allocate(cpatch%leaf_temp                    (                    ncohorts))
       allocate(cpatch%leaf_vpdef                   (                    ncohorts))
@@ -6158,6 +6174,7 @@ module ed_state_vars
          allocate(cpatch%mmean_leaf_drop           (                    ncohorts))
          allocate(cpatch%mmean_root_drop           (                    ncohorts))
          allocate(cpatch%mmean_cb                  (                    ncohorts))
+         allocate(cpatch%mmean_fire_lethal_rate    (                    ncohorts))
          allocate(cpatch%mmean_gpp                 (                    ncohorts))
          allocate(cpatch%mmean_npp                 (                    ncohorts))
          allocate(cpatch%mmean_leaf_resp           (                    ncohorts))
@@ -7015,6 +7032,7 @@ module ed_state_vars
       nullify(cgrid%mmean_pcpg              )
       nullify(cgrid%mmean_qpcpg             )
       nullify(cgrid%mmean_dpcpg             )
+      nullify(cgrid%mmean_burnt_area        )
       nullify(cgrid%mmean_fire_density      )
       nullify(cgrid%mmean_fire_extinction   )
       nullify(cgrid%mmean_fire_intensity    )
@@ -7325,8 +7343,8 @@ module ed_state_vars
       nullify(cpoly%tdmax_atm_temp             )
       nullify(cpoly%today_fire_density         )
       nullify(cpoly%today_fire_extinction      )
+      nullify(cpoly%avg_burnt_area             )
       nullify(cpoly%avg_fire_intensity         )
-      nullify(cpoly%avg_fire_tlethal           )
       nullify(cpoly%avg_monthly_accp           )
       nullify(cpoly%avg_fire_f_bherb           )
       nullify(cpoly%avg_fire_f_bwoody          )
@@ -7411,6 +7429,7 @@ module ed_state_vars
       nullify(cpoly%mmean_pcpg                 )
       nullify(cpoly%mmean_qpcpg                )
       nullify(cpoly%mmean_dpcpg                )
+      nullify(cpoly%mmean_burnt_area           )
       nullify(cpoly%mmean_fire_density         )
       nullify(cpoly%mmean_fire_extinction      )
       nullify(cpoly%mmean_fire_intensity       )
@@ -8103,6 +8122,8 @@ module ed_state_vars
       nullify(cpatch%cbr_bar                 )
       nullify(cpatch%ddbh_monthly            )
       nullify(cpatch%plc_monthly             )
+      nullify(cpatch%fire_lethal_prob        )
+      nullify(cpatch%fire_lethal_rate        )
       nullify(cpatch%leaf_energy             )
       nullify(cpatch%leaf_temp               )
       nullify(cpatch%leaf_vpdef              )
@@ -8419,6 +8440,7 @@ module ed_state_vars
       nullify(cpatch%mmean_leaf_drop         )
       nullify(cpatch%mmean_root_drop         )
       nullify(cpatch%mmean_cb                )
+      nullify(cpatch%mmean_fire_lethal_rate  )
       nullify(cpatch%mmean_gpp               )
       nullify(cpatch%mmean_npp               )
       nullify(cpatch%mmean_leaf_resp         )
@@ -9288,6 +9310,8 @@ module ed_state_vars
       if(associated(cpatch%cbr_bar                 )) deallocate(cpatch%cbr_bar                 )
       if(associated(cpatch%ddbh_monthly            )) deallocate(cpatch%ddbh_monthly            )
       if(associated(cpatch%plc_monthly             )) deallocate(cpatch%plc_monthly             )
+      if(associated(cpatch%fire_lethal_prob        )) deallocate(cpatch%fire_lethal_prob        )
+      if(associated(cpatch%fire_lethal_rate        )) deallocate(cpatch%fire_lethal_rate        )
       if(associated(cpatch%leaf_energy             )) deallocate(cpatch%leaf_energy             )
       if(associated(cpatch%leaf_temp               )) deallocate(cpatch%leaf_temp               )
       if(associated(cpatch%leaf_vpdef              )) deallocate(cpatch%leaf_vpdef              )
@@ -9606,6 +9630,7 @@ module ed_state_vars
       if(associated(cpatch%mmean_leaf_drop         )) deallocate(cpatch%mmean_leaf_drop         )
       if(associated(cpatch%mmean_root_drop         )) deallocate(cpatch%mmean_root_drop         )
       if(associated(cpatch%mmean_cb                )) deallocate(cpatch%mmean_cb                )
+      if(associated(cpatch%mmean_fire_lethal_rate  )) deallocate(cpatch%mmean_fire_lethal_rate  )
       if(associated(cpatch%mmean_gpp               )) deallocate(cpatch%mmean_gpp               )
       if(associated(cpatch%mmean_npp               )) deallocate(cpatch%mmean_npp               )
       if(associated(cpatch%mmean_leaf_resp         )) deallocate(cpatch%mmean_leaf_resp         )
@@ -11513,6 +11538,7 @@ module ed_state_vars
          opatch%is_small                (oco) = ipatch%is_small                (ico)
          opatch%is_viable               (oco) = ipatch%is_viable               (ico)
          opatch%cbr_bar                 (oco) = ipatch%cbr_bar                 (ico)
+         opatch%fire_lethal_prob        (oco) = ipatch%fire_lethal_prob        (ico)
          opatch%leaf_energy             (oco) = ipatch%leaf_energy             (ico)
          opatch%leaf_temp               (oco) = ipatch%leaf_temp               (ico)
          opatch%leaf_vpdef              (oco) = ipatch%leaf_vpdef              (ico)
@@ -11733,8 +11759,9 @@ module ed_state_vars
 
          !------ Mortality auxiliary variables. -------------------------------------------!
          do m=1,13
-            opatch%ddbh_monthly(m,oco) = ipatch%ddbh_monthly(m,ico)
-            opatch%plc_monthly(m,oco)  = ipatch%plc_monthly(m,ico)
+            opatch%ddbh_monthly    (m,oco) = ipatch%ddbh_monthly    (m,ico)
+            opatch%plc_monthly     (m,oco) = ipatch%plc_monthly     (m,ico)
+            opatch%fire_lethal_rate(m,oco) = ipatch%fire_lethal_rate(m,ico)
          end do
          !---------------------------------------------------------------------------------!
 
@@ -11894,6 +11921,7 @@ module ed_state_vars
             opatch%mmean_leaf_drop         (oco) = ipatch%mmean_leaf_drop         (ico)
             opatch%mmean_root_drop         (oco) = ipatch%mmean_root_drop         (ico)
             opatch%mmean_cb                (oco) = ipatch%mmean_cb                (ico)
+            opatch%mmean_fire_lethal_rate  (oco) = ipatch%mmean_fire_lethal_rate  (ico)
             opatch%mmean_gpp               (oco) = ipatch%mmean_gpp               (ico)
             opatch%mmean_npp               (oco) = ipatch%mmean_npp               (ico)
             opatch%mmean_leaf_resp         (oco) = ipatch%mmean_leaf_resp         (ico)
@@ -12259,6 +12287,7 @@ module ed_state_vars
       opatch%is_small              (1:z) = pack(ipatch%is_small                  ,lmask)
       opatch%is_viable             (1:z) = pack(ipatch%is_viable                 ,lmask)
       opatch%cbr_bar               (1:z) = pack(ipatch%cbr_bar                   ,lmask)
+      opatch%fire_lethal_prob      (1:z) = pack(ipatch%fire_lethal_prob          ,lmask)
       opatch%leaf_energy           (1:z) = pack(ipatch%leaf_energy               ,lmask)
       opatch%leaf_temp             (1:z) = pack(ipatch%leaf_temp                 ,lmask)
       opatch%leaf_vpdef            (1:z) = pack(ipatch%leaf_vpdef                ,lmask)
@@ -12404,8 +12433,9 @@ module ed_state_vars
 
       !------ Mortality auxiliary variables. ----------------------------------------------!
       do m=1,13
-         opatch%ddbh_monthly(m,1:z) = pack(ipatch%ddbh_monthly  (m,:),lmask)
-         opatch%plc_monthly(m,1:z)  = pack(ipatch%plc_monthly  (m,:),lmask)
+         opatch%ddbh_monthly    (m,1:z) = pack(ipatch%ddbh_monthly     (m,:),lmask)
+         opatch%plc_monthly     (m,1:z)  = pack(ipatch%plc_monthly     (m,:),lmask)
+         opatch%fire_lethal_rate(m,1:z)  = pack(ipatch%fire_lethal_rate(m,:),lmask)
       end do
       !------------------------------------------------------------------------------------!
 
@@ -12738,6 +12768,7 @@ module ed_state_vars
       opatch%mmean_leaf_drop         (1:z) = pack(ipatch%mmean_leaf_drop           ,lmask)
       opatch%mmean_root_drop         (1:z) = pack(ipatch%mmean_root_drop           ,lmask)
       opatch%mmean_cb                (1:z) = pack(ipatch%mmean_cb                  ,lmask)
+      opatch%mmean_fire_lethal_rate  (1:z) = pack(ipatch%mmean_fire_lethal_rate    ,lmask)
       opatch%mmean_gpp               (1:z) = pack(ipatch%mmean_gpp                 ,lmask)
       opatch%mmean_npp               (1:z) = pack(ipatch%mmean_npp                 ,lmask)
       opatch%mmean_leaf_resp         (1:z) = pack(ipatch%mmean_leaf_resp           ,lmask)
@@ -18623,6 +18654,15 @@ module ed_state_vars
                            ,'Monthly mean - Precipitation depth'                           &
                            ,'[        m/s]','(ipoly)'            )
       end if
+      if (associated(cgrid%mmean_burnt_area      )) then
+         nvar = nvar+1
+         call vtable_edio_r(npts,cgrid%mmean_burnt_area                                    &
+                           ,nvar,igr,init,cgrid%pyglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'MMEAN_BURNT_AREA_PY        :11:'//trim(eorq_keys))
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Monthly mean - Burnt area'                                    &
+                           ,'[      m2/m2]','(ipoly)'            )
+      end if
       if (associated(cgrid%mmean_fire_density    )) then
          nvar = nvar+1
          call vtable_edio_r(npts,cgrid%mmean_fire_density                                  &
@@ -23241,6 +23281,15 @@ module ed_state_vars
                            ,'Monthly mean - Precipitation depth'                           &
                            ,'[        m/s]','(isite)'            )
       end if
+      if (associated(cpoly%mmean_burnt_area      )) then
+         nvar = nvar+1
+         call vtable_edio_r(npts,cpoly%mmean_burnt_area                                    &
+                           ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'MMEAN_BURNT_AREA_SI        :21:'//trim(eorq_keys))
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Monthly mean - Burnt area'                                    &
+                           ,'[      m2/m2]','(isite)'            )
+      end if
       if (associated(cpoly%mmean_fire_density    )) then
          nvar = nvar+1
          call vtable_edio_r(npts,cpoly%mmean_fire_density                                  &
@@ -23773,6 +23822,16 @@ module ed_state_vars
                            ,'[1/yr]','(12,isite)') 
       end if
 
+      if (associated(cpoly%avg_burnt_area)) then
+         nvar=nvar+1
+         call vtable_edio_r(npts,cpoly%avg_burnt_area                                      &
+                           ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'AVG_BURNT_AREA :29:hist')
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Burnt area over 12 months'                                    &
+                           ,'[0-1]','(12,isite)') 
+      end if
+
       if (associated(cpoly%avg_fire_intensity)) then
          nvar=nvar+1
          call vtable_edio_r(npts,cpoly%avg_fire_intensity                                  &
@@ -23781,16 +23840,6 @@ module ed_state_vars
          call metadata_edio(nvar,igr                                                       &
                            ,'Fire intensity over 12 months'                                &
                            ,'[W/m]','(12,isite)') 
-      end if
-
-      if (associated(cpoly%avg_fire_tlethal  )) then
-         nvar=nvar+1
-         call vtable_edio_r(npts,cpoly%avg_fire_tlethal                                    &
-                           ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
-                           ,'AVG_FIRE_TLETHAL :29:hist')
-         call metadata_edio(nvar,igr                                                       &
-                           ,'Duration of lethal fire heating over 12 months'               &
-                           ,'[s]','(12,isite)') 
       end if
 
       if (associated(cpoly%avg_fire_f_bherb  )) then
@@ -30266,6 +30315,15 @@ module ed_state_vars
          call metadata_edio(nvar,igr,'Relative carbon balance','[NA]','NA') 
       end if
 
+      if (associated(cpatch%fire_lethal_prob)) then
+         nvar=nvar+1
+         call vtable_edio_r(npts,cpatch%fire_lethal_prob                                   &
+                           ,nvar,igr,init,cpatch%coglob_id,var_len,var_len_global,max_ptrs &
+                           ,'FIRE_LETHAL_PROB :41:hist') 
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Fire lethality probability','[0-1]','(icohort)') 
+      end if
+
       if (associated(cpatch%leaf_energy)) then
          nvar=nvar+1
            call vtable_edio_r(npts,cpatch%leaf_energy,nvar,igr,init,cpatch%coglob_id, &
@@ -33547,6 +33605,15 @@ module ed_state_vars
                            ,'Monthly mean - Carbon balance'                                &
                            ,'[  kgC/pl]','(icohort)'            )
       end if
+      if (associated(cpatch%mmean_fire_lethal_rate)) then
+         nvar = nvar+1
+         call vtable_edio_r(npts,cpatch%mmean_fire_lethal_rate                             &
+                           ,nvar,igr,init,cpatch%coglob_id,var_len,var_len_global,max_ptrs &
+                           ,'MMEAN_FIRE_LETHAL_RATE_CO     :41:'//trim(eorq_keys))
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Monthly mean - Fire lethality rate (FIRESTARTER)'             &
+                           ,'[    1/yr]','(icohort)'            )
+      end if
       if (associated(cpatch%mmean_nppleaf         )) then
          nvar = nvar+1
          call vtable_edio_r(npts,cpatch%mmean_nppleaf                                      &
@@ -35052,6 +35119,16 @@ module ed_state_vars
                            ,var_len,var_len_global,max_ptrs                                &
                            ,'PLC_MONTHLY :491:hist:mont:dcyc:year') 
          call metadata_edio(nvar,igr,'Monthly average loss of xylem conductance last 12 months+current' &
+                           ,'[1]','13 - icohort') 
+      end if
+
+      if (associated(cpatch%fire_lethal_rate)) then
+         nvar=nvar+1
+         call vtable_edio_r(npts,cpatch%fire_lethal_rate                                   &
+                           ,nvar,igr,init,cpatch%coglob_id,var_len,var_len_global,max_ptrs &
+                           ,'FIRE_LETHAL_RATE :491:hist:mont:dcyc:year') 
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Monthly fire lethality (FIRESTARTER) 12 months+current'       &
                            ,'[1]','13 - icohort') 
       end if
 

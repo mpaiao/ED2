@@ -117,8 +117,6 @@ module disturbance
       logical                                       :: same_pft
       logical                                       :: is_primary
       real   , dimension(n_pft)                     :: mindbh_harvest
-      real   , dimension(12)                        :: avg_fire_intensity
-      real   , dimension(12)                        :: avg_fire_tlethal
       real                                          :: pot_area_remain
       real                                          :: area_loss_tot
       real                                          :: lambda_sum
@@ -215,11 +213,9 @@ module disturbance
             !------------------------------------------------------------------------------!
 
             !------------------------------------------------------------------------------!
-            !     Copy mindbh (harvesting) and average fire intensity to local variables.  !
+            !     Copy mindbh (harvesting) to a local variable.                            !
             !------------------------------------------------------------------------------!
             mindbh_harvest      (:) = cpoly%mindbh_harvest    (:,isi)
-            avg_fire_intensity  (:) = cpoly%avg_fire_intensity(:,isi)
-            avg_fire_tlethal    (:) = cpoly%avg_fire_tlethal  (:,isi)
             !------------------------------------------------------------------------------!
 
 
@@ -717,11 +713,10 @@ module disturbance
                                                     ,cb_mass_np,cb_molar_np,cb_water_np    &
                                                     ,cb_co2_np)
                            call insert_survivors(csite,onsp+new_lu,ipa,new_lu,area_fac     &
-                                                ,mindbh_harvest,avg_fire_intensity         &
-                                                ,avg_fire_tlethal)
+                                                ,mindbh_harvest,cpoly%burnt_area(isi))
                            call accum_dist_harv_litt(cpoly,isi,1,onsp+new_lu,ipa,new_lu    &
                                                     ,area_fac,mindbh_harvest               &
-                                                    ,avg_fire_intensity,avg_fire_tlethal)
+                                                    ,cpoly%burnt_area(isi))
                            !---------------------------------------------------------------!
                         case (1)
                            !---------------------------------------------------------------!
@@ -750,12 +745,10 @@ module disturbance
                                                        ,cb_mass_np,cb_molar_np,cb_water_np &
                                                        ,cb_co2_np)
                               call insert_survivors(csite,npa,ipa,new_lu,area_fac          &
-                                                   ,mindbh_harvest,avg_fire_intensity      &
-                                                   ,avg_fire_tlethal)
+                                                   ,mindbh_harvest,cpoly%burnt_area(isi))
                               call accum_dist_harv_litt(cpoly,isi,1,npa,ipa,new_lu         &
                                                        ,area_fac,mindbh_harvest            &
-                                                       ,avg_fire_intensity                 &
-                                                       ,avg_fire_tlethal)
+                                                       ,cpoly%burnt_area(isi))
                               !------------------------------------------------------------!
                            case default
                               !------------------------------------------------------------!
@@ -808,12 +801,10 @@ module disturbance
                                                              ,cb_water_np,cb_co2_np)
                                     call insert_survivors(csite,npa,ipa,new_lu,area_fac    &
                                                          ,mindbh_harvest                   &
-                                                         ,avg_fire_intensity               &
-                                                         ,avg_fire_tlethal   )
+                                                         ,cpoly%burnt_area(isi)   )
                                     call accum_dist_harv_litt(cpoly,isi,1,npa,ipa,new_lu   &
                                                              ,area_fac,mindbh_harvest      &
-                                                             ,avg_fire_intensity           &
-                                                             ,avg_fire_tlethal   )
+                                                             ,cpoly%burnt_area(isi) )
                                  end if
                                  !---------------------------------------------------------!
                               end do
@@ -1004,7 +995,7 @@ module disturbance
             old_lu_l4th: do ipa=1,onsp
                pat_area_loss = act_area_loss(ipa,:)
                call disturbance_mortality(csite,ipa,pat_area_loss,mindbh_harvest           &
-                                         ,avg_fire_intensity,avg_fire_tlethal)
+                                         ,cpoly%burnt_area(isi))
                csite%area(ipa) = csite%area(ipa) - sum(pat_area_loss)
             end do old_lu_l4th
             !------------------------------------------------------------------------------!
@@ -3383,8 +3374,7 @@ module disturbance
    !     This subroutine will populate the disturbed patch with the cohorts that were      !
    ! disturbed but did not go extinct.                                                     !
    !---------------------------------------------------------------------------------------!
-   subroutine insert_survivors(csite,np,cp,new_lu,area_fac,mindbh_harvest                  &
-                              ,avg_fire_intensity,avg_fire_tlethal)
+   subroutine insert_survivors(csite,np,cp,new_lu,area_fac,mindbh_harvest,burnt_area)
       use ed_state_vars       , only : sitetype                      & ! structure
                                      , patchtype                     ! ! structure
       use ed_max_dims         , only : n_pft                         ! ! intent(in)
@@ -3398,8 +3388,7 @@ module disturbance
       integer                         , intent(in)    :: np
       integer                         , intent(in)    :: cp
       real          , dimension(n_pft), intent(in)    :: mindbh_harvest
-      real          , dimension(12)   , intent(in)    :: avg_fire_intensity
-      real          , dimension(12)   , intent(in)    :: avg_fire_tlethal
+      real                            , intent(in)    :: burnt_area
       real                            , intent(in)    :: area_fac
       !----- Local variables. -------------------------------------------------------------!
       type(patchtype)                 , pointer       :: cpatch
@@ -3434,8 +3423,8 @@ module disturbance
          survivalloop: do ico = 1,cpatch%ncohorts
             ipft              = cpatch%pft(ico)
             survival_fac(ico) = survivorship(new_lu,csite%dist_type(cp),mindbh_harvest     &
-                                            ,avg_fire_intensity,avg_fire_tlethal           &
-                                            ,cpatch,ico) * area_fac
+                                            ,burnt_area,cpatch,ico                     )   &
+                              * area_fac
             n_survivors       = cpatch%nplant(ico) * survival_fac(ico)
 
             !----- If something survived, make a new cohort. ------------------------------!
@@ -3519,7 +3508,7 @@ module disturbance
    ! place.                                                                                !
    !---------------------------------------------------------------------------------------!
    subroutine accum_dist_harv_litt(cpoly,isi,census_flag,np,cp,new_lu,area_fac             &
-                                  ,mindbh_harvest,avg_fire_intensity,avg_fire_tlethal)
+                                  ,mindbh_harvest,burnt_area)
       use ed_state_vars, only : sitetype              & ! structure
                               , patchtype             & ! structure
                               , polygontype           ! ! structure
@@ -3550,8 +3539,7 @@ module disturbance
       integer                            , intent(in) :: np
       integer                            , intent(in) :: cp
       real             , dimension(n_pft), intent(in) :: mindbh_harvest
-      real             , dimension(12)   , intent(in) :: avg_fire_intensity
-      real             , dimension(12)   , intent(in) :: avg_fire_tlethal
+      real                               , intent(in) :: burnt_area
       integer                            , intent(in) :: new_lu
       real                               , intent(in) :: area_fac
       !----- Local variables. -------------------------------------------------------------!
@@ -3849,7 +3837,7 @@ module disturbance
 
          !----- Find survivorship. --------------------------------------------------------!
          survival_fac  = survivorship(new_lu,csite%dist_type(cp),mindbh_harvest            &
-                                     ,avg_fire_intensity,avg_fire_tlethal,cpatch,ico)
+                                     ,burnt_area,cpatch,ico)
          !---------------------------------------------------------------------------------!
 
 

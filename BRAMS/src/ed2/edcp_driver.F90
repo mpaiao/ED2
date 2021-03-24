@@ -17,6 +17,7 @@ subroutine ed_coup_driver()
                                    , idatea                & ! intent(in)
                                    , itimea                & ! intent(in)
                                    , runtype               & ! intent(in)
+                                   , month_yrstep          & ! intent(in)
                                    , ifoutput              & ! intent(in)
                                    , idoutput              & ! intent(in)
                                    , imoutput              & ! intent(in)
@@ -49,7 +50,8 @@ subroutine ed_coup_driver()
    use ed_type_init         , only : ed_init_viable        ! ! sub-routine
    use soil_respiration     , only : zero_litter_inputs    ! ! sub-routine
    use disturb_coms         , only : include_fire          ! ! intent(in)
-   use fire                 , only : reset_daily_fire      ! ! sub-routine
+   use fire                 , only : reset_monthly_fire    & ! sub-routine
+                                   , reset_yearly_fire     ! ! sub-routine
 
    implicit none
    !----- Local variables. ----------------------------------------------------------------!
@@ -69,6 +71,7 @@ subroutine ed_coup_driver()
    integer                     :: ping
    logical                     :: new_day
    logical                     :: new_month
+   logical                     :: new_year
    real                        :: wtime1
    real                        :: wtime2
    real                        :: wtime_start     ! wall time
@@ -357,6 +360,7 @@ subroutine ed_coup_driver()
    case ('HISTORY')
       new_day   = current_time%time < dtlsm
       new_month = current_time%date == 1  .and. new_day
+      new_year  = current_time%month == month_yrstep .and. new_month
       do ifm=1,ngrids
          call flag_stable_cohorts(edgrid_g(ifm),.true.)
          call ed_init_viable(edgrid_g(ifm))
@@ -364,13 +368,21 @@ subroutine ed_coup_driver()
          if (new_day) then
             call zero_litter_inputs(edgrid_g(ifm))
          end if
-         !----- Reset fire variables if this is a new month (EMBERFIRE/FIRESTARTER only). -!
-         if (new_month) then
-            select case (include_fire)
-            case (3,4)
-               call reset_daily_fire(edgrid_g(ifm))
-            end select
-         end if
+         !----- EMBERFIRE/FIRESTARTER check.  We may need to reset variables. -------------!
+         select case (include_fire)
+         case (3,4)
+            !----- Reset monthly fire variables if this is a new month. -------------------!
+            if (new_month) then
+               call reset_monthly_fire(edgrid_g(ifm))
+            end if
+            !------------------------------------------------------------------------------!
+
+            !----- Reset yearly fire variables if this is a new year. ---------------------!
+            if (new_year) then
+               call reset_yearly_fire(edgrid_g(ifm))
+            end if
+            !------------------------------------------------------------------------------!
+         end select
          !---------------------------------------------------------------------------------!
       end do
    end select
