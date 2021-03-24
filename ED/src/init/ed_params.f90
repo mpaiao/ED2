@@ -1091,7 +1091,7 @@ subroutine init_disturb_params
    !    Spread parameters.                                                                 !
    !---------------------------------------------------------------------------------------!
    !------  Burnt area fragmentation (min age to burn)  [        yr] ----------------------!
-   fs_ba_frag    = twothirds
+   fs_ba_frag    = 0.0 ! Currently set to 0., as fuel availability is directly assessed.
    !------  Lower bound for relative humidity           [       ---] ----------------------!
    fs_rhv_lwr    = 0.30
    !------  Upper bound for relative humidity           [       ---] ----------------------!
