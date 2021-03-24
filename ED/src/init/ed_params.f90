@@ -848,7 +848,6 @@ subroutine init_disturb_params
                            , fi_lu_upr                 & ! intent(out)
                            , fi_hdi_exp                & ! intent(out)
                            , fi_hdi_upr                & ! intent(out)
-                           , fs_ba_frag                & ! intent(out)
                            , fs_rhv_lwr                & ! intent(out)
                            , fs_rhv_upr                & ! intent(out)
                            , fs_rhv_exp                & ! intent(out)
@@ -1090,8 +1089,6 @@ subroutine init_disturb_params
    !---------------------------------------------------------------------------------------!
    !    Spread parameters.                                                                 !
    !---------------------------------------------------------------------------------------!
-   !------  Burnt area fragmentation (min age to burn)  [        yr] ----------------------!
-   fs_ba_frag    = 0.0 ! Currently set to 0., as fuel availability is directly assessed.
    !------  Lower bound for relative humidity           [       ---] ----------------------!
    fs_rhv_lwr    = 0.30
    !------  Upper bound for relative humidity           [       ---] ----------------------!

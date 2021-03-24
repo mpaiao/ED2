@@ -335,7 +335,6 @@ module disturb_coms
    real(kind=4) :: fi_hdi_upr    ! Upper bound for HDI effect on termination   [       ---]
    real(kind=4) :: fi_hdi_exp    ! HDI shape parameter to modulate ignitions   [       ---]
    !----- Spread parameters. --------------------------------------------------------------!
-   real(kind=4) :: fs_ba_frag    ! Burnt area fragmentation (min age to burn)  [        yr]
    real(kind=4) :: fs_rhv_lwr    ! Lower bound for relative humidity           [       ---]
    real(kind=4) :: fs_rhv_upr    ! Upper bound for relative humidity           [       ---]
    real(kind=4) :: fs_rhv_dti    ! (*) 1. / ( fs_rhv_upr - fs_rhv_lwr )        [       ---]

@@ -1257,7 +1257,6 @@ module fire
                                , fi_lu_upr              & ! intent(in)
                                , fi_sf_maxage           & ! intent(in)
                                , fr_h                   & ! intent(in)
-                               , fs_ba_frag             & ! intent(in)
                                , fs_bck_exp             & ! intent(in)
                                , fs_gw_infty            & ! intent(in)
                                , fs_lbr_exp             & ! intent(in)
@@ -1559,16 +1558,12 @@ module fire
                   !----- 1. Croplands, exclude the area. ----------------------------------!
                   fragn = fragn + csite%area(ipa)
                   !------------------------------------------------------------------------!
-               elseif (csite%dist_type(ipa) == 4 .and. csite%age(ipa) <= fs_ba_frag) then
-                  !----- 2. Recently burnt area. ------------------------------------------!
-                  fragn = fragn + csite%area(ipa)
-                  !------------------------------------------------------------------------!
                elseif (cpatch%ncohorts == 0) then
-                  !----- 3. Deserts, exclude the area. ------------------------------------!
+                  !----- 2. Deserts, exclude the area. ------------------------------------!
                   fragn = fragn + csite%area(ipa)
                   !------------------------------------------------------------------------!
                else
-                  !----- 4. The patch may burn, but we exclude flooded/snowpack fraction. -!
+                  !----- 3. The patch may burn, but we exclude flooded/snowpack fraction. -!
                   fragn = fragn + csite%snowfac(ipa) * csite%area(ipa)
                   !------------------------------------------------------------------------!
                end if
@@ -1601,7 +1596,7 @@ module fire
 
             !------------------------------------------------------------------------------!
             !     The maximum are that can burn is scaled by the landscape fragmentation   !
-            ! (including the permanent fragmentation such as lakes, oceans, and glaciers.  !
+            ! (including the permanent fragmentation such as lakes, oceans, and glaciers). !
             !------------------------------------------------------------------------------!
             burnt_area_max = cgrid%landfrac(ipy) * (1. - fragn)
             !------------------------------------------------------------------------------!

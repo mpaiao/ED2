@@ -1503,8 +1503,6 @@ recursive subroutine read_ed_xml_config(filename)
         if(texist) fi_hdi_upr   = sngloff(rval,tiny_offset)
 
         !! FIRESTARTER - Spread parameters
-        call getConfigREAL  ('fs_ba_frag'  ,'disturbance',i,rval,texist)
-        if(texist) fs_ba_frag   = sngloff(rval,tiny_offset)
         call getConfigREAL  ('fs_rhv_lwr'  ,'disturbance',i,rval,texist)
         if(texist) fs_rhv_lwr   = sngloff(rval,tiny_offset)
         call getConfigREAL  ('fs_rhv_upr'  ,'disturbance',i,rval,texist)
@@ -2617,7 +2615,6 @@ subroutine write_ed_xml_config
      call putConfigREAL("fi_hdi_exp"            ,fi_hdi_exp            )
      call putConfigREAL("fi_hdi_upr"            ,fi_hdi_upr            )
      ! --- FIRESTARTER: Spread
-     call putConfigREAL("fs_ba_frag"            ,fs_ba_frag            )
      call putConfigREAL("fs_rhv_lwr"            ,fs_rhv_lwr            )
      call putConfigREAL("fs_rhv_upr"            ,fs_rhv_upr            )
      call putConfigREAL("fs_rhv_exp"            ,fs_rhv_exp            )
