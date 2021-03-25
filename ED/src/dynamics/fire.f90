@@ -444,7 +444,7 @@ module fire
 
    !=======================================================================================!
    !=======================================================================================!
-   ! SUB-ROUTINE INTEG_FIRESTARTER
+   ! SUB-ROUTINE INTEG_FIRE_DANGER
    !\brief Subroutine that integrates variables used to assess fire risk.
    !\details This sub-routine that integrates the fire disturbance rate when using the 
    !!       Sub-routine that integrates the Nesterov index (T10) and the VPD-based fire
@@ -1656,7 +1656,7 @@ module fire
             ! anthropogenic ignitions.                                                     !
             !------------------------------------------------------------------------------!
             lu_norm       = max(0.,min(1.,1. - lu_area / fi_lu_upr))
-            lu_effect     = max(0.,fi_lu_off * ( 1. - bpow01( lu_norm, fi_lu_exp + 1 ) ))
+            lu_effect     = max(0.,fi_lu_off * ( 1. - bpow01( lu_norm, fi_lu_exp + 1. ) ))
             hdin          = max(0., min(1.,cpoly%seitimes(isei,isi)%hdi/fi_hdi_upr) )
             anth_ign_rate = (1. - bpow01(hdin,fi_hdi_exp)) * fi_lu_ignd * lu_effect
             !------------------------------------------------------------------------------!
