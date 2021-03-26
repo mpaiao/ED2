@@ -1779,6 +1779,8 @@ module fire
                !     Loop through patches.                                                 !
                !---------------------------------------------------------------------------!
                fst_patch_loop: do ipa=1,csite%npatches
+                  cpatch => csite%patch(ipa)
+
                   !------------------------------------------------------------------------!
                   !    For temperature and humidity, decide between minimum (night) or     !
                   ! maximum (day) temperature, and associated relative humidity (maximum   !
