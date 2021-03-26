@@ -1779,6 +1779,10 @@ module disturbance
       csite%mineralized_soil_N         (np) = 0.0
       csite%sum_dgd                    (np) = 0.0
       csite%sum_chd                    (np) = 0.0
+      csite%tdmax_can_temp             (np) = 0.0
+      csite%tdmin_can_temp             (np) = 0.0
+      csite%tdmax_can_rhv              (np) = 0.0
+      csite%tdmin_can_rhv              (np) = 0.0
       !------------------------------------------------------------------------------------!
 
       return
