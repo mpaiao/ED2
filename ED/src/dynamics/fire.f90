@@ -419,6 +419,46 @@ module fire
                !---------------------------------------------------------------------------!
 
 
+
+
+               !---------------------------------------------------------------------------!
+               !      Use burnt area to normalise the fire consumption.                    !
+               !---------------------------------------------------------------------------!
+               if (cpoly%avg_burnt_area(imo,isi) > tiny_num) then
+                  !----- Use area burnt this month. ---------------------------------------!
+                  cpoly%avg_fire_f_bherb (imo,isi) = cpoly%avg_fire_f_bherb (imo,isi)      &
+                                                   / cpoly%avg_burnt_area   (imo,isi)
+                  cpoly%avg_fire_f_bwoody(imo,isi) = cpoly%avg_fire_f_bwoody(imo,isi)      &
+                                                   / cpoly%avg_burnt_area   (imo,isi)
+                  cpoly%avg_fire_f_fgc   (imo,isi) = cpoly%avg_fire_f_fgc   (imo,isi)      &
+                                                   / cpoly%avg_burnt_area   (imo,isi)
+                  cpoly%avg_fire_f_stgc  (imo,isi) = cpoly%avg_fire_f_stgc  (imo,isi)      &
+                                                   / cpoly%avg_burnt_area   (imo,isi)
+                  !------------------------------------------------------------------------!
+
+
+                  !----- Ensure consumption terms are bounded. ----------------------------!
+                  cpoly%avg_fire_f_bherb (imo,isi) =                                       &
+                                           max(0.,min(1.,cpoly%avg_fire_f_bherb (imo,isi)))
+                  cpoly%avg_fire_f_bwoody(imo,isi) =                                       &
+                                           max(0.,min(1.,cpoly%avg_fire_f_bwoody(imo,isi)))
+                  cpoly%avg_fire_f_fgc   (imo,isi) =                                       &
+                                           max(0.,min(1.,cpoly%avg_fire_f_fgc   (imo,isi)))
+                  cpoly%avg_fire_f_stgc  (imo,isi) =                                       &
+                                           max(0.,min(1.,cpoly%avg_fire_f_stgc  (imo,isi)))
+                  !------------------------------------------------------------------------!
+               else
+                  !----- No fires this month, set consumption to zero. --------------------!
+                  cpoly%avg_fire_f_bherb (imo,isi) = 0.0
+                  cpoly%avg_fire_f_bwoody(imo,isi) = 0.0
+                  cpoly%avg_fire_f_fgc   (imo,isi) = 0.0
+                  cpoly%avg_fire_f_stgc  (imo,isi) = 0.0
+                  !------------------------------------------------------------------------!
+               end if
+               !---------------------------------------------------------------------------!
+
+
+
                !---------------------------------------------------------------------------!
                !     Reset the precipitation counter for this month.                       !
                !---------------------------------------------------------------------------!
@@ -2268,8 +2308,8 @@ module fire
 
 
                !---------------------------------------------------------------------------!
-               !      Add burnt area from this step, then calculate the mortality          !
-               ! associated with this time step.                                           !
+               !      Add burnt area from this step, then calculate the lethality and      !
+               ! combustion fraction associated with this time step.                       !
                !---------------------------------------------------------------------------!
                if (cgrid%landfrac(ipy) > tiny_num) then
                   !----- Integrate area. --------------------------------------------------!
@@ -2286,9 +2326,26 @@ module fire
 
 
 
-                  !----- Integrate mortality. ---------------------------------------------!
+                  !----- Integrate lethality. ---------------------------------------------!
                   call integ_fire_lethality( cpoly,isi,fx_intensity,fx_tlethal             &
                                            , burnt_area_step / cgrid%landfrac(ipy) )
+                  !------------------------------------------------------------------------!
+
+
+
+                  !----- Integrate combustion fraction. -----------------------------------!
+                  cpoly%fire_f_bherb (isi) = cpoly%fire_f_bherb (isi)                      &
+                                           + fx_f_bherb                                    &
+                                           * burnt_area_step / cgrid%landfrac(ipy)
+                  cpoly%fire_f_bwoody(isi) = cpoly%fire_f_bwoody(isi)                      &
+                                           + fx_f_bwoody                                   &
+                                           * burnt_area_step / cgrid%landfrac(ipy)
+                  cpoly%fire_f_fgc   (isi) = cpoly%fire_f_fgc   (isi)                      &
+                                           + fx_f_fgc                                      &
+                                           * burnt_area_step / cgrid%landfrac(ipy)
+                  cpoly%fire_f_stgc  (isi) = cpoly%fire_f_stgc  (isi)                      &
+                                           + fx_f_stgc                                     &
+                                           * burnt_area_step / cgrid%landfrac(ipy)
                   !------------------------------------------------------------------------!
                end if
                !---------------------------------------------------------------------------!
@@ -2306,16 +2363,6 @@ module fire
                                                 + 0.5 * rosfwd_avg
                cpoly%fire_intensity       (isi) = cpoly%fire_intensity       (isi)         &
                                                 + 0.5 * fx_intensity
-               cpoly%fire_tlethal         (isi) = cpoly%fire_tlethal         (isi)         &
-                                                + 0.5 * fx_tlethal
-               cpoly%fire_f_bherb         (isi) = cpoly%fire_f_bherb         (isi)         &
-                                                + 0.5 * fx_f_bherb
-               cpoly%fire_f_bwoody        (isi) = cpoly%fire_f_bwoody        (isi)         &
-                                                + 0.5 * fx_f_bwoody
-               cpoly%fire_f_fgc           (isi) = cpoly%fire_f_fgc           (isi)         &
-                                                + 0.5 * fx_f_fgc
-               cpoly%fire_f_stgc          (isi) = cpoly%fire_f_stgc          (isi)         &
-                                                + 0.5 * fx_f_fgc
                !---------------------------------------------------------------------------!
 
 
@@ -2360,23 +2407,28 @@ module fire
 
 
             !------------------------------------------------------------------------------!
-            !       Update the average fire intensity and fire consumption.                !
+            !       Update the average fire intensity.                                     !
             !------------------------------------------------------------------------------!
             cpoly%avg_fire_intensity(imonth,isi) = cpoly%avg_fire_intensity(imonth,isi)    &
                                                  + cpoly%fire_intensity           (isi)    &
                                                  * ndaysi
+            !------------------------------------------------------------------------------!
+
+
+
+            !------------------------------------------------------------------------------!
+            !      For fire consumption, we do not weight by time step; instead, we use    !
+            ! the burnt area as weights.  We normalise the consumption rate at the monthly !
+            ! time step.                                                                   !
+            !------------------------------------------------------------------------------!
             cpoly%avg_fire_f_bherb  (imonth,isi) = cpoly%avg_fire_f_bherb  (imonth,isi)    &
-                                                 + cpoly%fire_f_bherb             (isi)    &
-                                                 * ndaysi
+                                                 + cpoly%fire_f_bherb             (isi)
             cpoly%avg_fire_f_bwoody (imonth,isi) = cpoly%avg_fire_f_bwoody (imonth,isi)    &
-                                                 + cpoly%fire_f_bwoody            (isi)    &
-                                                 * ndaysi
+                                                 + cpoly%fire_f_bwoody            (isi)
             cpoly%avg_fire_f_fgc    (imonth,isi) = cpoly%avg_fire_f_fgc    (imonth,isi)    &
-                                                 + cpoly%fire_f_fgc               (isi)    &
-                                                 * ndaysi
+                                                 + cpoly%fire_f_fgc               (isi)
             cpoly%avg_fire_f_stgc   (imonth,isi) = cpoly%avg_fire_f_stgc   (imonth,isi)    &
-                                                 + cpoly%fire_f_stgc              (isi)    &
-                                                 * ndaysi
+                                                 + cpoly%fire_f_stgc              (isi)
             !------------------------------------------------------------------------------!
 
 

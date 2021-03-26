@@ -309,7 +309,8 @@ module mortality
             ! probability of mortality given a fire, integrated over the year.             !
             !------------------------------------------------------------------------------!
             if (burnt_area > tiny_num) then
-               survivorship = ( 1. - cpatch%fire_lethal_prob(ico) ) / burnt_area
+               survivorship = 1. - cpatch%fire_lethal_prob(ico) / burnt_area
+               survivorship = max(0.,min(1.,survivorship))
             else
                survivorship = 1.
             end if

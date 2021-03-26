@@ -1395,7 +1395,18 @@ module disturbance
             case (0)
                fire_disturbance_rate = 0.0
             case default
-               fire_disturbance_rate = sum(cpoly%lambda_fire(1:12,isi)) / 12.0
+               if (any(cpoly%lambda_fire(1:12,isi) == lnexp_max)) then
+                  !------------------------------------------------------------------------!
+                  !      At least one month had "infinity" disturbance rate. Set average   !
+                  ! lnexp_max, which is effectively infinity.                              !
+                  !------------------------------------------------------------------------!
+                  fire_disturbance_rate = lnexp_max
+                  !------------------------------------------------------------------------!
+               else
+                  !----- Find the average disturbance rate. -------------------------------!
+                  fire_disturbance_rate = sum(cpoly%lambda_fire(1:12,isi)) / 12.0
+                  !------------------------------------------------------------------------!
+               end if
             end select
             !------------------------------------------------------------------------------!
 
@@ -3553,6 +3564,11 @@ module disturbance
       integer                                         :: ico
       integer                                         :: ipft
       integer                                         :: bdbh
+      real           , dimension(12)                  :: avg_burnt_area
+      real           , dimension(12)                  :: avg_fire_f_bherb
+      real           , dimension(12)                  :: avg_fire_f_bwoody
+      real           , dimension(12)                  :: avg_fire_f_fgc
+      real           , dimension(12)                  :: avg_fire_f_stgc
       real                                            :: a_bfast_before
       real                                            :: a_bstruct_before
       real                                            :: a_bstorage_before
@@ -3633,11 +3649,46 @@ module disturbance
       !------------------------------------------------------------------------------------!
       select case (include_fire)
       case (4)
+
+         !---------------------------------------------------------------------------------!
+         !       Set some local variables to help averaging.                               !
+         !---------------------------------------------------------------------------------!
+         avg_burnt_area    = cpoly%avg_burnt_area   (:,isi)
+         avg_fire_f_bherb  = cpoly%avg_fire_f_bherb (:,isi)
+         avg_fire_f_bwoody = cpoly%avg_fire_f_bwoody(:,isi)
+         avg_fire_f_fgc    = cpoly%avg_fire_f_fgc   (:,isi)
+         avg_fire_f_stgc   = cpoly%avg_fire_f_stgc  (:,isi)
+         !---------------------------------------------------------------------------------!
+
+
          !----- FIRESTARTER, use dynamic combustion factors. ------------------------------!
-         avg_fcomb_bherb_c  = onetwelfth * sum(cpoly%avg_fire_f_bherb (:,isi))
-         avg_fcomb_bwoody_c = onetwelfth * sum(cpoly%avg_fire_f_bwoody(:,isi))
-         avg_fcomb_fast_c   = onetwelfth * sum(cpoly%avg_fire_f_fgc   (:,isi))
-         avg_fcomb_struct_c = onetwelfth * sum(cpoly%avg_fire_f_stgc  (:,isi))
+         if (any(cpoly%avg_burnt_area(:,isi) > tiny_num)) then
+            !------ Average combustion, weighted by burnt area. ---------------------------!
+            avg_fcomb_bherb_c  = sum( avg_fire_f_bherb  * avg_burnt_area )                 &
+                               / sum( avg_burnt_area )
+            avg_fcomb_bwoody_c = sum( avg_fire_f_bwoody * avg_burnt_area )                 &
+                               / sum( avg_burnt_area )
+            avg_fcomb_fast_c   = sum( avg_fire_f_fgc    * avg_burnt_area )                 &
+                               / sum( avg_burnt_area )
+            avg_fcomb_struct_c = sum( avg_fire_f_stgc   * avg_burnt_area )                 &
+                               / sum( avg_burnt_area )
+            !------------------------------------------------------------------------------!
+
+
+            !----- Make sure combustion is bounded. ---------------------------------------!
+            avg_fcomb_bherb_c  = max(0.,min(1.,avg_fcomb_bherb_c ))
+            avg_fcomb_bwoody_c = max(0.,min(1.,avg_fcomb_bwoody_c))
+            avg_fcomb_fast_c   = max(0.,min(1.,avg_fcomb_fast_c  ))
+            avg_fcomb_struct_c = max(0.,min(1.,avg_fcomb_struct_c))
+            !------------------------------------------------------------------------------!
+         else
+            !----- Fire-free year, no combustion. -----------------------------------------!
+            avg_fcomb_bherb_c  = 0.
+            avg_fcomb_bwoody_c = 0.
+            avg_fcomb_fast_c   = 0.
+            avg_fcomb_struct_c = 0.
+            !------------------------------------------------------------------------------!
+         end if
          !---------------------------------------------------------------------------------!
 
 
