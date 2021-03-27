@@ -4947,18 +4947,6 @@ module average_utils
             cpoly%mmean_ignition_rate  (isi) = cpoly%mmean_ignition_rate  (isi)            &
                                              + cpoly%ignition_rate        (isi)            &
                                              * ndaysi
-            cpoly%mmean_fire_f_bherb   (isi) = cpoly%mmean_fire_f_bherb   (isi)            &
-                                             + cpoly%fire_f_bherb         (isi)            &
-                                             * ndaysi
-            cpoly%mmean_fire_f_bwoody  (isi) = cpoly%mmean_fire_f_bwoody   (isi)           &
-                                             + cpoly%fire_f_bwoody         (isi)           &
-                                             * ndaysi
-            cpoly%mmean_fire_f_fgc     (isi) = cpoly%mmean_fire_f_fgc     (isi)            &
-                                             + cpoly%fire_f_fgc           (isi)            &
-                                             * ndaysi
-            cpoly%mmean_fire_f_stgc    (isi) = cpoly%mmean_fire_f_stgc    (isi)            &
-                                             + cpoly%fire_f_stgc          (isi)            &
-                                             * ndaysi
             !------------------------------------------------------------------------------!
 
 
@@ -5878,7 +5866,11 @@ module average_utils
             !------------------------------------------------------------------------------!
             !       Copy the burnt area from the 12-month array.                           !
             !------------------------------------------------------------------------------!
-            cpoly%mmean_burnt_area(isi) = cpoly%avg_burnt_area(imo,isi)
+            cpoly%mmean_burnt_area   (isi) = cpoly%avg_burnt_area   (imo,isi)
+            cpoly%mmean_fire_f_bherb (isi) = cpoly%avg_fire_f_bherb (imo,isi)
+            cpoly%mmean_fire_f_bwoody(isi) = cpoly%avg_fire_f_bwoody(imo,isi)
+            cpoly%mmean_fire_f_fgc   (isi) = cpoly%avg_fire_f_fgc   (imo,isi)
+            cpoly%mmean_fire_f_stgc  (isi) = cpoly%avg_fire_f_stgc  (imo,isi)
             !------------------------------------------------------------------------------!
 
 
@@ -6009,7 +6001,7 @@ module average_utils
                   !      Copy fire mortality rate from the 12-month array (convert it to   !
                   ! 1/yr, to be consistent with other mortality rates).                    !
                   !------------------------------------------------------------------------!
-                  cpatch%mmean_fire_lethal_rate(ico) = cpatch%fire_lethal_rate(imo,ico)
+                  cpatch%mmean_fire_lethal_rate(ico) = 12.*cpatch%fire_lethal_rate(imo,ico)
                   !------------------------------------------------------------------------!
                end do cohortloop
                !---------------------------------------------------------------------------!

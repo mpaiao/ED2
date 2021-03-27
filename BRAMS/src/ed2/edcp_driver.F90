@@ -49,7 +49,6 @@ subroutine ed_coup_driver()
    use budget_utils         , only : ed_init_budget        ! ! sub-routine
    use ed_type_init         , only : ed_init_viable        ! ! sub-routine
    use soil_respiration     , only : zero_litter_inputs    ! ! sub-routine
-   use disturb_coms         , only : include_fire          ! ! intent(in)
    use fire                 , only : reset_monthly_fire    & ! sub-routine
                                    , reset_yearly_fire     ! ! sub-routine
 
@@ -368,21 +367,21 @@ subroutine ed_coup_driver()
          if (new_day) then
             call zero_litter_inputs(edgrid_g(ifm))
          end if
-         !----- EMBERFIRE/FIRESTARTER check.  We may need to reset variables. -------------!
-         select case (include_fire)
-         case (3,4)
-            !----- Reset monthly fire variables if this is a new month. -------------------!
-            if (new_month) then
-               call reset_monthly_fire(edgrid_g(ifm))
-            end if
-            !------------------------------------------------------------------------------!
+         !---------------------------------------------------------------------------------!
 
-            !----- Reset yearly fire variables if this is a new year. ---------------------!
-            if (new_year) then
-               call reset_yearly_fire(edgrid_g(ifm))
-            end if
-            !------------------------------------------------------------------------------!
-         end select
+
+
+         !---------------------------------------------------------------------------------!
+         !     Reset fire variables.                                                       !
+         !---------------------------------------------------------------------------------!
+         !----- Reset monthly fire variables if this is a new month. ----------------------!
+         if (new_month) then
+            call reset_monthly_fire(edgrid_g(ifm))
+         end if
+         !----- Reset yearly fire variables if this is a new year. ------------------------!
+         if (new_year) then
+            call reset_yearly_fire(edgrid_g(ifm))
+         end if
          !---------------------------------------------------------------------------------!
       end do
    end select

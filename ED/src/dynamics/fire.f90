@@ -31,10 +31,15 @@ module fire
                                , fire_parameter         & ! intent(in)
                                , fe_combusted_fast_c    & ! intent(in)
                                , fe_combusted_struct_c  ! ! intent(in)
+      use pft_coms      , only : fire_s_min             & ! intent(in)
+                               , fire_s_max             & ! intent(in)
+                               , fire_s_inter           & ! intent(in)
+                               , fire_s_slope           ! ! intent(in)
       use consts_coms   , only : wdns                   & ! intent(in)
                                , wdnsi                  & ! intent(in)
                                , day_sec                & ! intent(in)
                                , almost_one             & ! intent(in)
+                               , onetwelfth             & ! intent(in)
                                , tiny_num               & ! intent(in)
                                , lnexp_min              & ! intent(in)
                                , lnexp_max              ! ! intent(in)
@@ -51,6 +56,7 @@ module fire
       integer                        :: ipa
       integer                        :: ico
       integer                        :: imo
+      integer                        :: ipft
       real                           :: ndaysi
       real                           :: normfac
       real                           :: fire_intensity
@@ -61,6 +67,8 @@ module fire
       real                           :: mean_gndwater_si
       real                           :: mean_fuel_si
       real                           :: lnexp
+      real                           :: prev_not_burnt
+      real                           :: curr_not_burnt
       real                           :: fire_lethal_now
       !----- Local parameters. ------------------------------------------------------------!
       character(len=18) , parameter  :: firefile = 'edfire_details.txt'
@@ -253,25 +261,119 @@ module fire
 
 
 
-               !----- Calculate fire disturbance rate [1/year]. ---------------------------!
-               cpoly%lambda_fire  (imo,isi) = ignition_rate
+               !----- Calculate fire disturbance rate [1/month]. --------------------------!
+               cpoly%lambda_fire  (imo,isi) = min(lnexp_max,onetwelfth * ignition_rate)
                if (mean_fire_intensity > 0.) then
-                  cpoly%ignition_rate (isi) = ignition_rate / mean_fire_intensity
+                  cpoly%ignition_rate (isi)     = cpoly%lambda_fire  (imo,isi)             &
+                                                / mean_fire_intensity
                else
-                  cpoly%ignition_rate (isi) = 0.0
+                  cpoly%ignition_rate (isi)     = 0.0
                end if
-               lnexp                        = max( lnexp_min                               &
-                                                 , min( lnexp_max, - ignition_rate ) )
-               cpoly%burnt_area       (isi) = 1. - exp(lnexp)
                !---------------------------------------------------------------------------!
 
 
-               !----- Set the combusted fraction based on default values. -----------------!
-               cpoly%avg_fire_f_bherb  (imo,isi) = 0.0
-               cpoly%avg_fire_f_bwoody (imo,isi) = 0.0
-               cpoly%avg_fire_f_fgc    (imo,isi) = 0.0
-               cpoly%avg_fire_f_stgc   (imo,isi) = 0.0
+
+               !------ Fire intensity (reporting only). -----------------------------------!
+               cpoly%fire_intensity        (isi) = mean_fire_intensity
+               cpoly%avg_fire_intensity(imo,isi) = mean_fire_intensity
                !---------------------------------------------------------------------------!
+
+
+
+               !---------------------------------------------------------------------------!
+               !      Find burnt area.                                                     !
+               !---------------------------------------------------------------------------!
+               lnexp                         = max( lnexp_min                              &
+                                                  , min( lnexp_max, - ignition_rate ) )
+               cpoly%avg_burnt_area(imo,isi) = (1. - cpoly%burnt_area(isi))                &
+                                             * (1. - exp(lnexp))
+               cpoly%burnt_area        (isi) = min(1., cpoly%burnt_area        (isi)       &
+                                                     + cpoly%avg_burnt_area(imo,isi) )
+               !---------------------------------------------------------------------------!
+
+
+
+               !---------------------------------------------------------------------------!
+               !     Find fire-related rates for this month.  For most of them, we must    !
+               ! take the average by burnt area (so they are average values given a fire), !
+               ! and thus we must check that there was any fire in this month.             !
+               !---------------------------------------------------------------------------!
+               if (cpoly%avg_burnt_area(imo,isi) > tiny_num) then
+                  !------------------------------------------------------------------------!
+                  !     Fire occurred this month.                                          !
+                  !------------------------------------------------------------------------!
+
+
+
+                  !------------------------------------------------------------------------!
+                  !     Find fire lethality rate (fire mortality given that fire has       !
+                  ! occurred).  Here we use the conversion between the discrete lethality  !
+                  ! (akin to m in SM96) and the instantaneous, exponential lethality       !
+                  ! (akin to lambda in SM96).                                              !
+                  !                                                                        !
+                  ! Reference:                                                             !
+                  !                                                                        !
+                  ! Sheil D , May RM. 1996. Mortality and recruitment rate evaluations in  !
+                  !    heterogeneous tropical forests. J. Ecol., 84: 91-100.               !
+                  !    doi:10.2307/2261703 (SM96).                                         !
+                  !------------------------------------------------------------------------!
+                  !------ Loop through patches. -------------------------------------------!
+                  patchlethal_12: do ipa=1,csite%npatches
+                     cpatch => csite%patch(ipa)
+
+                     !------ Loop through cohorts. ----------------------------------------!
+                     cohortlethal_12: do ico=1,cpatch%ncohorts
+                        !------------------------------------------------------------------!
+                        !      In ED1, fire kills all the cohorts.  Set lethality          !
+                        ! probability and lethality rate accordingly.                      !
+                        !------------------------------------------------------------------!
+                        cpatch%fire_lethal_rate (13,ico) = cpoly%avg_burnt_area(imo,isi)
+                        cpatch%fire_lethal_prob    (ico) = cpatch%fire_lethal_prob   (ico) &
+                                                         + cpatch%fire_lethal_rate(13,ico)
+                        cpatch%fire_lethal_rate(imo,ico) = lnexp_max
+                        !------------------------------------------------------------------!
+                     end do cohortlethal_12
+                     !---------------------------------------------------------------------!
+                  end do patchlethal_12
+                  !------------------------------------------------------------------------!
+
+               else
+                  !------------------------------------------------------------------------!
+                  !     No fire, set variables to zero.                                    !
+                  !------------------------------------------------------------------------!
+
+
+                  !------------------------------------------------------------------------!
+                  !      Fire lethality rate.                                              !
+                  !------------------------------------------------------------------------!
+                  !------ Loop through patches. -------------------------------------------!
+                  patchnofire_12: do ipa=1,csite%npatches
+                     cpatch => csite%patch(ipa)
+                     !------ Loop through cohorts. ----------------------------------------!
+                     cohortnofire_12: do ico=1,cpatch%ncohorts
+                        !----- Lethality rate. --------------------------------------------!
+                        cpatch%fire_lethal_rate(imo,ico) = 0.0
+                        !------------------------------------------------------------------!
+                     end do cohortnofire_12
+                     !---------------------------------------------------------------------!
+                  end do patchnofire_12
+                  !------------------------------------------------------------------------!
+               end if
+               !---------------------------------------------------------------------------!
+
+
+
+
+               !---------------------------------------------------------------------------!
+               !     Relative consumption rates.  Set them to zero as this is the default  !
+               ! in the original ED1 fire model.                                           !
+               !---------------------------------------------------------------------------!
+               cpoly%avg_fire_f_bherb (imo,isi) = 0.0
+               cpoly%avg_fire_f_bwoody(imo,isi) = 0.0
+               cpoly%avg_fire_f_fgc   (imo,isi) = 0.0
+               cpoly%avg_fire_f_stgc  (imo,isi) = 0.0
+               !---------------------------------------------------------------------------!
+
 
 
                !---------------------------------------------------------------------------!
@@ -311,24 +413,150 @@ module fire
 
 
                !----- Use fire "intensity" to find disturbance rate. ----------------------!
-               cpoly%lambda_fire  (imo,isi) = cpoly%avg_fire_intensity(imo,isi)
+               cpoly%lambda_fire  (imo,isi) = min( lnexp_max                               &
+                                                 , onetwelfth                              &
+                                                 * cpoly%avg_fire_intensity(imo,isi) )
                cpoly%ignition_rate    (isi) = cpoly%avg_fire_intensity(imo,isi)            &
                                             / fire_parameter
                !---------------------------------------------------------------------------!
 
 
-               !----- Use disturbance rate to estimate the burnt area. --------------------!
-               lnexp                 = max( lnexp_min                                      &
-                                          , min(lnexp_max, - cpoly%lambda_fire(imo,isi)) )
-               cpoly%burnt_area(isi) = 1. - exp(lnexp)
+
+               !---------------------------------------------------------------------------!
+               !      Find burnt area.                                                     !
+               !---------------------------------------------------------------------------!
+               lnexp                         = max( lnexp_min                              &
+                                                  , min( lnexp_max, - ignition_rate ) )
+               cpoly%avg_burnt_area(imo,isi) = (1. - cpoly%burnt_area(isi))                &
+                                             * (1. - exp(lnexp))
+               cpoly%burnt_area        (isi) = min(1., cpoly%burnt_area        (isi)       &
+                                                     + cpoly%avg_burnt_area(imo,isi) )
                !---------------------------------------------------------------------------!
 
 
-               !----- Set the combusted fraction based on default values. -----------------!
-               cpoly%avg_fire_f_bherb  (imo,isi) = fe_combusted_fast_c
-               cpoly%avg_fire_f_bwoody (imo,isi) = fe_combusted_struct_c
-               cpoly%avg_fire_f_fgc    (imo,isi) = fe_combusted_fast_c
-               cpoly%avg_fire_f_stgc   (imo,isi) = fe_combusted_struct_c
+
+               !---------------------------------------------------------------------------!
+               !     Find fire-related rates for this month.  For most of them, we must    !
+               ! take the average by burnt area (so they are average values given a fire), !
+               ! and thus we must check that there was any fire in this month.             !
+               !---------------------------------------------------------------------------!
+               if (cpoly%avg_burnt_area(imo,isi) > tiny_num) then
+                  !------------------------------------------------------------------------!
+                  !     Fire occurred this month.                                          !
+                  !------------------------------------------------------------------------!
+
+
+
+                  !------------------------------------------------------------------------!
+                  !     Find fire lethality rate (fire mortality given that fire has       !
+                  ! occurred).  Here we use the conversion between the discrete lethality  !
+                  ! (akin to m in SM96) and the instantaneous, exponential lethality       !
+                  ! (akin to lambda in SM96).                                              !
+                  !                                                                        !
+                  ! Reference:                                                             !
+                  !                                                                        !
+                  ! Sheil D , May RM. 1996. Mortality and recruitment rate evaluations in  !
+                  !    heterogeneous tropical forests. J. Ecol., 84: 91-100.               !
+                  !    doi:10.2307/2261703 (SM96).                                         !
+                  !------------------------------------------------------------------------!
+                  !------ Loop through patches. -------------------------------------------!
+                  patchlethal_3: do ipa=1,csite%npatches
+                     cpatch => csite%patch(ipa)
+
+                     !------ Loop through cohorts. ----------------------------------------!
+                     cohortlethal_3: do ico=1,cpatch%ncohorts
+                        ipft = cpatch%pft(ico)
+
+                        !------------------------------------------------------------------!
+                        !      Normalise lethality by the area burnt this month.  This     !
+                        ! gives the "discrete" lethality (assuming delta t = 1 month).     !
+                        !------------------------------------------------------------------!
+                        lnexp           = fire_s_inter(ipft)                               &
+                                        + fire_s_slope(ipft) * cpatch%thbark(ico)
+                        lnexp           = max(lnexp_min,min(lnexp_max,lnexp))
+                        fire_lethal_now = 1.                                               &
+                                        - ( fire_s_min(ipft)                               &
+                                          + (fire_s_max(ipft) - fire_s_min(ipft))          &
+                                          / (1. + exp(lnexp)) )
+                        fire_lethal_now = max(0.,min(1.,fire_lethal_now))
+                        !------------------------------------------------------------------!
+
+
+
+                        !------- Update fire lethality. -----------------------------------!
+                        cpatch%fire_lethal_rate(13,ico) = fire_lethal_now                  &
+                                                        * cpoly%avg_burnt_area(imo,isi)
+                        cpatch%fire_lethal_prob   (ico) = cpatch%fire_lethal_prob   (ico)  &
+                                                        + cpatch%fire_lethal_rate(13,ico)
+                        !------------------------------------------------------------------!
+
+
+
+
+                        !------------------------------------------------------------------!
+                        !     Check to see if the lethality was excessive (which could     !
+                        ! cause singularities in the general conversion equation).         !
+                        !------------------------------------------------------------------!
+                        if (fire_lethal_now > almost_one) then
+                           !---------------------------------------------------------------!
+                           !     Cataclysmic fire, all affected plants died. The lethality !
+                           ! rate should be infinity, due to numeric precision we set it   !
+                           ! to the maximum number we can find exponentials without        !
+                           ! trigger FPE.                                                  !
+                           !---------------------------------------------------------------!
+                           cpatch%fire_lethal_rate(imo,ico) = lnexp_max
+                           !---------------------------------------------------------------!
+                        else
+                           !------ Set monthly fire lethality rate. -----------------------!
+                           cpatch%fire_lethal_rate(imo,ico) = log(1./(1.-fire_lethal_now))
+                           !---------------------------------------------------------------!
+                        end if
+                        !------------------------------------------------------------------!
+                     end do cohortlethal_3
+                     !---------------------------------------------------------------------!
+                  end do patchlethal_3
+                  !------------------------------------------------------------------------!
+
+
+
+
+                  !----- Set the combusted fraction based on default values. --------------!
+                  cpoly%avg_fire_f_bherb  (imo,isi) = fe_combusted_fast_c
+                  cpoly%avg_fire_f_bwoody (imo,isi) = fe_combusted_struct_c
+                  cpoly%avg_fire_f_fgc    (imo,isi) = fe_combusted_fast_c
+                  cpoly%avg_fire_f_stgc   (imo,isi) = fe_combusted_struct_c
+                  !------------------------------------------------------------------------!
+
+               else
+                  !------------------------------------------------------------------------!
+                  !     No fire, set variables to zero.                                    !
+                  !------------------------------------------------------------------------!
+
+
+                  !------------------------------------------------------------------------!
+                  !      Fire lethality rate.                                              !
+                  !------------------------------------------------------------------------!
+                  !------ Loop through patches. -------------------------------------------!
+                  patchnofire_3: do ipa=1,csite%npatches
+                     cpatch => csite%patch(ipa)
+                     !------ Loop through cohorts. ----------------------------------------!
+                     cohortnofire_3: do ico=1,cpatch%ncohorts
+                        !----- Lethality rate. --------------------------------------------!
+                        cpatch%fire_lethal_rate(imo,ico) = 0.0
+                        !------------------------------------------------------------------!
+                     end do cohortnofire_3
+                     !---------------------------------------------------------------------!
+                  end do patchnofire_3
+                  !------------------------------------------------------------------------!
+
+
+                  !----- Relative consumption rates. --------------------------------------!
+                  cpoly%avg_fire_f_bherb (imo,isi) = 0.0
+                  cpoly%avg_fire_f_bwoody(imo,isi) = 0.0
+                  cpoly%avg_fire_f_fgc   (imo,isi) = 0.0
+                  cpoly%avg_fire_f_stgc  (imo,isi) = 0.0
+                  !------------------------------------------------------------------------!
+               end if
                !---------------------------------------------------------------------------!
 
             case (4)
@@ -354,78 +582,77 @@ module fire
 
 
                !---------------------------------------------------------------------------!
-               !     Find fire-related mortality rates for this month (needed only when    !
-               ! fires occurred).                                                          !
+               !     Find fire-related rates for this month.  For most of them, we must    !
+               ! take the average by burnt area (so they are average values given a fire), !
+               ! and thus we must check that there was any fire in this month.             !
                !---------------------------------------------------------------------------!
                if (cpoly%avg_burnt_area(imo,isi) > tiny_num) then
-                  !----- Loop over patches. -----------------------------------------------!
-                  patchmort_4: do ipa=1,csite%npatches
+                  !------------------------------------------------------------------------!
+                  !     Fire occurred this month.                                          !
+                  !------------------------------------------------------------------------!
+
+
+
+                  !------------------------------------------------------------------------!
+                  !     Find fire lethality rate (fire mortality given that fire has       !
+                  ! occurred).  Here we use the conversion between the discrete lethality  !
+                  ! (akin to m in SM96) and the instantaneous, exponential lethality       !
+                  ! (akin to lambda in SM96).                                              !
+                  !                                                                        !
+                  ! Reference:                                                             !
+                  !                                                                        !
+                  ! Sheil D , May RM. 1996. Mortality and recruitment rate evaluations in  !
+                  !    heterogeneous tropical forests. J. Ecol., 84: 91-100.               !
+                  !    doi:10.2307/2261703 (SM96).                                         !
+                  !------------------------------------------------------------------------!
+                  !------ Loop through patches. -------------------------------------------!
+                  patchlethal_4: do ipa=1,csite%npatches
                      cpatch => csite%patch(ipa)
 
-                     !------ Loop over cohorts. -------------------------------------------!
-                     cohortmort_4: do ico=1,cpatch%ncohorts
+                     !------ Loop through cohorts. ----------------------------------------!
+                     cohortlethal_4: do ico=1,cpatch%ncohorts
                         !------------------------------------------------------------------!
-                        !      Find the fire lethality rate for this month.  We do this by !
-                        ! calculating the     !
+                        !      Normalise lethality by the area burnt this month.  This     !
+                        ! gives the "discrete" lethality (assuming delta t = 1 month).     !
                         !------------------------------------------------------------------!
                         fire_lethal_now = cpatch%fire_lethal_rate(13,ico)                  &
                                         / cpoly%avg_burnt_area(imo,isi)
+                        fire_lethal_now = max(0.,min(1.,fire_lethal_now))
+                        !------------------------------------------------------------------!
+
+
+                        !------------------------------------------------------------------!
+                        !     Check to see if the lethality was excessive (which could     !
+                        ! cause singularities in the general conversion equation).         !
+                        !------------------------------------------------------------------!
                         if (fire_lethal_now > almost_one) then
+                           !---------------------------------------------------------------!
+                           !     Cataclysmic fire, all affected plants died. The lethality !
+                           ! rate should be infinity, due to numeric precision we set it   !
+                           ! to the maximum number we can find exponentials without        !
+                           ! trigger FPE.                                                  !
+                           !---------------------------------------------------------------!
                            cpatch%fire_lethal_rate(imo,ico) = lnexp_max
+                           !---------------------------------------------------------------!
                         else
-                           cpatch%fire_lethal_rate(imo,ico) = 12.                          &
-                                                            * log(1./(1.-fire_lethal_now))
-                           cpatch%fire_lethal_rate(imo,ico) =                              &
-                                         min( lnexp_max, cpatch%fire_lethal_rate(imo,ico) )
+                           !------ Set monthly fire lethality rate. -----------------------!
+                           cpatch%fire_lethal_rate(imo,ico) = log(1./(1.-fire_lethal_now))
+                           !---------------------------------------------------------------!
                         end if
                         !------------------------------------------------------------------!
-                     end do cohortmort_4
+                     end do cohortlethal_4
                      !---------------------------------------------------------------------!
-                  end do patchmort_4
+                  end do patchlethal_4
                   !------------------------------------------------------------------------!
-               end if
-               !---------------------------------------------------------------------------!
 
 
-
-
-               !---------------------------------------------------------------------------!
-               !     Use the ratio between burnt area and previously burnt area to define  !
-               ! the fire disturbance rate (so the average is conserved).                  !
-               !---------------------------------------------------------------------------!
-               if (cpoly%avg_burnt_area(imo,isi) <= tiny_num) then
-                  !----- No fire (skip calculation to avoid singularity). -----------------!
-                  cpoly%lambda_fire(imo,isi) = 0.0
                   !------------------------------------------------------------------------!
-               else if (cpoly%burnt_area(isi) >= almost_one) then
+                  !      Normalise fractional fire fuel consumption.  Similarly to         !
+                  ! lethality, we want to obtain the fractions given that a fire has       !
+                  ! occurred, because this is applied to new patches (by definition, the   !
+                  ! areas where disturbance occurred).                                     !
                   !------------------------------------------------------------------------!
-                  !       The entire grid cell burned this month, assume maximum           !
-                  ! disturbance rate.                                                      !
-                  !------------------------------------------------------------------------!
-                  cpoly%lambda_fire(imo,isi) = lnexp_max
-                  !------------------------------------------------------------------------!
-               else
-                  !------------------------------------------------------------------------!
-                  !      Compute the disturbance rate based on the new burnt area relative !
-                  ! to the area not previously burnt.                                      !
-                  !------------------------------------------------------------------------!
-                  cpoly%lambda_fire(imo,isi) = 12.                                         &
-                                             * log( ( 1. - cpoly%burnt_area(isi)           &
-                                                         + cpoly%avg_burnt_area(imo,isi) ) &
-                                                  / ( 1. - cpoly%burnt_area(isi) ) )
-                  cpoly%lambda_fire(imo,isi) = min(lnexp_max,cpoly%lambda_fire(imo,isi))
-                  !------------------------------------------------------------------------!
-               end if
-               !---------------------------------------------------------------------------!
-
-
-
-
-               !---------------------------------------------------------------------------!
-               !      Use burnt area to normalise the fire consumption.                    !
-               !---------------------------------------------------------------------------!
-               if (cpoly%avg_burnt_area(imo,isi) > tiny_num) then
-                  !----- Use area burnt this month. ---------------------------------------!
+                  !----- Divide fraction by area burnt this month. ------------------------!
                   cpoly%avg_fire_f_bherb (imo,isi) = cpoly%avg_fire_f_bherb (imo,isi)      &
                                                    / cpoly%avg_burnt_area   (imo,isi)
                   cpoly%avg_fire_f_bwoody(imo,isi) = cpoly%avg_fire_f_bwoody(imo,isi)      &
@@ -434,9 +661,6 @@ module fire
                                                    / cpoly%avg_burnt_area   (imo,isi)
                   cpoly%avg_fire_f_stgc  (imo,isi) = cpoly%avg_fire_f_stgc  (imo,isi)      &
                                                    / cpoly%avg_burnt_area   (imo,isi)
-                  !------------------------------------------------------------------------!
-
-
                   !----- Ensure consumption terms are bounded. ----------------------------!
                   cpoly%avg_fire_f_bherb (imo,isi) =                                       &
                                            max(0.,min(1.,cpoly%avg_fire_f_bherb (imo,isi)))
@@ -447,8 +671,59 @@ module fire
                   cpoly%avg_fire_f_stgc  (imo,isi) =                                       &
                                            max(0.,min(1.,cpoly%avg_fire_f_stgc  (imo,isi)))
                   !------------------------------------------------------------------------!
+
+                  !------------------------------------------------------------------------!
+                  !     Fire disturbance rate.  This also follows SM96, but we ought to    !
+                  ! consider the burnt area relative to the area not previously burnt.     !
+                  !------------------------------------------------------------------------!
+                  if (cpoly%burnt_area(isi) > almost_one) then
+                     !---------------------------------------------------------------------!
+                     !       The entire grid cell burned this month, assume maximum        !
+                     ! disturbance rate.                                                   !
+                     !---------------------------------------------------------------------!
+                     cpoly%lambda_fire(imo,isi) = lnexp_max
+                     !---------------------------------------------------------------------!
+                  else
+                     !---------------------------------------------------------------------!
+                     !      Compute the disturbance rate based on the new burnt area       !
+                     ! relative to the area not previously burnt.                          !
+                     !---------------------------------------------------------------------!
+                     curr_not_burnt             = 1. - cpoly%burnt_area(isi)
+                     prev_not_burnt             = curr_not_burnt                           &
+                                                + cpoly%avg_burnt_area(imo,isi)
+                     cpoly%lambda_fire(imo,isi) = log(prev_not_burnt/curr_not_burnt)
+                     cpoly%lambda_fire(imo,isi) = min(lnexp_max,cpoly%lambda_fire(imo,isi))
+                     !---------------------------------------------------------------------!
+                  end if
+                  !------------------------------------------------------------------------!
+
                else
-                  !----- No fires this month, set consumption to zero. --------------------!
+                  !------------------------------------------------------------------------!
+                  !     No fire, set variables to zero.                                    !
+                  !------------------------------------------------------------------------!
+
+
+                  !------------------------------------------------------------------------!
+                  !      Fire lethality rate.                                              !
+                  !------------------------------------------------------------------------!
+                  !------ Loop through patches. -------------------------------------------!
+                  patchnofire_4: do ipa=1,csite%npatches
+                     cpatch => csite%patch(ipa)
+                     !------ Loop through cohorts. ----------------------------------------!
+                     cohortnofire_4: do ico=1,cpatch%ncohorts
+                        !----- Lethality rate. --------------------------------------------!
+                        cpatch%fire_lethal_rate(imo,ico) = 0.0
+                        !------------------------------------------------------------------!
+                     end do cohortnofire_4
+                     !---------------------------------------------------------------------!
+                  end do patchnofire_4
+                  !------------------------------------------------------------------------!
+
+                  !----- Fire disturbance rate. -------------------------------------------!
+                  cpoly%lambda_fire(imo,isi) = 0.0
+                  !------------------------------------------------------------------------!
+
+                  !----- Relative consumption rates. --------------------------------------!
                   cpoly%avg_fire_f_bherb (imo,isi) = 0.0
                   cpoly%avg_fire_f_bwoody(imo,isi) = 0.0
                   cpoly%avg_fire_f_fgc   (imo,isi) = 0.0

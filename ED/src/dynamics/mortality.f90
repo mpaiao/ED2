@@ -239,23 +239,15 @@ module mortality
    !---------------------------------------------------------------------------------------!
    real function survivorship(new_lu,old_lu,mindbh_harvest,burnt_area,cpatch,ico)
       use ed_state_vars, only : patchtype                ! ! structure
-      use disturb_coms , only : include_fire             & ! intent(in)
-                              , treefall_hite_threshold  ! ! intent(in)
+      use disturb_coms , only : treefall_hite_threshold  ! ! intent(in)
       use pft_coms     , only : treefall_s_ltht          & ! intent(in)
                               , treefall_s_gtht          & ! intent(in)
-                              , fire_s_min               & ! intent(in)
-                              , fire_s_max               & ! intent(in)
-                              , fire_s_inter             & ! intent(in)
-                              , fire_s_slope             & ! intent(in)
                               , felling_s_gtharv         & ! intent(in)
                               , felling_s_ltharv         & ! intent(in)
                               , skid_s_ltharv            & ! intent(in)
                               , skid_s_gtharv            ! ! intent(in)
       use ed_max_dims  , only : n_pft                    ! ! intent(in)
-      use consts_coms  , only : lnexp_min                & ! intent(in)
-                              , lnexp_max                & ! intent(in)
-                              , tiny_num                 & ! intent(in)
-                              , onetwelfth               ! ! intent(in)
+      use consts_coms  , only : tiny_num                 ! ! intent(in)
       implicit none
       !----- Arguments. -------------------------------------------------------------------!
       type(patchtype)                 , target     :: cpatch
@@ -266,7 +258,6 @@ module mortality
       real                            , intent(in) :: burnt_area
       !----- Local variables. -------------------------------------------------------------!
       integer                                      :: ipft
-      real                                         :: lnexp
       !------------------------------------------------------------------------------------!
 
 
@@ -299,40 +290,17 @@ module mortality
 
       case (4)
          !---------------------------------------------------------------------------------!
-         !     Fire.  Survivorship will depend on the fire model.                          !
+         !     Fire.  Survivorship varies depending on the model, but they are all defined !
+         ! from fire lethality, which is calculated in the fire module.  Survivorship is   !
+         ! defined from the probability of a fire affecting the site and the probability   !
+         ! of mortality given a fire (fire lethality), integrated over the year.           !
          !---------------------------------------------------------------------------------!
-         select case (include_fire)
-         case (4)
-            !------------------------------------------------------------------------------!
-            !    FIRESTARTER.  We use the SPITFIRE-based approach.  Survivorship is        !
-            ! defined from the probability of a fire affecting the site and the            !
-            ! probability of mortality given a fire, integrated over the year.             !
-            !------------------------------------------------------------------------------!
-            if (burnt_area > tiny_num) then
-               survivorship = 1. - cpatch%fire_lethal_prob(ico) / burnt_area
-               survivorship = max(0.,min(1.,survivorship))
-            else
-               survivorship = 1.
-            end if
-            !------------------------------------------------------------------------------!
-         case (3)
-            !------------------------------------------------------------------------------!
-            !     EMBERFIRE.  Fire survival rates are not dependent upon fire intensity or !
-            ! flame height, but they are modulated by bark thickness (and size as BT       !
-            ! depends on DBH and height).                                                  !
-            !------------------------------------------------------------------------------!
-            lnexp        = fire_s_inter(ipft) + fire_s_slope(ipft) * cpatch%thbark(ico)
-            lnexp        = max(lnexp_min,min(lnexp_max,lnexp))
-            survivorship = fire_s_min(ipft)                                                &
-                         + (fire_s_max(ipft) - fire_s_min(ipft)) / (1. + exp(lnexp))
-            !------------------------------------------------------------------------------!
-         case default
-            !------------------------------------------------------------------------------!
-            !      The original ED-1/ED-2 schemes  kill all individuals.                   !
-            !------------------------------------------------------------------------------!
-            survivorship = 0.0
-            !------------------------------------------------------------------------------!
-         end select
+         if (burnt_area > tiny_num) then
+            survivorship = 1. - cpatch%fire_lethal_prob(ico) / burnt_area
+            survivorship = max(0.,min(1.,survivorship))
+         else
+            survivorship = 1.
+         end if
          !---------------------------------------------------------------------------------!
 
       case (5)
@@ -350,10 +318,12 @@ module mortality
             !     Forest plantation.  Assume fire causes abandonment.   See fire           !
             ! explanation above.                                                           !
             !------------------------------------------------------------------------------!
-            lnexp        = fire_s_inter(ipft) + fire_s_slope(ipft) * cpatch%thbark(ico)
-            lnexp        = max(lnexp_min,min(lnexp_max,lnexp))
-            survivorship = fire_s_min(ipft)                                                &
-                         + (fire_s_max(ipft) - fire_s_min(ipft)) / (1. + exp(lnexp))
+            if (burnt_area > tiny_num) then
+               survivorship = 1. - cpatch%fire_lethal_prob(ico) / burnt_area
+               survivorship = max(0.,min(1.,survivorship))
+            else
+               survivorship = 1.
+            end if
             !------------------------------------------------------------------------------!
          case default
             !------------------------------------------------------------------------------!

@@ -75,7 +75,6 @@ subroutine ed_model()
                                   , zero_ed_fmean_vars          & ! sub-routine
                                   , integrate_ed_fmean_met_vars & ! sub-routine
                                   , zero_ed_yearly_vars         ! ! sub-routine
-   use disturb_coms        , only : include_fire                ! ! intent(in)
    use edio                , only : ed_output                   ! ! sub-routine
    use ed_met_driver       , only : read_met_drivers            & ! sub-routine
                                   , update_met_drivers          ! ! sub-routine
@@ -273,21 +272,21 @@ subroutine ed_model()
          if (new_day) then
             call zero_litter_inputs(edgrid_g(ifm))
          end if
-         !----- EMBERFIRE/FIRESTARTER check.  We may need to reset variables. -------------!
-         select case (include_fire)
-         case (3,4)
-            !----- Reset monthly fire variables if this is a new month. -------------------!
-            if (new_month) then
-               call reset_monthly_fire(edgrid_g(ifm))
-            end if
-            !------------------------------------------------------------------------------!
+         !---------------------------------------------------------------------------------!
 
-            !----- Reset yearly fire variables if this is a new year. ---------------------!
-            if (new_year) then
-               call reset_yearly_fire(edgrid_g(ifm))
-            end if
-            !------------------------------------------------------------------------------!
-         end select
+
+
+         !---------------------------------------------------------------------------------!
+         !     Reset fire variables.                                                       !
+         !---------------------------------------------------------------------------------!
+         !----- Reset monthly fire variables if this is a new month. ----------------------!
+         if (new_month) then
+            call reset_monthly_fire(edgrid_g(ifm))
+         end if
+         !----- Reset yearly fire variables if this is a new year. ------------------------!
+         if (new_year) then
+            call reset_yearly_fire(edgrid_g(ifm))
+         end if
          !---------------------------------------------------------------------------------!
       end do
    end select
@@ -626,28 +625,21 @@ subroutine ed_model()
       !------------------------------------------------------------------------------------!
 
 
-      !------------------------------------------------------------------------------------!
-      !     Reset fire data for current month and current year (only if running EMBERFIRE  !
-      ! or FIRESTARTER).                                                                   !
-      !------------------------------------------------------------------------------------!
-      select case (include_fire)
-      case (3,4)
-         !------ New month, reset monthly vectors/matrices. -------------------------------!
-         if (new_month) then
-            do ifm=1,ngrids
-               call reset_monthly_fire(edgrid_g(ifm))
-            end do
-         end if
-         !---------------------------------------------------------------------------------!
 
-         !------ New month, reset monthly vectors/matrices. -------------------------------!
+      !------------------------------------------------------------------------------------!
+      !     Reset fire variables.                                                          !
+      !------------------------------------------------------------------------------------!
+      do ifm=1,ngrids
+         !------ New month, reset variables used for monthly integration. -----------------!
+         if (new_month) then
+               call reset_monthly_fire(edgrid_g(ifm))
+         end if
+         !------ New year, reset variables used for disturbance rate. ---------------------!
          if (new_year) then
-            do ifm=1,ngrids
                call reset_yearly_fire(edgrid_g(ifm))
-            end do
          end if
          !---------------------------------------------------------------------------------!
-      end select
+      end do
       !------------------------------------------------------------------------------------!
 
 

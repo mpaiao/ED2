@@ -1393,8 +1393,14 @@ module disturbance
             !------------------------------------------------------------------------------!
             select case (include_fire)
             case (0)
+               !------ No fire disturbance rate. ------------------------------------------!
                fire_disturbance_rate = 0.0
+               !---------------------------------------------------------------------------!
             case default
+               !---------------------------------------------------------------------------!
+               !      Add monthly fire disturbance rates [1/mo] to get the annual          !
+               ! disturbance rate [1/yr].                                                  !
+               !---------------------------------------------------------------------------!
                if (any(cpoly%lambda_fire(1:12,isi) == lnexp_max)) then
                   !------------------------------------------------------------------------!
                   !      At least one month had "infinity" disturbance rate. Set average   !
@@ -1404,9 +1410,11 @@ module disturbance
                   !------------------------------------------------------------------------!
                else
                   !----- Find the average disturbance rate. -------------------------------!
-                  fire_disturbance_rate = sum(cpoly%lambda_fire(1:12,isi)) / 12.0
+                  fire_disturbance_rate = sum(cpoly%lambda_fire(1:12,isi))
+                  fire_disturbance_rate = max(0.,min(lnexp_max,fire_disturbance_rate))
                   !------------------------------------------------------------------------!
                end if
+               !---------------------------------------------------------------------------!
             end select
             !------------------------------------------------------------------------------!
 
@@ -3645,10 +3653,21 @@ module disturbance
 
 
       !------------------------------------------------------------------------------------!
-      !       Find the local combustion factors for site.                                  !
+      !       Find the local combustion factors for site.   All fire-related 12-month      !
+      ! averages have been defined for all fire models, so it is safe to use the same      !
+      ! formulation as FIRESTARTER, where the combustion factor is not constant.           !
       !------------------------------------------------------------------------------------!
       select case (include_fire)
-      case (4)
+      case (0)
+         !------ No fires. No combustion. -------------------------------------------------!
+         avg_fcomb_bherb_c  = 0.
+         avg_fcomb_bwoody_c = 0.
+         avg_fcomb_fast_c   = 0.
+         avg_fcomb_struct_c = 0.
+         avg_fcomb_fast_n   = 0.
+         avg_fcomb_struct_n = 0.
+         !---------------------------------------------------------------------------------!
+      case default
 
          !---------------------------------------------------------------------------------!
          !       Set some local variables to help averaging.                               !
@@ -3661,7 +3680,9 @@ module disturbance
          !---------------------------------------------------------------------------------!
 
 
-         !----- FIRESTARTER, use dynamic combustion factors. ------------------------------!
+         !---------------------------------------------------------------------------------!
+         !     Combustion is calculated only when there is at least one month with fire.   !
+         !---------------------------------------------------------------------------------!
          if (any(cpoly%avg_burnt_area(:,isi) > tiny_num)) then
             !------ Average combustion, weighted by burnt area. ---------------------------!
             avg_fcomb_bherb_c  = sum( avg_fire_f_bherb  * avg_burnt_area )                 &
@@ -3726,37 +3747,13 @@ module disturbance
             !------------------------------------------------------------------------------!
          end if
          !---------------------------------------------------------------------------------!
-      case (3)
-         !---------------------------------------------------------------------------------!
-         !   Simple fire model (EMBERFIRE), assume constant emission factors.              !
-         !---------------------------------------------------------------------------------!
-         avg_fcomb_bherb_c  = fe_combusted_fast_c
-         avg_fcomb_bwoody_c = fe_combusted_struct_c
-         avg_fcomb_fast_c   = fe_combusted_fast_c
-         avg_fcomb_struct_c = fe_combusted_struct_c
-         avg_fcomb_bherb_n  = fe_combusted_fast_n
-         avg_fcomb_bwoody_n = fe_combusted_struct_n
-         avg_fcomb_fast_n   = fe_combusted_fast_n
-         avg_fcomb_struct_n = fe_combusted_struct_n
-         !---------------------------------------------------------------------------------!
-      case default
-         !---------------------------------------------------------------------------------!
-         !   Original ED1/ED2.0/ED2.1 fire models.  Ignore volatilisation of fuels and     !
-         ! assume everything goes to the litter pools.                                     !
-         !---------------------------------------------------------------------------------!
-         avg_fcomb_bherb_c  = 0.0
-         avg_fcomb_bwoody_c = 0.0
-         avg_fcomb_fast_c   = 0.0
-         avg_fcomb_struct_c = 0.0
-         avg_fcomb_bherb_n  = 0.0
-         avg_fcomb_bwoody_n = 0.0
-         avg_fcomb_fast_n   = 0.0
-         avg_fcomb_struct_n = 0.0
-         !---------------------------------------------------------------------------------!
       end select
       !------------------------------------------------------------------------------------!
 
 
+      !------------------------------------------------------------------------------------!
+      !    Loop through cohorts to allocate biomass to pools.                              !
+      !------------------------------------------------------------------------------------!
       do ico = 1,cpatch%ncohorts
          ipft = cpatch%pft(ico)
          bdbh = max(0,min( int(cpatch%dbh(ico) * 0.1), 10)) + 1
@@ -3828,14 +3825,6 @@ module disturbance
             a_blogging_harvest = 0.0
             a_bcombusted_fuel  = a_bfast_remove + a_bstruct_remove + a_bstorage_remove
          case default
-            !------ Other types.  Everything remains in. ----------------------------------!
-            a_bfast_remove     = 0.0
-            a_bstruct_remove   = 0.0
-            a_bstorage_remove  = 0.0
-            a_bcrop_harvest    = 0.0
-            a_blogging_harvest = 0.0
-            a_bcombusted_fuel  = 0.0
-            !------------------------------------------------------------------------------!
          end select
          !---------------------------------------------------------------------------------!
 
@@ -3997,40 +3986,24 @@ module disturbance
 
       !------------------------------------------------------------------------------------!
       !    Check whether to remove carbon from the pools as combusted fuels.  This is only !
-      ! done if this is a burnt patch and if we are using the new fire schemes.  For the   !
-      ! time being, we may burn a fraction of fast and structural soil carbon that is      !
-      ! above ground.  In the future we may also allow fires to burn below-ground carbon   !
-      ! (e.g., peat fires).                                                                !
+      ! done if this is a burnt patch.  For the time being, we may burn a fraction of fast !
+      ! and structural soil carbon that is above ground.  In the future we may also allow  !
+      ! fires to burn below-ground carbon (e.g., peat fires).                              !
       !------------------------------------------------------------------------------------!
-      select case (include_fire)
-      case (3,4)
+      select case (new_lu)
+      case (4)
          !---------------------------------------------------------------------------------!
-         !    New fire models.  Make sure the new patch is the burnt patch.                !
+         !      Burnt patch, remove combusted fraction of litter (fast and structural      !
+         ! above-ground necromass.                                                         !
          !---------------------------------------------------------------------------------!
-         select case (new_lu)
-         case (4)
-            !------------------------------------------------------------------------------!
-            !      Burnt patch, remove combusted fraction of litter (fast and structural   !
-            ! above-ground necromass.                                                      !
-            !------------------------------------------------------------------------------!
-            a_fast_combusted     = avg_fcomb_fast_c   * csite%fast_grnd_C      (np)
-            a_fast_combusted_n   = avg_fcomb_fast_n   * csite%fast_grnd_N      (np)
-            a_struct_combusted   = avg_fcomb_struct_c * csite%structural_grnd_C(np)
-            a_lignin_combusted   = avg_fcomb_struct_c * csite%structural_grnd_L(np)
-            a_struct_combusted_n = avg_fcomb_struct_n * csite%structural_grnd_N(np)
-            !------------------------------------------------------------------------------!
-         case default
-            !------ Not a burnt patch, combustion did not happen. -------------------------!
-            a_fast_combusted     = 0.0
-            a_struct_combusted   = 0.0
-            a_lignin_combusted   = 0.0
-            a_fast_combusted_n   = 0.0
-            a_struct_combusted_n = 0.0
-            !------------------------------------------------------------------------------!
-         end select
+         a_fast_combusted     = avg_fcomb_fast_c   * csite%fast_grnd_C      (np)
+         a_fast_combusted_n   = avg_fcomb_fast_n   * csite%fast_grnd_N      (np)
+         a_struct_combusted   = avg_fcomb_struct_c * csite%structural_grnd_C(np)
+         a_lignin_combusted   = avg_fcomb_struct_c * csite%structural_grnd_L(np)
+         a_struct_combusted_n = avg_fcomb_struct_n * csite%structural_grnd_N(np)
          !---------------------------------------------------------------------------------!
       case default
-         !------ Old fire models.  No removal of C and N through combustion. --------------!
+         !------ Not a burnt patch, combustion did not happen. ----------------------------!
          a_fast_combusted     = 0.0
          a_struct_combusted   = 0.0
          a_lignin_combusted   = 0.0

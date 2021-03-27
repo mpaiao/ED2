@@ -2554,7 +2554,7 @@ module ed_state_vars
       !<Daily average fire extinction rate (internal use only)
 
       real,pointer, dimension(:,:) :: lambda_fire
-      !<  initialized in create_site !(12,nsites)
+      !<  Fire disturbance rate by month (1/mo) !(12,nsites)
 
       real, pointer, dimension(:,:) :: avg_burnt_area
       !<Burnt area by month !(12,nsites)
@@ -23819,7 +23819,7 @@ module ed_state_vars
                            ,'LAMBDA_FIRE :29:hist')
          call metadata_edio(nvar,igr                                                       &
                            ,'Fire disturbance rate over 12 months'                         &
-                           ,'[1/yr]','(12,isite)') 
+                           ,'[1/mo]','(12,isite)') 
       end if
 
       if (associated(cpoly%avg_burnt_area)) then
@@ -35129,7 +35129,7 @@ module ed_state_vars
                            ,'FIRE_LETHAL_RATE :491:hist:mont:dcyc:year') 
          call metadata_edio(nvar,igr                                                       &
                            ,'Monthly fire lethality (FIRESTARTER) 12 months+current'       &
-                           ,'[1]','13 - icohort') 
+                           ,'[1/month]','13 - icohort') 
       end if
 
       if (associated(cpatch%cb_mlmax)) then
