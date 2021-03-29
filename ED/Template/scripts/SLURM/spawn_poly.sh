@@ -341,7 +341,7 @@ CANNON)
    case ${global_queue} in
    "commons")
       n_nodes_max=5
-      n_cpt_max=16
+      n_cpt_max=18
       n_cpn=32
       runtime_max="14-00:00:00"
       node_memory=244660
