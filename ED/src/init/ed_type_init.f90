@@ -986,11 +986,12 @@ module ed_type_init
       csite%tdmin_can_temp                  (ipaa:ipaz) =  huge_num
       csite%tdmax_can_rhv                   (ipaa:ipaz) = -huge_num
       csite%tdmin_can_temp                  (ipaa:ipaz) =  huge_num
+      csite%tdmax_can_vpdef                 (ipaa:ipaz) = -huge_num
+      csite%tdmin_can_vpdef                 (ipaa:ipaz) =  huge_num
       csite%today_sfc_wetness               (ipaa:ipaz) =       0.0
       csite%today_sfc_mstpot                (ipaa:ipaz) =       0.0
       csite%today_can_vels                  (ipaa:ipaz) =       0.0
       csite%today_can_tdew                  (ipaa:ipaz) =       0.0
-      csite%today_can_vpdef                 (ipaa:ipaz) =       0.0
       !------------------------------------------------------------------------------------!
 
 
@@ -1089,7 +1090,8 @@ module ed_type_init
       csite%mineralized_N_loss              (ipaa:ipaz) = 0.0
       csite%mineralized_N_input             (ipaa:ipaz) = 0.0
       csite%nesterov_index                  (ipaa:ipaz) = 0.0
-      csite%fdivpd_index                    (ipaa:ipaz) = 0.0
+      csite%fdi_vpdmax_index                (ipaa:ipaz) = 0.0
+      csite%fdi_vpdmin_index                (ipaa:ipaz) = 0.0
       csite%tstar                           (ipaa:ipaz) = 0.0
       csite%qstar                           (ipaa:ipaz) = 0.0
       csite%cstar                           (ipaa:ipaz) = 0.0
@@ -1743,8 +1745,9 @@ module ed_type_init
       cpoly%today_pcpg     (:) = 0.
       cpoly%tdmax_atm_temp (:) = -huge_num
       cpoly%tdmin_atm_temp (:) =  huge_num
+      cpoly%tdmax_atm_vpdef(:) = -huge_num
+      cpoly%tdmin_atm_vpdef(:) =  huge_num
       cpoly%today_atm_tdew (:) = 0.
-      cpoly%today_atm_vpdef(:) = 0.
       !------------------------------------------------------------------------------------!
 
 

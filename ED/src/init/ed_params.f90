@@ -847,16 +847,10 @@ subroutine init_disturb_params
                            , fi_lu_exp                 & ! intent(out)
                            , fi_lu_upr                 & ! intent(out)
                            , fi_hdi_exp                & ! intent(out)
+                           , fi_hdi_lwr                & ! intent(out)
                            , fi_hdi_upr                & ! intent(out)
-                           , fs_rhv_lwr                & ! intent(out)
-                           , fs_rhv_upr                & ! intent(out)
-                           , fs_rhv_exp                & ! intent(out)
-                           , fs_smpot_lwr              & ! intent(out)
-                           , fs_smpot_upr              & ! intent(out)
-                           , fs_smpot_exp              & ! intent(out)
-                           , fs_temp_lwr               & ! intent(out)
-                           , fs_temp_upr               & ! intent(out)
-                           , fs_temp_exp               & ! intent(out)
+                           , ft_fdi_upr                & ! intent(out)
+                           , ft_fdi_exp                & ! intent(out)
                            , fs_bck_exp                & ! intent(out)
                            , fs_lbr_slp                & ! intent(out)
                            , fs_lbr_exp                & ! intent(out)
@@ -890,6 +884,7 @@ subroutine init_disturb_params
                            , ft_frag_exp               & ! intent(out)
                            , ft_lu_upr                 & ! intent(out)
                            , ft_lu_exp                 & ! intent(out)
+                           , ft_hdi_lwr                & ! intent(out)
                            , ft_hdi_upr                & ! intent(out)
                            , ft_hdi_exp                & ! intent(out)
                            , fr_ST                     & ! intent(out)
@@ -1075,7 +1070,7 @@ subroutine init_disturb_params
    !------ Cloud-to-ground ignition probability        [       ---] -----------------------!
    fi_cg_ignp    = 0.068
    !------ Land use ignition density                   [    1/m2/s] -----------------------!
-   fi_lu_ignd    = 2.0e-11
+   fi_lu_ignd    = 2.0e-13
    !------ Max. age for "secondary" forests to be LU   [        yr] -----------------------!
    fi_sf_maxage  = 2.
    !------ Land use exponent                           [       ---] -----------------------!
@@ -1083,30 +1078,14 @@ subroutine init_disturb_params
    !------ Upper bound for land use (saturation point) [       ---] -----------------------!
    fi_lu_upr     = 0.10
    !------ HDI shape parameter to modulate ignitions   [       ---] -----------------------!
-   fi_hdi_exp    = 7.75
+   fi_hdi_exp    = 2.0
+   !------ Lower bound for human development index     [       ---] -----------------------!
+   fi_hdi_lwr    = 0.500
    !------ Upper bound for human development index     [       ---] -----------------------!
    fi_hdi_upr    = 0.925
    !---------------------------------------------------------------------------------------!
    !    Spread parameters.                                                                 !
    !---------------------------------------------------------------------------------------!
-   !------  Lower bound for relative humidity           [       ---] ----------------------!
-   fs_rhv_lwr    = 0.30
-   !------  Upper bound for relative humidity           [       ---] ----------------------!
-   fs_rhv_upr    = 0.80
-   !------  Exponent for relative humidity              [       ---] ----------------------!
-   fs_rhv_exp    = 1.18
-   !------  Lower bound for soil matric potential       [         m] ----------------------!
-   fs_smpot_lwr  = -100.
-   !------  Upper bound for soil matric potential       [         m] ----------------------!
-   fs_smpot_upr  =  -10.
-   !------  Exponent for soil matric potential          [       ---] ----------------------!
-   fs_smpot_exp  = 0.20
-   !------  Lower bound for temperature                 [         K] ----------------------!
-   fs_temp_lwr   = t00
-   !------  Upper bound for temperature                 [         K] ----------------------!
-   fs_temp_upr   = t00 + 30.
-   !------  Exponent for temperature                    [       ---] ----------------------!
-   fs_temp_exp   = 1.78
    !------  Slope of the length-to-breadth ratio        [       ---] ----------------------!
    fs_lbr_slp    = 10.
    !------  Exponential factor for wind                 [       s/m] ----------------------!
@@ -1168,7 +1147,7 @@ subroutine init_disturb_params
    !    Termination parameters.                                                            !
    !---------------------------------------------------------------------------------------!
    !------ Lower bound for fire intensity              [       W/m] -----------------------!
-   ft_fint_lwr   = 10000.
+   ft_fint_lwr   = 50000.
    !------ Upper bound for fire intensity              [       W/m] -----------------------!
    ft_fint_upr   = 90000.
    !------ Exponent for precipitation fuel build up    [       ---] -----------------------!
@@ -1176,13 +1155,19 @@ subroutine init_disturb_params
    !------ Exponent for fragmentation effect           [       ---] -----------------------!
    ft_frag_exp   = 1.81
    !------ Upper bound for land use effect             [       ---] -----------------------!
-   ft_lu_upr     = 0.1
+   ft_lu_upr     = 0.6
    !------ Exponent for land use effect                [       ---] -----------------------!
-   ft_lu_exp     = 4.81
+   ft_lu_exp     = 1.0
+   !------ Lower bound for HDI effect on termination   [       ---] -----------------------!
+   ft_hdi_lwr    = 0.50
    !------ Upper bound for HDI effect on termination   [       ---] -----------------------!
    ft_hdi_upr    = 0.925
    !------ Exponent for HDI effect on termination      [       ---] -----------------------!
-   ft_hdi_exp    = 7.75
+   ft_hdi_exp    = 2.00
+   !------  Upper bound for FDI effect on termination  [       ---] -----------------------!
+   ft_fdi_upr    = 0.50
+   !------  Exponent for FDI effect on termination     [       ---] -----------------------!
+   ft_fdi_exp    = 1.2
    !---------------------------------------------------------------------------------------!
 
 
@@ -8065,21 +8050,18 @@ subroutine init_derived_params_after_xml()
                                    , fh_f0100                  & ! intent(in)
                                    , fi_lu_exp                 & ! intent(in)
                                    , fi_lu_upr                 & ! intent(in)
+                                   , fi_hdi_lwr                & ! intent(in)
+                                   , fi_hdi_upr                & ! intent(in)
                                    , fs_lbr_slp                & ! intent(in)
-                                   , fs_rhv_lwr                & ! intent(in)
-                                   , fs_rhv_upr                & ! intent(in)
-                                   , fs_smpot_lwr              & ! intent(in)
-                                   , fs_smpot_upr              & ! intent(in)
-                                   , fs_temp_lwr               & ! intent(in)
-                                   , fs_temp_upr               & ! intent(in)
+                                   , ft_hdi_lwr                & ! intent(in)
+                                   , ft_hdi_upr                & ! intent(in)
                                    , ft_fint_lwr               & ! intent(in)
                                    , ft_fint_upr               & ! intent(in)
                                    , fh_f1000                  & ! intent(out)
                                    , fi_lu_off                 & ! intent(out)
+                                   , fi_hdi_dti                & ! intent(out)
                                    , fs_gw_infty               & ! intent(out)
-                                   , fs_rhv_dti                & ! intent(out)
-                                   , fs_smpot_dti              & ! intent(out)
-                                   , fs_temp_dti               & ! intent(out)
+                                   , ft_hdi_dti                & ! intent(out)
                                    , ft_fint_dti               ! ! intent(out)
    use farq_leuning         , only : arrhenius                 & ! function
                                    , collatz                   ! ! function
@@ -8253,9 +8235,8 @@ subroutine init_derived_params_after_xml()
    !------ Offset for the land use ignition effect. ---------------------------------------!
    fi_lu_off = fi_lu_upr / (1. + fi_lu_exp)
    !------ Scaling factors for normalised quantities. -------------------------------------!
-   fs_rhv_dti   = 1. / ( fs_rhv_upr   - fs_rhv_lwr   )
-   fs_temp_dti  = 1. / ( fs_temp_upr  - fs_temp_lwr  )
-   fs_smpot_dti = 1. / ( fs_smpot_upr - fs_smpot_lwr )
+   fi_hdi_dti   = 1. / ( fi_hdi_upr   - fi_hdi_lwr   )
+   ft_hdi_dti   = 1. / ( ft_hdi_upr   - ft_hdi_lwr   )
    ft_fint_dti  = 1. / ( ft_fint_upr  - ft_fint_lwr  )
    !------ Wind influence function at maximum wind speed. ---------------------------------!
    lbr_infty    = 1. + fs_lbr_slp

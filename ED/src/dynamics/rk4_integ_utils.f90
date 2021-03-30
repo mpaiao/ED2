@@ -303,7 +303,8 @@ module rk4_integ_utils
       atm_tdew                   = tslif(atm_pvap)
       atm_vpdef                  = max(0.,atm_psat - atm_pvap)
       cpoly%today_atm_tdew (isi) = cpoly%today_atm_tdew (isi) + atm_tdew  * dtlsm_o_day_sec
-      cpoly%today_atm_vpdef(isi) = cpoly%today_atm_vpdef(isi) + atm_vpdef * dtlsm_o_day_sec
+      cpoly%tdmin_atm_vpdef(isi) = min(cpoly%tdmin_atm_vpdef(isi),atm_vpdef)
+      cpoly%tdmax_atm_vpdef(isi) = max(cpoly%tdmax_atm_vpdef(isi),atm_vpdef)
       !------------------------------------------------------------------------------------!
 
 

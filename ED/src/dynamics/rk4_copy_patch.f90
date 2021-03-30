@@ -1036,6 +1036,7 @@ module rk4_copy_patch
       real(kind=4)                    :: can_rvap
       real(kind=4)                    :: can_rhv
       real(kind=4)                    :: can_temp
+      real(kind=4)                    :: can_vpdef
       !----- Local contants ---------------------------------------------------------------!
       real        , parameter         :: tendays_sec    = 10. * day_sec
       real        , parameter         :: thirtydays_sec = 30. * day_sec
@@ -1263,9 +1264,9 @@ module rk4_copy_patch
                                    + sngloff(initp%rmean_can_tdew,tiny_offset)             &
                                    * dtlsm_o_day_sec
       !----- Daily average canopy air space vapour pressure deficit. ----------------------!
-      csite%today_can_vpdef  (ipa) = csite%today_can_vpdef(ipa)                            &
-                                   + sngloff(initp%rmean_can_vpdef,tiny_offset)            &
-                                   * dtlsm_o_day_sec
+      can_vpdef                    = sngloff(initp%rmean_can_vpdef,tiny_offset)
+      csite%tdmin_can_vpdef  (ipa) = min(csite%tdmin_can_vpdef(ipa),can_vpdef)
+      csite%tdmax_can_vpdef  (ipa) = max(csite%tdmax_can_vpdef(ipa),can_vpdef)
       !----- Average wind speed.  Integrate kinetic energy to get average wind. -----------!
       csite%today_can_vels   (ipa) = csite%today_can_vels(ipa)                             &
                                    + sngloff(initp%rmean_can_ekin,tiny_offset)             &

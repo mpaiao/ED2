@@ -7064,8 +7064,11 @@ module fuse_fiss_utils
       csite%nesterov_index(recp)     = csite%nesterov_index    (donp) * dawgt              &
                                      + csite%nesterov_index    (recp) * rawgt
 
-      csite%fdivpd_index(recp)       = csite%fdivpd_index      (donp) * dawgt              &
-                                     + csite%fdivpd_index      (recp) * rawgt
+      csite%fdi_vpdmax_index(recp)   = csite%fdi_vpdmax_index  (donp) * dawgt              &
+                                     + csite%fdi_vpdmax_index  (recp) * rawgt
+
+      csite%fdi_vpdmin_index(recp)   = csite%fdi_vpdmin_index  (donp) * dawgt              &
+                                     + csite%fdi_vpdmin_index  (recp) * rawgt
 
       csite%sum_dgd(recp)            = csite%sum_dgd(donp)            * dawgt              &
                                      + csite%sum_dgd(recp)            * rawgt

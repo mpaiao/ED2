@@ -826,11 +826,13 @@ module fire
       real                          :: tdmax_atm_temp
       real                          :: tdmin_atm_temp
       real                          :: today_atm_tdew
-      real                          :: today_atm_vpdef
+      real                          :: tdmax_atm_vpdef
+      real                          :: tdmin_atm_vpdef
       real                          :: tdmax_can_temp
       real                          :: tdmin_can_temp
+      real                          :: tdmax_can_vpdef
+      real                          :: tdmin_can_vpdef
       real                          :: today_can_tdew
-      real                          :: today_can_vpdef
       real                          :: lnexp
       real                          :: lai_ind
       real                          :: fpc_coh
@@ -852,12 +854,13 @@ module fire
          !----- Make the header. ----------------------------------------------------------!
          if (printout) then
             open (unit=35,file=firefile,status='replace',action='write')
-            write (unit=35,fmt='(24(a,1x))')                                               &
+            write (unit=35,fmt='(27(a,1x))')                                               &
                      '  YEAR',      ' MONTH',      '   DAY',      '   ISI',      '   IPA'  &
               ,'        AREA','   CAN_DEPTH','   ALPHA_VPD','     FPC_PAT','      PRECIP'  &
               ,' RUNAVG_PREC','   WGT_TODAY',' WGT_RUNNING','ATM_TEMP_MAX','CAN_TEMP_MAX'  &
-              ,'ATM_TEMP_MIN','CAN_TEMP_MIN','    ATM_TDEW','    CAN_TDEW','   ATM_VPDEF'  &
-              ,'   CAN_VPDEF','NESTEROV_PAT','NESTEROV_INT','  FDIVPD_PAT'
+              ,'ATM_TEMP_MIN','CAN_TEMP_MIN','    ATM_TDEW','    CAN_TDEW',' ATM_VPD_MAX'  &
+              ,' CAN_VPD_MAX',' ATM_VPD_MIN',' CAN_VPD_MIN','NESTEROV_PAT','NESTEROV_INT'  &
+              ,' FDI_VPD_MAX',' FDI_VPD_MIN'
             close (unit=35,status='keep')
          end if
          !---------------------------------------------------------------------------------!
@@ -916,7 +919,8 @@ module fire
             tdmax_atm_temp  = cpoly%tdmax_atm_temp (isi) - t00
             tdmin_atm_temp  = cpoly%tdmin_atm_temp (isi) - t00
             today_atm_tdew  = cpoly%today_atm_tdew (isi) - t00
-            today_atm_vpdef = cpoly%today_atm_vpdef(isi) * 0.01
+            tdmax_atm_vpdef = cpoly%tdmax_atm_vpdef(isi) * 0.01
+            tdmin_atm_vpdef = cpoly%tdmin_atm_vpdef(isi) * 0.01
             !------------------------------------------------------------------------------!
 
 
@@ -941,7 +945,8 @@ module fire
                tdmax_can_temp  = csite%tdmax_can_temp (ipa) - t00
                tdmin_can_temp  = csite%tdmin_can_temp (ipa) - t00
                today_can_tdew  = csite%today_can_tdew (ipa) - t00
-               today_can_vpdef = csite%today_can_vpdef(ipa) * 0.01
+               tdmax_can_vpdef = csite%tdmax_can_vpdef(ipa) * 0.01
+               tdmin_can_vpdef = csite%tdmin_can_vpdef(ipa) * 0.01
                !---------------------------------------------------------------------------!
 
 
@@ -986,12 +991,16 @@ module fire
 
                !---------------------------------------------------------------------------!
                !      Find the fire danger index, following D19, but using the daily       !
-               ! average VPD instead of the approximations.  Following the rationale of    !
-               ! PS09, we make VPD dimensionless by dividing it by the reference pressure  !
-               ! at the sea level.                                                         !
+               ! maximum/minimum VPD instead of the approximations.  Following the         !
+               ! rationale of PS09, we make VPD dimensionless by dividing it by the        !
+               ! reference pressure at the sea level.                                      !
                !---------------------------------------------------------------------------!
-               csite%fdivpd_index(ipa) = alpha_pat * csite%today_can_vpdef(ipa) / prefsea  &
-                                       * fpc_pat * frain_fdivpd
+               csite%fdi_vpdmax_index(ipa) = alpha_pat                                     &
+                                           * csite%tdmax_can_vpdef(ipa) / prefsea          &
+                                           * fpc_pat * frain_fdivpd
+               csite%fdi_vpdmin_index(ipa) = alpha_pat                                     &
+                                           * csite%tdmin_can_vpdef(ipa) / prefsea          &
+                                           * fpc_pat * frain_fdivpd
                !---------------------------------------------------------------------------!
 
 
@@ -1015,14 +1024,15 @@ module fire
                !---------------------------------------------------------------------------!
                if (printout) then
                   open(unit=35,file=firefile,status='old',position='append',action='write')
-                  write(unit=35,fmt='(5(i6,1x),19(f12.4,1x))')                             &
+                  write(unit=35,fmt='(5(i6,1x),22(f12.4,1x))')                             &
                              current_time%year,current_time%month,current_time%date,isi    &
                             ,ipa,csite%area(ipa),csite%can_depth(ipa),alpha_pat            &
                             ,fpc_pat,today_accp,avgrun_accp,wgt_today,wgt_running          &
                             ,tdmax_atm_temp,tdmax_can_temp,tdmin_atm_temp,tdmin_can_temp   &
-                            ,today_atm_tdew,today_can_tdew,today_atm_vpdef,today_can_vpdef &
-                            ,today_nesterov,csite%nesterov_index(ipa)                      &
-                            ,csite%fdivpd_index(ipa)
+                            ,today_atm_tdew,today_can_tdew,tdmax_atm_vpdef,tdmax_can_vpdef &
+                            ,tdmin_atm_vpdef,tdmin_can_vpdef,today_nesterov                &
+                            ,csite%nesterov_index(ipa),csite%fdi_vpdmax_index(ipa)         &
+                            ,csite%fdi_vpdmin_index(ipa)
                   close(unit=35,status='keep')
                end if
                !---------------------------------------------------------------------------!
@@ -1116,6 +1126,7 @@ module fire
       real                       :: bwoody            ! Cohort living woody fuels [ kgC/pl]
       real                       :: bwoody_pat        ! Patch living woody fuels  [ kgC/m2]
       real                       :: bwoody_tot        ! Site living woody fuels   [ kgC/m2]
+      real                       :: fdivpd_pat        ! Patch fire danger index   [     --]
       real                       :: fdivpd_avg        ! Average fire danger index [     --]
       real                       :: ignition_rate     ! Ignition probability rate [     --]
       real                       :: lnexp             ! Aux. var. for safe exp    [    ---]
@@ -1130,6 +1141,8 @@ module fire
       real                       :: rmoist_avg        ! Relative fuel moisture    [    ---]
       real                       :: tdmax_can_temp    ! Maximum temperature       [   degC]
       real                       :: today_can_tdew    ! Dew point temperature     [   degC]
+      real                       :: tdmax_can_vpdef   ! Max. Vapour press. def.   [    hPa]
+      real                       :: tdmin_can_vpdef   ! Max. Vapour press. def.   [    hPa]
       real                       :: today_pcpg        ! Daily rainfall            [     mm]
       !------ External functions. ---------------------------------------------------------!
       real              , external  :: bpow01         ! Power funct. for [0-1]    [    ---]
@@ -1147,12 +1160,12 @@ module fire
          !----- Make the header. ----------------------------------------------------------!
          if (printout) then
             open (unit=35,file=firefile,status='replace',action='write')
-            write (unit=35,fmt='(21(a,1x))')                                               &
+            write (unit=35,fmt='(23(a,1x))')                                               &
                      '  YEAR',      ' MONTH',      '   DAY',      '   ISI',      'PEOPLE'  &
-              ,'      PRECIP','CAN_TEMP_MAX','    CAN_TDEW','    NESTEROV','     FDI_VPD'  &
-              ,'  BFUEL_HERB','  BFUEL_WOOD','  BFUEL_DEAD',' MOIST_BHERB','MOIST_BWOODY'  &
-              ,' MOIST_BFUEL',' MSTEXT_DEAD',' MSTEXT_LIVE',' RMOIST_FUEL','    IGNITION'  &
-              ,'   INTENSITY'
+              ,'      PRECIP','CAN_TEMP_MAX','    CAN_TDEW',' CAN_VPD_MAX',' CAN_VPD_MIN'  &
+              ,'    NESTEROV','     FDI_VPD','  BFUEL_HERB','  BFUEL_WOOD','  BFUEL_DEAD'  &
+              ,' MOIST_BHERB','MOIST_BWOODY',' MOIST_BFUEL',' MSTEXT_DEAD',' MSTEXT_LIVE'  &
+              ,' RMOIST_FUEL','    IGNITION','   INTENSITY'
             close (unit=35,status='keep')
          end if
          !---------------------------------------------------------------------------------!
@@ -1252,8 +1265,10 @@ module fire
 
 
             !----- Initialise site-average temperatures. ----------------------------------!
-            tdmax_can_temp = 0.
-            today_can_tdew = 0.
+            tdmax_can_temp  = 0.
+            today_can_tdew  = 0.
+            tdmax_can_vpdef = 0.
+            tdmin_can_vpdef = 0.
             !------------------------------------------------------------------------------!
 
 
@@ -1311,11 +1326,25 @@ module fire
 
 
 
-               !----- Integrate site-average temperatures. --------------------------------!
-               tdmax_can_temp = tdmax_can_temp + csite%tdmax_can_temp(ipa) * csite%area(ipa)
-               today_can_tdew = today_can_tdew + csite%today_can_tdew(ipa) * csite%area(ipa)
+               !----- Integrate site-average temperatures and VPD. ------------------------!
+               tdmax_can_temp  = tdmax_can_temp                                            &
+                               + csite%tdmax_can_temp (ipa) * csite%area(ipa)
+               today_can_tdew  = today_can_tdew                                            &
+                               + csite%today_can_tdew (ipa) * csite%area(ipa)
+               tdmax_can_vpdef = tdmax_can_vpdef                                           &
+                               + csite%tdmax_can_vpdef(ipa) * csite%area(ipa)
+               tdmin_can_vpdef = tdmin_can_vpdef                                           &
+                               + csite%tdmin_can_vpdef(ipa) * csite%area(ipa)
                !---------------------------------------------------------------------------!
 
+
+               !---------------------------------------------------------------------------!
+               !      For the fire danger index, we use the average between maximum and    !
+               ! minimum.                                                                  !
+               !---------------------------------------------------------------------------!
+               fdivpd_pat = 0.5                                                            &
+                          * ( csite%fdi_vpdmax_index(ipa) + csite%fdi_vpdmin_index(ipa) )
+               !---------------------------------------------------------------------------!
 
 
 
@@ -1338,8 +1367,7 @@ module fire
                   !       Use the fire danger index to estimate fuel moisture.             !
                   !------------------------------------------------------------------------!
                   lnexp           = max( lnexp_min                                         &
-                                       , min( lnexp_max                                    &
-                                            , fe_fdivpd_exp*csite%fdivpd_index(ipa) ) )
+                                       , min( lnexp_max, fe_fdivpd_exp*fdivpd_pat ) )
                   moist_bfuel_pat = exp(lnexp)
                   !------------------------------------------------------------------------!
                else
@@ -1376,7 +1404,7 @@ module fire
 
                !------ Integrate average indices. -----------------------------------------!
                nesterov_avg    = nesterov_avg + csite%nesterov_index(ipa) * csite%area(ipa)
-               fdivpd_avg      = fdivpd_avg   + csite%fdivpd_index  (ipa) * csite%area(ipa)
+               fdivpd_avg      = fdivpd_avg   + fdivpd_pat                * csite%area(ipa)
                !---------------------------------------------------------------------------!
 
             end do patchloop
@@ -1470,19 +1498,22 @@ module fire
             !------------------------------------------------------------------------------!
             if (printout) then
                !------ Convert units for output. ------------------------------------------!
-               today_pcpg     = cpoly%today_pcpg(isi) * day_sec
-               tdmax_can_temp = tdmax_can_temp - t00
-               today_can_tdew = today_can_tdew - t00
+               today_pcpg      = cpoly%today_pcpg(isi) * day_sec
+               tdmax_can_temp  = tdmax_can_temp - t00
+               today_can_tdew  = today_can_tdew - t00
+               tdmax_can_vpdef = tdmax_can_vpdef * 100.
+               tdmin_can_vpdef = tdmin_can_vpdef * 100.
                !---------------------------------------------------------------------------!
 
 
                open(unit=35,file=firefile,status='old',position='append',action='write')
-               write(unit=35,fmt='(4(i6,1x),1(5x,l1,1x),16(f12.4,1x))')                    &
+               write(unit=35,fmt='(4(i6,1x),1(5x,l1,1x),18(f12.4,1x))')                    &
                           current_time%year,current_time%month,current_time%date,isi       &
                          ,people_around,today_pcpg,tdmax_can_temp,today_can_tdew           &
-                         ,nesterov_avg,fdivpd_avg,bherb_tot,bwoody_tot,bfuel_dead_tot      &
-                         ,moist_bherb_avg,moist_bwoody_avg,moist_bfuel_avg,Mx_i(1),Mx_i(2) &
-                         ,rmoist_avg,ignition_rate,cpoly%fire_intensity(isi)
+                         ,tdmax_can_vpdef,tdmin_can_vpdef,nesterov_avg,fdivpd_avg          &
+                         ,bherb_tot,bwoody_tot,bfuel_dead_tot,moist_bherb_avg              &
+                         ,moist_bwoody_avg,moist_bfuel_avg,Mx_i(1),Mx_i(2),rmoist_avg      &
+                         ,ignition_rate,cpoly%fire_intensity(isi)
                close(unit=35,status='keep')
             end if
             !------------------------------------------------------------------------------!
@@ -1565,26 +1596,19 @@ module fire
                                , fh_grid                & ! intent(in)
                                , fi_cg_ignp             & ! intent(in)
                                , fi_hdi_exp             & ! intent(in)
-                               , fi_hdi_upr             & ! intent(in)
+                               , fi_hdi_dti             & ! intent(in)
+                               , fi_hdi_lwr             & ! intent(in)
                                , fi_lu_ignd             & ! intent(in)
                                , fi_lu_exp              & ! intent(in)
                                , fi_lu_off              & ! intent(in)
                                , fi_lu_upr              & ! intent(in)
                                , fi_sf_maxage           & ! intent(in)
                                , fr_h                   & ! intent(in)
+                               , fr_Mxdead              & ! intent(in)
                                , fs_bck_exp             & ! intent(in)
                                , fs_gw_infty            & ! intent(in)
                                , fs_lbr_exp             & ! intent(in)
                                , fs_lbr_slp             & ! intent(in)
-                               , fs_rhv_dti             & ! intent(in)
-                               , fs_rhv_exp             & ! intent(in)
-                               , fs_rhv_lwr             & ! intent(in)
-                               , fs_smpot_dti           & ! intent(in)
-                               , fs_smpot_exp           & ! intent(in)
-                               , fs_smpot_lwr           & ! intent(in)
-                               , fs_temp_dti            & ! intent(in)
-                               , fs_temp_exp            & ! intent(in)
-                               , fs_temp_lwr            & ! intent(in)
                                , ft_fint_dti            & ! intent(in)
                                , ft_fint_exp            & ! intent(in)
                                , ft_fint_lwr            & ! intent(in)
@@ -1592,7 +1616,10 @@ module fire
                                , ft_lu_exp              & ! intent(in)
                                , ft_lu_upr              & ! intent(in)
                                , ft_hdi_exp             & ! intent(in)
-                               , ft_hdi_upr             & ! intent(in)
+                               , ft_hdi_dti             & ! intent(in)
+                               , ft_hdi_lwr             & ! intent(in)
+                               , ft_fdi_upr             & ! intent(in)
+                               , ft_fdi_exp             & ! intent(in)
                                , fuel_height_max        & ! intent(in)
                                , fx_a0001               & ! intent(in)
                                , fx_a0010               & ! intent(in)
@@ -1656,24 +1683,20 @@ module fire
       real                       :: bwoody            ! Cohort living woody fuels [ kgC/pl]
       real                       :: bwoody_pat        ! Patch living woody fuels  [ kgC/m2]
       real                       :: bwoody_tot        ! Site living woody fuels   [ kgC/m2]
-      real                       :: can_rhv           ! CAS relative humidity     [    ---]
-      real                       :: can_rhvn          ! Norm. CAS relative hum.   [    ---]
-      real                       :: can_temp          ! Canopy air space temp.    [      K]
-      real                       :: can_tempn         ! Normalised CAS temp.      [    ---]
       real                       :: dtfire            ! Fire time step            [      s]
       real                       :: ell_length        ! Length of main ell. axis  [      m]
+      real                       :: fdi_pat           ! Patch fire danger index   [     --]
+      real                       :: fdin              ! Norm. fire danger index   [     --]
+      real                       :: fdivpd_pat        ! Patch fire danger index   [     --]
       real                       :: fdivpd_avg        ! Average fire danger index [     --]
       real                       :: fintn             ! Norm. fire intensity      [    ---]
       real                       :: fragn             ! Norm. fragmentation       [    ---]
       real                       :: flamn             ! Flammable area            [    ---]
+      real                       :: fp_anth_fun       ! LU/HDI-mediated persist.  [     --]
       real                       :: fp_cntg_fun       ! Contiguity factor         [    ---]
       real                       :: fp_fuel_fun       ! Fuel availability factor  [    ---]
-      real                       :: fp_rhv_fun        ! Rel. Hum. control funct.  [    ---]
-      real                       :: fp_rhv_loc        ! Rel. Hum. control funct.  [    ---]
-      real                       :: fp_smpot_fun      ! Soil Potl. ctrl. funct.   [    ---]
-      real                       :: fp_smpot_loc      ! Soil Potl. ctrl. funct.   [    ---]
-      real                       :: fp_temp_fun       ! Temp. control function    [    ---]
-      real                       :: fp_temp_loc       ! Temp. control function    [    ---]
+      real                       :: fp_fdi_fun        ! FDI control function      [    ---]
+      real                       :: fp_fdi_loc        ! FDI control function      [    ---]
       real                       :: fp_wild_fun       ! Wildfire risk function    [    ---]
       real                       :: fp_wind_fun       ! Wind control function     [    ---]
       real                       :: fp_wind_loc       ! Wind control function     [    ---]
@@ -1733,7 +1756,6 @@ module fire
       real                       :: rosfwd            ! Forward rate of spread    [    m/s]
       real                       :: rosbwd_avg        ! Site-avg bwd. spread rate [    m/s]
       real                       :: rosfwd_avg        ! Site-avg fwd. spread rate [    m/s]
-      real                       :: sfc_smpotn        ! Norm. soil matrix potl.   [    ---]
       real                       :: suppressibility   ! Fire suppressibility      [    ---]
       real                       :: total_ignition    ! Number of ignitions       [   1/m2]
       !------ External functions. ---------------------------------------------------------!
@@ -1753,7 +1775,7 @@ module fire
          !----- Make the header. ----------------------------------------------------------!
          if (printout) then
             open (unit=35,file=firefile,status='replace',action='write')
-            write (unit=35,fmt='(56(a,1x))')                                               &
+            write (unit=35,fmt='(55(a,1x))')                                               &
                      '  YEAR',      ' MONTH',      '   DAY',      '  STEP',      '   ISI'  &
               ,      ' NIGHT','    APY_AREA','    LANDFRAC','       FRAGN','     LU_AREA'  &
               ,'         HDI','   C2G_FLASH','IGNR_NATURAL','IGNR_ANTHROP','TOT_IGNITION'  &
@@ -1762,10 +1784,9 @@ module fire
               ,' MOIST_BFUEL','   MEXT_DEAD','   MEXT_LIVE','      ROSFWD','      ROSBWD'  &
               ,'    FS_IAREA',' FCOMB_B0001',' FCOMB_B0010',' FCOMB_B0100',' FCOMB_B1000'  &
               ,' FCOMB_BHERB','FCOMB_BWOODY','FCOMB_WN1000','  FCOMB_FAST','FCOMB_STRUCT'  &
-              ,' FX_DURATION','FX_INTENSITY','  FX_TLETHAL',' FP_TEMP_FUN','  FP_RHV_FUN'  &
-              ,'FP_SMPOT_FUN',' FP_WIND_FUN','  SUPPRESSIB',' FP_WILD_FUN',' FP_FUEL_FUN'  &
-              ,' FP_CNTG_FUN','PROB_PERSIST','  BAREA_STEP','  BURNT_AREA','FIRE_DENSITY'  &
-              ,'FIRE_EXTINCT'
+              ,' FX_DURATION','FX_INTENSITY','  FX_TLETHAL','  FP_FDI_FUN',' FP_WIND_FUN'  &
+              ,'  SUPPRESSIB',' FP_ANTH_FUN',' FP_WILD_FUN',' FP_FUEL_FUN',' FP_CNTG_FUN'  &
+              ,'PROB_PERSIST','  BAREA_STEP','  BURNT_AREA','FIRE_DENSITY','FIRE_EXTINCT'
             close (unit=35,status='keep')
          end if
          !---------------------------------------------------------------------------------!
@@ -1972,7 +1993,8 @@ module fire
             !------------------------------------------------------------------------------!
             lu_norm       = max(0.,min(1.,1. - lu_area / fi_lu_upr))
             lu_effect     = max(0.,fi_lu_off * ( 1. - bpow01( lu_norm, fi_lu_exp + 1. ) ))
-            hdin          = max(0., min(1.,cpoly%seitimes(isei,isi)%hdi/fi_hdi_upr) )
+            hdin          = ( cpoly%seitimes(isei,isi)%hdi - fi_hdi_lwr ) * fi_hdi_dti
+            hdin          = max(0., min(1.,hdin) )
             anth_ign_rate = (1. - bpow01(hdin,fi_hdi_exp)) * fi_lu_ignd * lu_effect
             !------------------------------------------------------------------------------!
 
@@ -2031,9 +2053,7 @@ module fire
                !----- Functions shared by fire spread. ------------------------------------!
                fs_iarea_avg = 0.
                !----- Functions used for fire persistence. --------------------------------!
-               fp_temp_fun  = 0.
-               fp_rhv_fun   = 0.
-               fp_smpot_fun = 0.
+               fp_fdi_fun   = 0.
                fp_wind_fun  = 0.
                !---------------------------------------------------------------------------!
 
@@ -2097,71 +2117,18 @@ module fire
                   cpatch => csite%patch(ipa)
 
                   !------------------------------------------------------------------------!
-                  !    For temperature and humidity, decide between minimum (night) or     !
-                  ! maximum (day) temperature, and associated relative humidity (maximum   !
-                  ! during the night, minimum during the day).                             !
+                  !    For VPD-based fire danger index, decide between minimum (night) or  !
+                  ! maximum (day) VPD.                                                     !
                   !------------------------------------------------------------------------!
                   if (night) then
-                     !------ Night time, use Tmin and RHmax. ------------------------------!
-                     can_temp  = csite%tdmin_can_temp(ipa)
-                     can_rhv   = csite%tdmax_can_rhv (ipa)
+                     !------ Night time, use VPDmin. --------------------------------------!
+                     fdivpd_pat = csite%fdi_vpdmin_index(ipa)
                      !---------------------------------------------------------------------!
                   else
-                     !------ Day time, use Tmax and RHmin. --------------------------------!
-                     can_temp  = csite%tdmax_can_temp(ipa)
-                     can_rhv   = csite%tdmin_can_rhv (ipa)
+                     !------ Day time, use VPDmax. ----------------------------------------!
+                     fdivpd_pat = csite%fdi_vpdmax_index(ipa)
                      !---------------------------------------------------------------------!
                   end if
-                  !------------------------------------------------------------------------!
-
-
-
-                  !----- Normalised canopy temperature and relative humidity. -------------!
-                  can_tempn = ( can_temp - fs_temp_lwr ) * fs_temp_dti
-                  can_rhvn  = ( can_rhv  - fs_rhv_lwr  ) * fs_rhv_dti
-                  can_tempn = max(0., min(1., can_tempn ) )
-                  can_rhvn  = max(0., min(1., can_rhvn  ) )
-                  !------------------------------------------------------------------------!
-
-
-                  !----- Normalised soil potential. ---------------------------------------!
-                  sfc_smpotn = ( csite%today_sfc_mstpot(ipa) - fs_smpot_lwr) * fs_smpot_dti
-                  sfc_smpotn = max(0., min(1., sfc_smpotn) )
-                  !------------------------------------------------------------------------!
-
-
-
-                  !------------------------------------------------------------------------!
-                  !      Integrate persistence functions for temperature, relative         !
-                  ! humidity, and soil potential, based on the spread functions from       !
-                  ! HESFIRE (LP15).                                                        !
-                  !------------------------------------------------------------------------!
-                  fp_temp_loc  =      bpow01(can_tempn ,fs_temp_exp )
-                  fp_rhv_loc   = 1. - bpow01(can_rhvn  ,fs_rhv_exp  )
-                  fp_smpot_loc = 1. - bpow01(sfc_smpotn,fs_smpot_exp)
-                  !------------------------------------------------------------------------!
-
-
-                  !------------------------------------------------------------------------!
-                  !      Find the wind influence function on termination.                  !
-                  !------------------------------------------------------------------------!
-                  lnexp       = max( lnexp_min                                             &
-                                   , min( lnexp_max                                        &
-                                        , fs_lbr_exp * csite%today_can_vels(ipa)) )
-                  lb_ratio    = 1. + fs_lbr_slp * (1. - exp(lnexp))
-                  hb_ratio    = ( lb_ratio + sqrt( lb_ratio * lb_ratio - 1. ) )            &
-                              / ( lb_ratio - sqrt( lb_ratio * lb_ratio - 1. ) )
-                  fp_wind_loc = 2. * lb_ratio / ( 1. + 1. / hb_ratio ) * fs_gw_infty
-                  !------------------------------------------------------------------------!
-
-
-                  !------------------------------------------------------------------------!
-                  !      Integrate persistence functions.                                  !
-                  !------------------------------------------------------------------------!
-                  fp_temp_fun  = fp_temp_fun  + fp_temp_loc  * csite%area(ipa)
-                  fp_rhv_fun   = fp_rhv_fun   + fp_rhv_loc   * csite%area(ipa)
-                  fp_smpot_fun = fp_smpot_fun + fp_smpot_loc * csite%area(ipa)
-                  fp_wind_fun  = fp_wind_fun  + fp_wind_loc  * csite%area(ipa)
                   !------------------------------------------------------------------------!
 
 
@@ -2223,9 +2190,9 @@ module fire
                      !       Use the fire danger index to estimate fuel moisture.          !
                      !---------------------------------------------------------------------!
                      lnexp           = max( lnexp_min                                      &
-                                          , min( lnexp_max                                 &
-                                               , fe_fdivpd_exp*csite%fdivpd_index(ipa) ) )
+                                          , min( lnexp_max, fe_fdivpd_exp*fdivpd_pat ) )
                      moist_bfuel_pat = exp(lnexp)
+                     fdi_pat         = fdivpd_pat
                      !---------------------------------------------------------------------!
                   else
                      !---------------------------------------------------------------------!
@@ -2240,8 +2207,42 @@ module fire
                      else
                         moist_bfuel_pat   = 1.0
                      end if
+                     fdi_pat              = max(0.,1.-moist_bfuel_pat/fr_Mxdead)
                      !---------------------------------------------------------------------!
                   end if
+                  !------------------------------------------------------------------------!
+
+
+
+                  !------------------------------------------------------------------------!
+                  !      Integrate persistence functions for fire danger index (using an   !
+                  ! approach similar to HESFIRE (LP15).   This substitutes the more        !
+                  ! convoluted function of soil matric potential, relative humidity and    !
+                  ! temperature with a single, normalised metric.                          !
+                  !------------------------------------------------------------------------!
+                  fdin       = min(1.,fdi_pat / ft_fdi_upr)
+                  fp_fdi_loc = bpow01(fdin   ,ft_fdi_exp )
+                  !------------------------------------------------------------------------!
+
+
+                  !------------------------------------------------------------------------!
+                  !      Find the wind influence function on termination.                  !
+                  !------------------------------------------------------------------------!
+                  lnexp       = max( lnexp_min                                             &
+                                   , min( lnexp_max                                        &
+                                        , fs_lbr_exp * csite%today_can_vels(ipa)) )
+                  lb_ratio    = 1. + fs_lbr_slp * (1. - exp(lnexp))
+                  hb_ratio    = ( lb_ratio + sqrt( lb_ratio * lb_ratio - 1. ) )            &
+                              / ( lb_ratio - sqrt( lb_ratio * lb_ratio - 1. ) )
+                  fp_wind_loc = 2. * lb_ratio / ( 1. + 1. / hb_ratio ) * fs_gw_infty
+                  !------------------------------------------------------------------------!
+
+
+                  !------------------------------------------------------------------------!
+                  !      Integrate persistence functions.                                  !
+                  !------------------------------------------------------------------------!
+                  fp_fdi_fun   = fp_fdi_fun   + fp_fdi_loc   * csite%area(ipa)
+                  fp_wind_fun  = fp_wind_fun  + fp_wind_loc  * csite%area(ipa)
                   !------------------------------------------------------------------------!
 
 
@@ -2306,7 +2307,7 @@ module fire
                   nesterov_avg    = nesterov_avg                                           &
                                   + csite%nesterov_index(ipa) * csite%area(ipa)
                   fdivpd_avg      = fdivpd_avg                                             &
-                                  + csite%fdivpd_index  (ipa) * csite%area(ipa)
+                                  + fdivpd_pat                * csite%area(ipa)
                   !------------------------------------------------------------------------!
 
 
@@ -2318,10 +2319,8 @@ module fire
                !      Make sure the sum is bounded (it could go off the 0-1 interval due   !
                ! to truncation errors).                                                    !
                !---------------------------------------------------------------------------!
-               fp_temp_fun  = max(0.,min(1.,fp_temp_fun ))
-               fp_rhv_fun   = max(0.,min(1.,fp_rhv_fun  ))
-               fp_smpot_fun = max(0.,min(1.,fp_smpot_fun))
-               fp_wind_fun  = max(0.,min(1.,fp_wind_fun ))
+               fp_fdi_fun  = max(0.,min(1.,fp_fdi_fun ))
+               fp_wind_fun = max(0.,min(1.,fp_wind_fun))
                !---------------------------------------------------------------------------!
 
 
@@ -2481,16 +2480,17 @@ module fire
                !       Compute the fire suppression function.                              !
                !---------------------------------------------------------------------------!
                !----- Fire suppressibility. -----------------------------------------------!
-               suppressibility = 1. - sqrt( sqrt( fp_rhv_fun  * fp_smpot_fun               &
-                                                * fp_temp_fun * fp_wind_fun  ) )
+               suppressibility = 1. - sqrt( fp_fdi_fun * fp_wind_fun )
                suppressibility = max(0.,min(1.,suppressibility))
                !----- Normalised land use . -----------------------------------------------!
-               lu_norm     = max(0.,min(1.,1. - lu_area / ft_lu_upr))
+               lu_norm     = max(0.,min(1.,lu_area / ft_lu_upr))
                !----- Normalised HDI . ----------------------------------------------------!
-               hdin        = max(0.,min(1.,cpoly%seitimes(isei,isi)%hdi / ft_hdi_upr ) )
+               hdin        = ( cpoly%seitimes(isei,isi)%hdi - ft_hdi_lwr ) * ft_hdi_dti
+               hdin        = max(0., min(1., hdin) )
+               !----- Anthropogenic-controlled persistence driven by HDI and land use. ----!
+               fp_anth_fun = 1. - bpow01(lu_norm,ft_lu_exp) * bpow01(hdin,ft_hdi_exp)
                !----- Fire wildfire persistence function. ---------------------------------!
-               fp_wild_fun = (1. - bpow01(lu_norm,ft_lu_exp) * bpow01(hdin,ft_hdi_exp) )   &
-                           * (1. - suppressibility)
+               fp_wild_fun = fp_anth_fun * (1. - suppressibility)
                if (fp_wild_fun < almost_zero) fp_wild_fun = 0.0
                !---------------------------------------------------------------------------!
 
@@ -2656,7 +2656,7 @@ module fire
                !---------------------------------------------------------------------------!
                if (printout) then
                   open(unit=35,file=firefile,status='old',position='append',action='write')
-                  write(unit=35,fmt='(5(i6,1x),1(5x,l1,1x),50(es12.3,1x))')                &
+                  write(unit=35,fmt='(5(i6,1x),1(5x,l1,1x),49(es12.3,1x))')                &
                              current_time%year,current_time%month,current_time%date,iwhen  &
                             ,isi,night,apy_area,cgrid%landfrac(ipy),fragn,lu_area          &
                             ,cpoly%seitimes(isei,isi)%hdi,cpoly%flashtimes(iflash,isi)%c2g &
@@ -2666,8 +2666,8 @@ module fire
                             ,moist_bwoody_avg,moist_bfuel_avg,Mx_i(1),Mx_i(2),rosfwd_avg   &
                             ,rosbwd_avg,fs_iarea_avg,fx_b0001,fx_b0010,fx_b0100,fx_b1000   &
                             ,fx_bherb,fx_bwoody,fx_wn1000,fx_f_fgc,fx_f_stgc,fx_duration   &
-                            ,fx_intensity,fx_tlethal,fp_temp_fun,fp_rhv_fun,fp_smpot_fun   &
-                            ,fp_wind_fun,suppressibility,fp_wild_fun,fp_fuel_fun           &
+                            ,fx_intensity,fx_tlethal,fp_fdi_fun,fp_wind_fun                &
+                            ,suppressibility,fp_anth_fun,fp_wild_fun,fp_fuel_fun           &
                             ,fp_cntg_fun,prob_persist,burnt_area_step                      &
                             ,cpoly%burnt_area(isi),cpoly%fire_density(isi)                 &
                             ,cpoly%fire_extinction(isi)

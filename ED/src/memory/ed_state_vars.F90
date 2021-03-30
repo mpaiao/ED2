@@ -1605,6 +1605,12 @@ module ed_state_vars
       real, pointer, dimension(:) :: tdmin_can_rhv
       !<Minimum canopy air space relative humidity, used by EMBERFIRE/FIRESTARTER.
 
+      real, pointer, dimension(:) :: tdmax_can_vpdef
+      !<Maximum canopy air space vapour pressure deficit, used by EMBERFIRE/FIRESTARTER.
+
+      real, pointer, dimension(:) :: tdmin_can_vpdef
+      !<Minimum canopy air space vapour pressure deficit, used by EMBERFIRE/FIRESTARTER.
+
       real, pointer, dimension(:) :: today_sfc_wetness
       !<Average relative soil moisture, used by EMBERFIRE/FIRESTARTER.
 
@@ -1616,9 +1622,6 @@ module ed_state_vars
 
       real, pointer, dimension(:) :: today_can_tdew
       !<Average dewpoint temperature of the canopy air space, used by EMBERFIRE/FIRESTARTER.
-
-      real, pointer, dimension(:) :: today_can_vpdef
-      !<Average canopy air space vapour pressure deficit, used by EMBERFIRE/FIRESTARTER.
 
       real, pointer,dimension(:,:) :: repro    !(n_pft,npatches)  
       !<Carbon available to establish recruits [kgC/m2]
@@ -1675,8 +1678,11 @@ module ed_state_vars
       real , pointer,dimension(:) :: nesterov_index
       !<Nesterov index (fire model) [degC^2]
 
-      real , pointer,dimension(:) :: fdivpd_index
-      !<VPD-based fire danger index [--]
+      real , pointer,dimension(:) :: fdi_vpdmax_index
+      !<VPD-based fire danger index (maximum daily VPD) [--]
+
+      real , pointer,dimension(:) :: fdi_vpdmin_index
+      !<VPD-based fire danger index (minimum daily VPD) [--]
 
       real , pointer,dimension(:) :: rshort_g
       !<Short wave radiation absorbed by the ground (W/m2)
@@ -2538,14 +2544,17 @@ module ed_state_vars
       real,pointer,dimension(:) :: today_atm_tdew
       !<Daily average dew point temperature (internal use only)
 
-      real,pointer,dimension(:) :: today_atm_vpdef
-      !<Daily average vapour pressure deficit (internal use only)
-
       real,pointer,dimension(:) :: tdmin_atm_temp
       !<Daily minimum temperature (internal use only)
 
       real,pointer,dimension(:) :: tdmax_atm_temp
       !<Daily maximum temperature (internal use only)
+
+      real,pointer,dimension(:) :: tdmax_atm_vpdef
+      !<Daily maximum vapour pressure deficit (internal use only)
+
+      real,pointer,dimension(:) :: tdmin_atm_vpdef
+      !<Daily minimum vapour pressure deficit (internal use only)
 
       real,pointer,dimension(:) :: today_fire_density
       !<Daily average fire density (internal use only)
@@ -4985,9 +4994,10 @@ module ed_state_vars
       allocate(cpoly%avg_running_pcpg              (                          nsites))
       allocate(cpoly%today_pcpg                    (                          nsites))
       allocate(cpoly%today_atm_tdew                (                          nsites))
-      allocate(cpoly%today_atm_vpdef               (                          nsites))
       allocate(cpoly%tdmin_atm_temp                (                          nsites))
       allocate(cpoly%tdmax_atm_temp                (                          nsites))
+      allocate(cpoly%tdmax_atm_vpdef               (                          nsites))
+      allocate(cpoly%tdmin_atm_vpdef               (                          nsites))
       allocate(cpoly%today_fire_density            (                          nsites))
       allocate(cpoly%today_fire_extinction         (                          nsites))
       allocate(cpoly%lambda_fire                   (                       12,nsites))
@@ -5313,11 +5323,12 @@ module ed_state_vars
       allocate(csite%tdmin_can_temp                (              npatches))
       allocate(csite%tdmax_can_rhv                 (              npatches))
       allocate(csite%tdmin_can_rhv                 (              npatches))
+      allocate(csite%tdmax_can_vpdef               (              npatches))
+      allocate(csite%tdmin_can_vpdef               (              npatches))
       allocate(csite%today_sfc_wetness             (              npatches))
       allocate(csite%today_sfc_mstpot              (              npatches))
       allocate(csite%today_can_vels                (              npatches))
       allocate(csite%today_can_tdew                (              npatches))
-      allocate(csite%today_can_vpdef               (              npatches))
       allocate(csite%repro                         (        n_pft,npatches))
       allocate(csite%veg_rough                     (              npatches))
       allocate(csite%veg_height                    (              npatches))
@@ -5336,7 +5347,8 @@ module ed_state_vars
       allocate(csite%mineralized_N_loss            (              npatches))
       allocate(csite%mineralized_N_input           (              npatches))
       allocate(csite%nesterov_index                (              npatches))
-      allocate(csite%fdivpd_index                  (              npatches))
+      allocate(csite%fdi_vpdmax_index              (              npatches))
+      allocate(csite%fdi_vpdmin_index              (              npatches))
       allocate(csite%rshort_g                      (              npatches))
       allocate(csite%rshort_g_beam                 (              npatches))
       allocate(csite%rshort_g_diffuse              (              npatches))
@@ -7338,9 +7350,10 @@ module ed_state_vars
       nullify(cpoly%avg_running_pcpg           )
       nullify(cpoly%today_pcpg                 )
       nullify(cpoly%today_atm_tdew             )
-      nullify(cpoly%today_atm_vpdef            )
       nullify(cpoly%tdmin_atm_temp             )
       nullify(cpoly%tdmax_atm_temp             )
+      nullify(cpoly%tdmax_atm_vpdef            )
+      nullify(cpoly%tdmin_atm_vpdef            )
       nullify(cpoly%today_fire_density         )
       nullify(cpoly%today_fire_extinction      )
       nullify(cpoly%avg_burnt_area             )
@@ -7617,11 +7630,12 @@ module ed_state_vars
       nullify(csite%tdmin_can_temp             )
       nullify(csite%tdmax_can_rhv              )
       nullify(csite%tdmin_can_rhv              )
+      nullify(csite%tdmax_can_vpdef            )
+      nullify(csite%tdmin_can_vpdef            )
       nullify(csite%today_sfc_wetness          )
       nullify(csite%today_sfc_mstpot           )
       nullify(csite%today_can_vels             )
       nullify(csite%today_can_tdew             )
-      nullify(csite%today_can_vpdef            )
       nullify(csite%repro                      )
       nullify(csite%veg_rough                  )
       nullify(csite%veg_height                 )
@@ -7640,7 +7654,8 @@ module ed_state_vars
       nullify(csite%mineralized_N_loss         )
       nullify(csite%mineralized_N_input        )
       nullify(csite%nesterov_index             )
-      nullify(csite%fdivpd_index               )
+      nullify(csite%fdi_vpdmax_index           )
+      nullify(csite%fdi_vpdmin_index           )
       nullify(csite%rshort_g                   )
       nullify(csite%rshort_g_beam              )
       nullify(csite%rshort_g_diffuse           )
@@ -8801,11 +8816,12 @@ module ed_state_vars
       if(associated(csite%tdmin_can_temp             )) deallocate(csite%tdmin_can_temp             )
       if(associated(csite%tdmax_can_rhv              )) deallocate(csite%tdmax_can_rhv              )
       if(associated(csite%tdmin_can_rhv              )) deallocate(csite%tdmin_can_rhv              )
+      if(associated(csite%tdmax_can_vpdef            )) deallocate(csite%tdmax_can_vpdef            )
+      if(associated(csite%tdmin_can_vpdef            )) deallocate(csite%tdmin_can_vpdef            )
       if(associated(csite%today_sfc_wetness          )) deallocate(csite%today_sfc_wetness          )
       if(associated(csite%today_sfc_mstpot           )) deallocate(csite%today_sfc_mstpot           )
       if(associated(csite%today_can_vels             )) deallocate(csite%today_can_vels             )
       if(associated(csite%today_can_tdew             )) deallocate(csite%today_can_tdew             )
-      if(associated(csite%today_can_vpdef            )) deallocate(csite%today_can_vpdef            )
       if(associated(csite%repro                      )) deallocate(csite%repro                      )
       if(associated(csite%veg_rough                  )) deallocate(csite%veg_rough                  )
       if(associated(csite%veg_height                 )) deallocate(csite%veg_height                 )
@@ -8824,7 +8840,8 @@ module ed_state_vars
       if(associated(csite%mineralized_N_loss         )) deallocate(csite%mineralized_N_loss         )
       if(associated(csite%mineralized_N_input        )) deallocate(csite%mineralized_N_input        )
       if(associated(csite%nesterov_index             )) deallocate(csite%nesterov_index             )
-      if(associated(csite%fdivpd_index               )) deallocate(csite%fdivpd_index               )
+      if(associated(csite%fdi_vpdmax_index           )) deallocate(csite%fdi_vpdmax_index           )
+      if(associated(csite%fdi_vpdmin_index           )) deallocate(csite%fdi_vpdmin_index           )
       if(associated(csite%rshort_g                   )) deallocate(csite%rshort_g                   )
       if(associated(csite%rshort_g_beam              )) deallocate(csite%rshort_g_beam              )
       if(associated(csite%rshort_g_diffuse           )) deallocate(csite%rshort_g_diffuse           )
@@ -10009,11 +10026,12 @@ module ed_state_vars
          osite%tdmin_can_temp             (opa) = isite%tdmin_can_temp             (ipa)
          osite%tdmax_can_rhv              (opa) = isite%tdmax_can_rhv              (ipa)
          osite%tdmin_can_rhv              (opa) = isite%tdmin_can_rhv              (ipa)
+         osite%tdmax_can_vpdef            (opa) = isite%tdmax_can_vpdef            (ipa)
+         osite%tdmin_can_vpdef            (opa) = isite%tdmin_can_vpdef            (ipa)
          osite%today_sfc_wetness          (opa) = isite%today_sfc_wetness          (ipa)
          osite%today_sfc_mstpot           (opa) = isite%today_sfc_mstpot           (ipa)
          osite%today_can_vels             (opa) = isite%today_can_vels             (ipa)
          osite%today_can_tdew             (opa) = isite%today_can_tdew             (ipa)
-         osite%today_can_vpdef            (opa) = isite%today_can_vpdef            (ipa)
          osite%veg_rough                  (opa) = isite%veg_rough                  (ipa)
          osite%veg_height                 (opa) = isite%veg_height                 (ipa)
          osite%veg_displace               (opa) = isite%veg_displace               (ipa)
@@ -10031,7 +10049,8 @@ module ed_state_vars
          osite%mineralized_N_loss         (opa) = isite%mineralized_N_loss         (ipa)
          osite%mineralized_N_input        (opa) = isite%mineralized_N_input        (ipa)
          osite%nesterov_index             (opa) = isite%nesterov_index             (ipa)
-         osite%fdivpd_index               (opa) = isite%fdivpd_index               (ipa)
+         osite%fdi_vpdmax_index           (opa) = isite%fdi_vpdmax_index           (ipa)
+         osite%fdi_vpdmin_index           (opa) = isite%fdi_vpdmin_index           (ipa)
          osite%rshort_g                   (opa) = isite%rshort_g                   (ipa)
          osite%rshort_g_beam              (opa) = isite%rshort_g_beam              (ipa)
          osite%rshort_g_diffuse           (opa) = isite%rshort_g_diffuse           (ipa)
@@ -10785,11 +10804,12 @@ module ed_state_vars
       osite%tdmin_can_temp             (1:z) = pack(isite%tdmin_can_temp             ,lmask)
       osite%tdmax_can_rhv              (1:z) = pack(isite%tdmax_can_rhv              ,lmask)
       osite%tdmin_can_rhv              (1:z) = pack(isite%tdmin_can_rhv              ,lmask)
+      osite%tdmax_can_vpdef            (1:z) = pack(isite%tdmax_can_vpdef            ,lmask)
+      osite%tdmin_can_vpdef            (1:z) = pack(isite%tdmin_can_vpdef            ,lmask)
       osite%today_sfc_wetness          (1:z) = pack(isite%today_sfc_wetness          ,lmask)
       osite%today_sfc_mstpot           (1:z) = pack(isite%today_sfc_mstpot           ,lmask)
       osite%today_can_vels             (1:z) = pack(isite%today_can_vels             ,lmask)
       osite%today_can_tdew             (1:z) = pack(isite%today_can_tdew             ,lmask)
-      osite%today_can_vpdef            (1:z) = pack(isite%today_can_vpdef            ,lmask)
       osite%veg_rough                  (1:z) = pack(isite%veg_rough                  ,lmask)
       osite%veg_height                 (1:z) = pack(isite%veg_height                 ,lmask)
       osite%veg_displace               (1:z) = pack(isite%veg_displace               ,lmask)
@@ -10807,7 +10827,8 @@ module ed_state_vars
       osite%mineralized_N_loss         (1:z) = pack(isite%mineralized_N_loss         ,lmask)
       osite%mineralized_N_input        (1:z) = pack(isite%mineralized_N_input        ,lmask)
       osite%nesterov_index             (1:z) = pack(isite%nesterov_index             ,lmask)
-      osite%fdivpd_index               (1:z) = pack(isite%fdivpd_index               ,lmask)
+      osite%fdi_vpdmax_index           (1:z) = pack(isite%fdi_vpdmax_index           ,lmask)
+      osite%fdi_vpdmin_index           (1:z) = pack(isite%fdi_vpdmin_index           ,lmask)
       osite%rshort_g                   (1:z) = pack(isite%rshort_g                   ,lmask)
       osite%rshort_g_beam              (1:z) = pack(isite%rshort_g_beam              ,lmask)
       osite%rshort_g_diffuse           (1:z) = pack(isite%rshort_g_diffuse           ,lmask)
@@ -22522,11 +22543,21 @@ module ed_state_vars
                            ,'[--]','(isite)') 
       end if
 
-      if (associated(cpoly%today_atm_vpdef)) then
+      if (associated(cpoly%tdmax_atm_vpdef)) then
          nvar=nvar+1
-         call vtable_edio_r(npts,cpoly%today_atm_vpdef                                     &
+         call vtable_edio_r(npts,cpoly%tdmax_atm_vpdef                                     &
                            ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
-                           ,'TODAY_ATM_VPDEF :21:hist') 
+                           ,'TDMAX_ATM_VPDEF :21:hist') 
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Internal variable, do not use it for analysis'                &
+                           ,'[--]','(isite)') 
+      end if
+
+      if (associated(cpoly%tdmin_atm_vpdef)) then
+         nvar=nvar+1
+         call vtable_edio_r(npts,cpoly%tdmin_atm_vpdef                                     &
+                           ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'TDMIN_ATM_VPDEF :21:hist') 
          call metadata_edio(nvar,igr                                                       &
                            ,'Internal variable, do not use it for analysis'                &
                            ,'[--]','(isite)') 
@@ -24700,12 +24731,24 @@ module ed_state_vars
          call metadata_edio(nvar,igr,'Nesterov index','[degC^2]','(ipatch)') 
       end if
 
-      if (associated(csite%fdivpd_index)) then
+      if (associated(csite%fdi_vpdmax_index)) then
          nvar=nvar+1
-         call vtable_edio_r(npts,csite%fdivpd_index                                        &
+         call vtable_edio_r(npts,csite%fdi_vpdmax_index                                    &
                            ,nvar,igr,init,csite%paglob_id,var_len,var_len_global,max_ptrs  &
-                           ,'FDIVPD_INDEX :31:hist:dail') 
-         call metadata_edio(nvar,igr,'VPD-based fire danger index','[--]','(ipatch)') 
+                           ,'FDI_VPDMAX_INDEX :31:hist:dail') 
+         call metadata_edio(nvar,igr                                                       &
+                           ,'VPD-based fire danger index (daily maximum)'                  &
+                           ,'[--]','(ipatch)') 
+      end if
+
+      if (associated(csite%fdi_vpdmin_index)) then
+         nvar=nvar+1
+         call vtable_edio_r(npts,csite%fdi_vpdmin_index                                    &
+                           ,nvar,igr,init,csite%paglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'FDI_VPDMIN_INDEX :31:hist:dail') 
+         call metadata_edio(nvar,igr                                                       &
+                           ,'VPD-based fire danger index (daily minimum)'                  &
+                           ,'[--]','(ipatch)') 
       end if
 
       if (associated(csite%rshort_g)) then
@@ -25817,6 +25860,26 @@ module ed_state_vars
                            ,'[   NA]','(ipatch)'            )
       end if
 
+      if (associated(csite%tdmax_can_vpdef)) then
+         nvar=nvar+1
+         call vtable_edio_r(npts,csite%tdmax_can_vpdef                                     &
+                           ,nvar,igr,init,csite%paglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'TDMAX_CAN_VPDEF              :31:hist')
+         call metadata_edio(nvar,igr                                                       &
+                           ,'For internal ED2 use only.  Do not use for research'          &
+                           ,'[   NA]','(ipatch)'            )
+      end if
+
+      if (associated(csite%tdmin_can_vpdef)) then
+         nvar=nvar+1
+         call vtable_edio_r(npts,csite%tdmin_can_vpdef                                     &
+                           ,nvar,igr,init,csite%paglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'TDMIN_CAN_VPDEF              :31:hist')
+         call metadata_edio(nvar,igr                                                       &
+                           ,'For internal ED2 use only.  Do not use for research'          &
+                           ,'[   NA]','(ipatch)'            )
+      end if
+
       if (associated(csite%today_sfc_wetness)) then
          nvar=nvar+1
          call vtable_edio_r(npts,csite%today_sfc_wetness                                   &
@@ -25852,16 +25915,6 @@ module ed_state_vars
          call vtable_edio_r(npts,csite%today_can_tdew                                      &
                            ,nvar,igr,init,csite%paglob_id,var_len,var_len_global,max_ptrs  &
                            ,'TODAY_CAN_TDEW               :31:hist')
-         call metadata_edio(nvar,igr                                                       &
-                           ,'For internal ED2 use only.  Do not use for research'          &
-                           ,'[   NA]','(ipatch)'            )
-      end if
-
-      if (associated(csite%today_can_vpdef)) then
-         nvar=nvar+1
-         call vtable_edio_r(npts,csite%today_can_vpdef                                     &
-                           ,nvar,igr,init,csite%paglob_id,var_len,var_len_global,max_ptrs  &
-                           ,'TODAY_CAN_VPDEF              :31:hist')
          call metadata_edio(nvar,igr                                                       &
                            ,'For internal ED2 use only.  Do not use for research'          &
                            ,'[   NA]','(ipatch)'            )

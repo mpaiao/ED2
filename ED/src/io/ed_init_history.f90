@@ -3282,12 +3282,14 @@ module ed_init_history
                      ,'TODAY_PCPG                   ',dsetrank,iparallel,.true. ,foundvar)
       call hdf_getslab_r(cpoly%today_atm_tdew                                              &
                      ,'TODAY_ATM_TDEW               ',dsetrank,iparallel,.true. ,foundvar)
-      call hdf_getslab_r(cpoly%today_atm_vpdef                                             &
-                     ,'TODAY_ATM_VPDEF              ',dsetrank,iparallel,.true. ,foundvar)
       call hdf_getslab_r(cpoly%tdmin_atm_temp                                              &
                      ,'TDMIN_ATM_TEMP               ',dsetrank,iparallel,.true. ,foundvar)
       call hdf_getslab_r(cpoly%tdmax_atm_temp                                              &
                      ,'TDMAX_ATM_TEMP               ',dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_r(cpoly%tdmax_atm_vpdef                                             &
+                     ,'TDMAX_ATM_VPDEF              ',dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_r(cpoly%tdmin_atm_vpdef                                             &
+                     ,'TDMIN_ATM_VPDEF              ',dsetrank,iparallel,.true. ,foundvar)
       call hdf_getslab_r(cpoly%today_fire_density                                          &
                      ,'TODAY_FIRE_DENSITY           ',dsetrank,iparallel,.true. ,foundvar)
       call hdf_getslab_r(cpoly%today_fire_extinction                                       &
@@ -4184,6 +4186,10 @@ module ed_init_history
                      ,'TDMAX_CAN_RHV               ',dsetrank,iparallel,.true. ,foundvar)
       call hdf_getslab_r(csite%tdmin_can_rhv                                               &
                      ,'TDMIN_CAN_RHV               ',dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_r(csite%tdmax_can_vpdef                                             &
+                     ,'TDMAX_CAN_VPDEF             ',dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_r(csite%tdmin_can_vpdef                                             &
+                     ,'TDMIN_CAN_VPDEF             ',dsetrank,iparallel,.true. ,foundvar)
       call hdf_getslab_r(csite%today_sfc_wetness                                           &
                      ,'TODAY_SFC_WETNESS           ',dsetrank,iparallel,.true. ,foundvar)
       call hdf_getslab_r(csite%today_sfc_mstpot                                            &
@@ -4192,8 +4198,6 @@ module ed_init_history
                      ,'TODAY_CAN_VELS              ',dsetrank,iparallel,.true. ,foundvar)
       call hdf_getslab_r(csite%today_can_tdew                                              &
                      ,'TODAY_CAN_TDEW              ',dsetrank,iparallel,.true. ,foundvar)
-      call hdf_getslab_r(csite%today_can_vpdef                                             &
-                     ,'TODAY_CAN_VPDEF             ',dsetrank,iparallel,.true. ,foundvar)
       call hdf_getslab_r(csite%veg_rough                                                   &
                      ,'VEG_ROUGH                   ',dsetrank,iparallel,.true. ,foundvar)
       call hdf_getslab_r(csite%veg_height                                                  &
@@ -4228,8 +4232,10 @@ module ed_init_history
                      ,'MINERALIZED_N_INPUT         ',dsetrank,iparallel,.false.,foundvar)
       call hdf_getslab_r(csite%nesterov_index                                              &
                      ,'NESTEROV_INDEX              ',dsetrank,iparallel,.true. ,foundvar)
-      call hdf_getslab_r(csite%fdivpd_index                                                &
-                     ,'FDIVPD_INDEX                ',dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_r(csite%fdi_vpdmax_index                                            &
+                     ,'FDI_VPDMAX_INDEX            ',dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_r(csite%fdi_vpdmin_index                                            &
+                     ,'FDI_VPDMIN_INDEX            ',dsetrank,iparallel,.true. ,foundvar)
       call hdf_getslab_r(csite%rshort_g                                                    &
                      ,'RSHORT_G                    ',dsetrank,iparallel,.true. ,foundvar)
       call hdf_getslab_r(csite%rshort_g_beam                                               &
