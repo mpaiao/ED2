@@ -472,10 +472,8 @@ module pft_coms
    !    Temporary parameters to predict fire survivorship from bark thickness.  In the     !
    ! future survivorship should also depend on fire intensity.                             !
    !---------------------------------------------------------------------------------------!
-   real, dimension(n_pft) :: fire_s_min
    real, dimension(n_pft) :: fire_s_max
-   real, dimension(n_pft) :: fire_s_inter
-   real, dimension(n_pft) :: fire_s_slope
+   real, dimension(n_pft) :: fire_s_efac
    !---------------------------------------------------------------------------------------!
 
 

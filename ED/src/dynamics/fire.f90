@@ -31,10 +31,8 @@ module fire
                                , fire_parameter         & ! intent(in)
                                , fe_combusted_fast_c    & ! intent(in)
                                , fe_combusted_struct_c  ! ! intent(in)
-      use pft_coms      , only : fire_s_min             & ! intent(in)
-                               , fire_s_max             & ! intent(in)
-                               , fire_s_inter           & ! intent(in)
-                               , fire_s_slope           ! ! intent(in)
+      use pft_coms      , only : fire_s_max             & ! intent(in)
+                               , fire_s_efac            ! ! intent(in)
       use consts_coms   , only : wdns                   & ! intent(in)
                                , wdnsi                  & ! intent(in)
                                , day_sec                & ! intent(in)
@@ -470,13 +468,11 @@ module fire
                         !      Normalise lethality by the area burnt this month.  This     !
                         ! gives the "discrete" lethality (assuming delta t = 1 month).     !
                         !------------------------------------------------------------------!
-                        lnexp           = fire_s_inter(ipft)                               &
-                                        + fire_s_slope(ipft) * cpatch%thbark(ico)
+                        lnexp           = fire_s_efac(ipft) * cpatch%thbark(ico)
                         lnexp           = max(lnexp_min,min(lnexp_max,lnexp))
                         fire_lethal_now = 1.                                               &
-                                        - ( fire_s_min(ipft)                               &
-                                          + (fire_s_max(ipft) - fire_s_min(ipft))          &
-                                          / (1. + exp(lnexp)) )
+                                        - ( ( 1. - fire_s_max(ipft) )                      &
+                                          / ( 1. - fire_s_max(ipft) * exp(lnexp)) )
                         fire_lethal_now = max(0.,min(1.,fire_lethal_now))
                         !------------------------------------------------------------------!
 
@@ -834,12 +830,13 @@ module fire
       real                          :: today_can_tdew
       real                          :: lnexp
       real                          :: lai_ind
-      real                          :: fpc_coh
       real                          :: fpc_pat
+      real                          :: fpc_coh
       real                          :: alpha_pat
+      real                          :: light_above
       !----- Local parameters. ------------------------------------------------------------!
       character(len=22) , parameter :: firefile = 'firedanger_details.txt'
-      logical           , parameter :: printout = .false.
+      logical           , parameter :: printout = .true.
       !----- Locally saved variables. -----------------------------------------------------!
       logical           , save      :: first_time = .true.
       real              , save      :: wgt_running
@@ -952,8 +949,8 @@ module fire
                !---------------------------------------------------------------------------!
                !      Loop through cohorts.                                                !
                !---------------------------------------------------------------------------!
-               fpc_pat   = 0.
-               alpha_pat = 0.
+               light_above = 1.
+               alpha_pat   = 0.
                cohort_loop: do ico=1,cpatch%ncohorts
                   !------ Handy aliases. --------------------------------------------------!
                   ipft = cpatch%pft(ico)
@@ -964,15 +961,15 @@ module fire
                   if (cpatch%leaf_resolvable(ico)) then
                      lai_ind = cpatch%lai(ico) / cpatch%crown_area(ico)
                      lnexp   = max(lnexp_min,min(lnexp_max,-eproj_light(ipft)*lai_ind))
-                     fpc_coh = cpatch%crown_area(ico) * (1. - exp(lnexp))
+                     fpc_coh = light_above * cpatch%crown_area(ico) * (1. - exp(lnexp))
                   else
                      fpc_coh = 0.
                   end if
                   !------------------------------------------------------------------------!
 
                   !------ Integrate foliar projective cover, and the alpha term. ----------!
-                  fpc_pat   = fpc_pat + fpc_coh
-                  alpha_pat = alpha_pat + alpha_fdivpd(ipft) * fpc_coh
+                  light_above = max(0.,light_above - fpc_coh)
+                  alpha_pat   = alpha_pat + alpha_fdivpd(ipft) * fpc_coh
                   !------------------------------------------------------------------------!
                end do cohort_loop
                !---------------------------------------------------------------------------!
@@ -980,6 +977,7 @@ module fire
 
 
                !----- Normalise the patch-level alpha factor. -----------------------------!
+               fpc_pat = max(0.,min(1.,1. - light_above))
                if (fpc_pat > tiny_num) then
                   alpha_pat = alpha_pat / fpc_pat
                else
@@ -1147,7 +1145,7 @@ module fire
       real              , external  :: bpow01         ! Power funct. for [0-1]    [    ---]
       !----- Local parameters. ------------------------------------------------------------!
       character(len=21) , parameter :: firefile = 'emberfire_details.txt'
-      logical           , parameter :: printout = .false.
+      logical           , parameter :: printout = .true.
       !----- Locally saved variables. -----------------------------------------------------!
       logical           , save      :: first_time = .true.
       !------------------------------------------------------------------------------------!
@@ -1762,7 +1760,7 @@ module fire
       real              , external  :: bpow01         ! Power funct. for [0-1]    [    ---]
       !----- Local parameters. ------------------------------------------------------------!
       character(len=23) , parameter :: firefile = 'firestarter_details.txt'
-      logical           , parameter :: printout = .false.
+      logical           , parameter :: printout = .true.
       !----- Locally saved variables. -----------------------------------------------------!
       logical           , save      :: first_time = .true.
       !------------------------------------------------------------------------------------!
