@@ -425,8 +425,7 @@ module fire
                !---------------------------------------------------------------------------!
                !      Find burnt area.                                                     !
                !---------------------------------------------------------------------------!
-               lnexp                         = max( lnexp_min                              &
-                                                  , min( lnexp_max, - ignition_rate ) )
+               lnexp = max( lnexp_min, min( lnexp_max, - cpoly%ignition_rate(isi) ) )
                cpoly%avg_burnt_area(imo,isi) = (1. - cpoly%burnt_area(isi))                &
                                              * (1. - exp(lnexp))
                cpoly%burnt_area        (isi) = min(1., cpoly%burnt_area        (isi)       &
