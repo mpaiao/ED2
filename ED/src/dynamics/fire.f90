@@ -1603,6 +1603,7 @@ module fire
                                , fr_Mxdead              & ! intent(in)
                                , fs_bck_exp             & ! intent(in)
                                , fs_gw_infty            & ! intent(in)
+                               , fs_gw_upr              & ! intent(in)
                                , fs_lbr_exp             & ! intent(in)
                                , fs_lbr_slp             & ! intent(in)
                                , ft_fint_dti            & ! intent(in)
@@ -1725,6 +1726,7 @@ module fire
       real                       :: fx_wn1000         ! F. consumpt. woody-1000h  [ kgC/m2]
       real                       :: fx_wn1000_potl    ! Potl. F. C. woody-1000h   [ kgC/m2]
       real                       :: g_Umax            ! Maximum wind for ROS      [    m/s]
+      real                       :: gw_factor         ! Wind speed effect on ROS  [    m/s]
       real                       :: hb_ratio          ! Head:back ratio           [    ---]
       real                       :: hdin              ! Norm. human develop. idx  [    ---]
       real                       :: lb_ratio          ! Length:breadth ratio      [    ---]
@@ -2231,7 +2233,8 @@ module fire
                   lb_ratio    = 1. + fs_lbr_slp * (1. - exp(lnexp))
                   hb_ratio    = ( lb_ratio + sqrt( lb_ratio * lb_ratio - 1. ) )            &
                               / ( lb_ratio - sqrt( lb_ratio * lb_ratio - 1. ) )
-                  fp_wind_loc = 2. * lb_ratio / ( 1. + 1. / hb_ratio ) * fs_gw_infty
+                  gw_factor   = 2. * lb_ratio / ( 1. + 1. / hb_ratio ) * fs_gw_infty
+                  fp_wind_loc = max( 0., min(1., gw_factor / fs_gw_upr ) )
                   !------------------------------------------------------------------------!
 
 

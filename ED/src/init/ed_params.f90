@@ -854,6 +854,7 @@ subroutine init_disturb_params
                            , fs_bck_exp                & ! intent(out)
                            , fs_lbr_slp                & ! intent(out)
                            , fs_lbr_exp                & ! intent(out)
+                           , fs_gw_upr                 & ! intent(out)
                            , fx_a0001                  & ! intent(out)
                            , fx_a0010                  & ! intent(out)
                            , fx_a0100                  & ! intent(out)
@@ -1154,6 +1155,8 @@ subroutine init_disturb_params
    ft_fint_exp   = 1.5
    !------ Exponent for fragmentation effect           [       ---] -----------------------!
    ft_frag_exp   = 1.81
+   !------ Upper value of g(W) for suppressibility     [       ---] -----------------------!
+   fs_gw_upr     = 0.75
    !------ Upper bound for land use effect             [       ---] -----------------------!
    ft_lu_upr     = 0.6
    !------ Exponent for land use effect                [       ---] -----------------------!

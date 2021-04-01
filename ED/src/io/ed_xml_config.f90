@@ -1507,6 +1507,8 @@ recursive subroutine read_ed_xml_config(filename)
         if(texist) fs_lbr_exp   = sngloff(rval,tiny_offset)
         call getConfigREAL  ('fs_bck_exp'  ,'disturbance',i,rval,texist)
         if(texist) fs_bck_exp   = sngloff(rval,tiny_offset)
+        call getConfigREAL  ('fs_gw_upr'   ,'disturbance',i,rval,texist)
+        if(texist) fs_gw_upr    = sngloff(rval,tiny_offset)
 
         !! --- SPITFIRE: Intensity
         call getConfigREAL  ('fx_a0001'    ,'disturbance',i,rval,texist)

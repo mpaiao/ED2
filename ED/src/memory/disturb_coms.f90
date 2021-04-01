@@ -341,6 +341,7 @@ module disturb_coms
    real(kind=4) :: fs_lbr_exp    ! Exponential factor for wind                 [       s/m]
    real(kind=4) :: fs_bck_exp    ! Exp. fact. for backward rate of spread      [       s/m]
    real(kind=4) :: fs_gw_infty   ! Value of g(W) at maximum wind speed         [       ---]
+   real(kind=4) :: fs_gw_upr     ! Upper value of g(W) for suppressibility     [       ---]
    !----- Fire intensity parameters. ------------------------------------------------------!
    real(kind=4) :: fx_a0001      ! Moist. sens. parameter (1-hr fuel)          [   1/degC2]
    real(kind=4) :: fx_a0010      ! Moist. sens. parameter (10-hr fuel)         [   1/degC2]
