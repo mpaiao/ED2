@@ -1597,7 +1597,6 @@ module fire
                                , fi_hdi_lwr             & ! intent(in)
                                , fi_lu_ignd             & ! intent(in)
                                , fi_lu_exp              & ! intent(in)
-                               , fi_lu_off              & ! intent(in)
                                , fi_lu_upr              & ! intent(in)
                                , fi_sf_maxage           & ! intent(in)
                                , fr_h                   & ! intent(in)
@@ -1983,13 +1982,14 @@ module fire
 
             !------------------------------------------------------------------------------!
             !       Find the land use effect.  This is the analytical integral of LP15'    !
-            ! Equation 3 (note that there is a "dLU" missing).  We account for the         !
-            ! fraction of the polygon that cannot sustain a fire as LP15 also did.  We cap !
-            ! the land use area to the maximum land use area that contributes to           !
-            ! anthropogenic ignitions.                                                     !
+            ! Equation 3, without multiplying by fi_lu_upr / (1. + fi_lu_exp), so the      !
+            ! land use effects reaches 1 at the maximum land use effect.                   !
+            ! We account for the fraction of the polygon that cannot sustain a fire as     !
+            ! LP15 also did.  We cap the land use area to the maximum land use area that   !
+            ! contributes to anthropogenic ignitions.                                      !
             !------------------------------------------------------------------------------!
-            lu_norm       = max(0.,min(1.,1. - lu_area / fi_lu_upr))
-            lu_effect     = max(0.,fi_lu_off * ( 1. - bpow01( lu_norm, fi_lu_exp + 1. ) ))
+            lu_norm       = max(0., min(1.,lu_area / fi_lu_upr))
+            lu_effect     = max(0., (1. - bpow01(1.- lu_norm, fi_lu_exp + 1. ) ) )
             hdin          = ( cpoly%seitimes(isei,isi)%hdi - fi_hdi_lwr ) * fi_hdi_dti
             hdin          = max(0., min(1.,hdin) )
             anth_ign_rate = (1. - bpow01(hdin,fi_hdi_exp)) * fi_lu_ignd * lu_effect

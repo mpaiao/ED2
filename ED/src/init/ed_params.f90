@@ -1070,13 +1070,13 @@ subroutine init_disturb_params
    !------ Cloud-to-ground ignition probability        [       ---] -----------------------!
    fi_cg_ignp    = 0.068
    !------ Land use ignition density                   [    1/m2/s] -----------------------!
-   fi_lu_ignd    = 2.0e-13
+   fi_lu_ignd    = 2.66e-14
    !------ Max. age for "secondary" forests to be LU   [        yr] -----------------------!
    fi_sf_maxage  = 2.
    !------ Land use exponent                           [       ---] -----------------------!
-   fi_lu_exp     = 14.9
+   fi_lu_exp     = 7.0
    !------ Upper bound for land use (saturation point) [       ---] -----------------------!
-   fi_lu_upr     = 0.10
+   fi_lu_upr     = 0.20
    !------ HDI shape parameter to modulate ignitions   [       ---] -----------------------!
    fi_hdi_exp    = 2.0
    !------ Lower bound for human development index     [       ---] -----------------------!
