@@ -148,6 +148,7 @@ subroutine read_ednl(iunit,filename)
                                    , unitfast                              & ! intent(out)
                                    , unitstate                             & ! intent(out)
                                    , ndcycle                               & ! intent(out)
+                                   , ndfire                                & ! intent(out)
                                    , ied_init_mode                         & ! intent(out)
                                    , current_time                          & ! intent(out)
                                    , thsums_database                       & ! intent(out)
@@ -157,6 +158,7 @@ subroutine read_ednl(iunit,filename)
                                    , integration_scheme                    & ! intent(out)
                                    , ffilout                               & ! intent(out)
                                    , dtlsm                                 & ! intent(out)
+                                   , firefrq                               & ! intent(out)
                                    , month_yrstep                          & ! intent(out)
                                    , iprintpolys                           & ! intent(out)
                                    , printvars                             & ! intent(out)
@@ -285,8 +287,8 @@ subroutine read_ednl(iunit,filename)
    logical                      :: fexists
    logical                      :: op
    !----- Namelist. -----------------------------------------------------------------------!
-   namelist /ED2_INFO/  dtlsm,month_yrstep,co2_offset,ifoutput,idoutput,imoutput,iqoutput  &
-                       ,iyoutput,itoutput,iooutput,isoutput,iadd_site_means                &
+   namelist /ED2_INFO/  dtlsm,firefrq,month_yrstep,co2_offset,ifoutput,idoutput,imoutput   &
+                       ,iqoutput,iyoutput,itoutput,iooutput,isoutput,iadd_site_means       &
                        ,iadd_patch_means,iadd_cohort_means,attach_metadata,outfast         &
                        ,outstate,ffilout,sfilout,ied_init_mode,edres,sfilin,islcolflg      &
                        ,slsoc,slph,slcec,sldbd,veg_database,soil_database,slcol_database   &
@@ -344,6 +346,7 @@ subroutine read_ednl(iunit,filename)
       write (unit=*,fmt='(a)')        '--------------------------------------------------'
       write (unit=*,fmt='(a)')        ''
       write (unit=*,fmt=*) ' dtlsm                     =',dtlsm
+      write (unit=*,fmt=*) ' firefrq                   =',firefrq
       write (unit=*,fmt=*) ' month_yrstep              =',month_yrstep
       write (unit=*,fmt=*) ' co2_offset                =',co2_offset
       write (unit=*,fmt=*) ' ifoutput                  =',ifoutput
@@ -584,6 +587,18 @@ subroutine read_ednl(iunit,filename)
       ndcycle = 1 
    else
       ndcycle = max(1,int(day_sec / frqfast))
+   end if
+   !---------------------------------------------------------------------------------------!
+
+
+   !---------------------------------------------------------------------------------------!
+   !     The following variable will be used to allocate the mean diurnal cycle for the    !
+   ! FIRESTARTER model.                                                                    !
+   !---------------------------------------------------------------------------------------!
+   if (firefrq == 0.) then
+      ndfire = 1
+   else
+      ndfire = max(1,int(day_sec / firefrq))
    end if
    !---------------------------------------------------------------------------------------!
 

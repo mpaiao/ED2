@@ -121,6 +121,7 @@ subroutine ed_masterput_nl(par_run)
                                    , idatez                    & ! intent(in)
                                    , dtlsm                     & ! intent(in)
                                    , radfrq                    & ! intent(in)
+                                   , firefrq                   & ! intent(in)
                                    , month_yrstep              & ! intent(in)
                                    , ifoutput                  & ! intent(in)
                                    , idoutput                  & ! intent(in)
@@ -417,6 +418,7 @@ subroutine ed_masterput_nl(par_run)
 
    call MPI_Bcast(dtlsm,1,MPI_REAL,mainnum,MPI_COMM_WORLD,ierr)
    call MPI_Bcast(radfrq,1,MPI_REAL,mainnum,MPI_COMM_WORLD,ierr)
+   call MPI_Bcast(firefrq,1,MPI_REAL,mainnum,MPI_COMM_WORLD,ierr)
    call MPI_Bcast(month_yrstep,1,MPI_INTEGER,mainnum,MPI_COMM_WORLD,ierr)
    
 
@@ -1385,6 +1387,7 @@ subroutine ed_nodeget_nl
                                    , idatez                    & ! intent(out)
                                    , dtlsm                     & ! intent(out)
                                    , radfrq                    & ! intent(out)
+                                   , firefrq                   & ! intent(out)
                                    , month_yrstep              & ! intent(out)
                                    , ifoutput                  & ! intent(out)
                                    , idoutput                  & ! intent(out)
@@ -1676,6 +1679,7 @@ subroutine ed_nodeget_nl
 
    call MPI_Bcast(dtlsm,1,MPI_REAL,master_num,MPI_COMM_WORLD,ierr)
    call MPI_Bcast(radfrq,1,MPI_REAL,master_num,MPI_COMM_WORLD,ierr)
+   call MPI_Bcast(firefrq,1,MPI_REAL,master_num,MPI_COMM_WORLD,ierr)
    call MPI_Bcast(month_yrstep,1,MPI_INTEGER,master_num,MPI_COMM_WORLD,ierr)
 
    call MPI_Bcast(ifoutput,1,MPI_INTEGER,master_num,MPI_COMM_WORLD,ierr)

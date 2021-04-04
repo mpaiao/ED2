@@ -975,11 +975,14 @@ module rk4_copy_patch
                                       , t3ple                & ! intent(in)
                                       , t3ple8               & ! intent(in)
                                       , wdns8                ! ! intent(in)
-      use ed_misc_coms         , only : fast_diagnostics     & ! intent(in)
+      use ed_misc_coms         , only : current_time         & ! intent(in)
+                                      , fast_diagnostics     & ! intent(in)
                                       , writing_long         & ! intent(in)
+                                      , ndfire               & ! intent(in)
                                       , dtlsm                & ! intent(in)
+                                      , firefrq              & ! intent(in)
                                       , dtlsm_o_frqsum       & ! intent(in)
-                                      , dtlsm_o_day_sec      ! ! intent(in)
+                                      , dtlsm_o_firefrq      ! ! intent(in)
       use soil_coms            , only : soil8                & ! intent(in)
                                       , dslz8                & ! intent(in)
                                       , slz8                 & ! intent(in)
@@ -1022,6 +1025,7 @@ module rk4_copy_patch
       !----- Local variables --------------------------------------------------------------!
       type(patchtype)   , pointer     :: cpatch
       integer                         :: ico
+      integer                         :: ifr
       integer                         :: ipft
       integer                         :: k
       integer                         :: kroot
@@ -1034,9 +1038,6 @@ module rk4_copy_patch
       real(kind=8)                    :: mcheight
       real(kind=4)                    :: step_waterdef
       real(kind=4)                    :: can_rvap
-      real(kind=4)                    :: can_rhv
-      real(kind=4)                    :: can_temp
-      real(kind=4)                    :: can_vpdef
       !----- Local contants ---------------------------------------------------------------!
       real        , parameter         :: tendays_sec    = 10. * day_sec
       real        , parameter         :: thirtydays_sec = 30. * day_sec
@@ -1051,6 +1052,14 @@ module rk4_copy_patch
 
       !----- Alias for temporary surface water layers. ------------------------------------!
       ksn = initp%nlev_sfcwater
+      !------------------------------------------------------------------------------------!
+
+
+      !------------------------------------------------------------------------------------!
+      !      Alias for bin for variables needed by the new fire models.   This will ensure !
+      ! that midnight goes to the last bin.                                                !
+      !------------------------------------------------------------------------------------!
+      ifr = 1 + mod(ceiling(current_time%time/firefrq) - 1,ndfire)
       !------------------------------------------------------------------------------------!
 
 
@@ -1251,33 +1260,33 @@ module rk4_copy_patch
       !------------------------------------------------------------------------------------!
       !       Update variables used for the new fire model.                                !
       !------------------------------------------------------------------------------------!
-      !----- Check temperature. -----------------------------------------------------------!
-      can_temp                     = sngloff(initp%rmean_can_temp,tiny_offset)
-      csite%tdmin_can_temp   (ipa) = min(csite%tdmin_can_temp(ipa),can_temp)
-      csite%tdmax_can_temp   (ipa) = max(csite%tdmax_can_temp(ipa),can_temp)
-      !----- Check relative humidity. -----------------------------------------------------!
-      can_rhv                      = sngloff(initp%rmean_can_rhv,tiny_offset)
-      csite%tdmin_can_rhv    (ipa) = min(csite%tdmin_can_rhv (ipa),can_rhv)
-      csite%tdmax_can_rhv    (ipa) = max(csite%tdmax_can_rhv (ipa),can_rhv)
+      !----- Sub-daily CAS temperature average. -------------------------------------------!
+      csite%tdfire_can_temp   (ifr,ipa) = csite%tdfire_can_temp   (ifr,ipa)                &
+                                        + sngloff(initp%rmean_can_temp   ,tiny_offset)     &
+                                        * dtlsm_o_firefrq
+      !----- Sub-daily CAS relative humidity average. -------------------------------------!
+      csite%tdfire_can_rhv    (ifr,ipa) = csite%tdfire_can_rhv    (ifr,ipa)                &
+                                        + sngloff(initp%rmean_can_rhv    ,tiny_offset)     &
+                                        * dtlsm_o_firefrq
       !----- Daily average canopy air space dewpoint temperature. -------------------------!
-      csite%today_can_tdew   (ipa) = csite%today_can_tdew(ipa)                             &
-                                   + sngloff(initp%rmean_can_tdew,tiny_offset)             &
-                                   * dtlsm_o_day_sec
+      csite%tdfire_can_tdew   (ifr,ipa) = csite%tdfire_can_tdew   (ifr,ipa)                &
+                                        + sngloff(initp%rmean_can_tdew   ,tiny_offset)     &
+                                        * dtlsm_o_firefrq
       !----- Daily average canopy air space vapour pressure deficit. ----------------------!
-      can_vpdef                    = sngloff(initp%rmean_can_vpdef,tiny_offset)
-      csite%tdmin_can_vpdef  (ipa) = min(csite%tdmin_can_vpdef(ipa),can_vpdef)
-      csite%tdmax_can_vpdef  (ipa) = max(csite%tdmax_can_vpdef(ipa),can_vpdef)
+      csite%tdfire_can_vpdef  (ifr,ipa) = csite%tdfire_can_vpdef  (ifr,ipa)                &
+                                        + sngloff(initp%rmean_can_vpdef  ,tiny_offset)     &
+                                        * dtlsm_o_firefrq
       !----- Average wind speed.  Integrate kinetic energy to get average wind. -----------!
-      csite%today_can_vels   (ipa) = csite%today_can_vels(ipa)                             &
-                                   + sngloff(initp%rmean_can_ekin,tiny_offset)             &
-                                   * dtlsm_o_day_sec
+      csite%tdfire_can_vels   (ifr,ipa) = csite%tdfire_can_vels   (ifr,ipa)                &
+                                        + sngloff(initp%rmean_can_ekin   ,tiny_offset)     &
+                                        * dtlsm_o_firefrq
       !----- Average relative soil moisture and soil matric potential. --------------------!
-      csite%today_sfc_wetness(ipa) = csite%today_sfc_wetness(ipa)                          &
-                                   + sngloff(initp%rmean_gnd_wetness,tiny_offset)          &
-                                   * dtlsm_o_day_sec
-      csite%today_sfc_mstpot (ipa) = csite%today_sfc_mstpot (ipa)                          &
-                                   + sngloff(initp%rmean_gnd_mstpot ,tiny_offset)          &
-                                   * dtlsm_o_day_sec
+      csite%tdfire_sfc_wetness(ifr,ipa) = csite%tdfire_sfc_wetness(ifr,ipa)                &
+                                        + sngloff(initp%rmean_gnd_wetness,tiny_offset)     &
+                                        * dtlsm_o_firefrq
+      csite%tdfire_sfc_mstpot (ifr,ipa) = csite%tdfire_sfc_mstpot (ifr,ipa)                &
+                                        + sngloff(initp%rmean_gnd_mstpot ,tiny_offset)     &
+                                        * dtlsm_o_firefrq
       !------------------------------------------------------------------------------------!
 
 

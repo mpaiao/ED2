@@ -6884,6 +6884,7 @@ module fuse_fiss_utils
                                      , writing_eorq                  & ! intent(in)
                                      , writing_dcyc                  & ! intent(in)
                                      , ndcycle                       & ! intent(in)
+                                     , ndfire                        & ! intent(in)
                                      , frqsum                        & ! intent(in)
                                      , frqsumi                       ! ! intent(in)
       use consts_coms         , only : wdns                          & ! intent(in)
@@ -7064,12 +7065,6 @@ module fuse_fiss_utils
       csite%nesterov_index(recp)     = csite%nesterov_index    (donp) * dawgt              &
                                      + csite%nesterov_index    (recp) * rawgt
 
-      csite%fdi_vpdmax_index(recp)   = csite%fdi_vpdmax_index  (donp) * dawgt              &
-                                     + csite%fdi_vpdmax_index  (recp) * rawgt
-
-      csite%fdi_vpdmin_index(recp)   = csite%fdi_vpdmin_index  (donp) * dawgt              &
-                                     + csite%fdi_vpdmin_index  (recp) * rawgt
-
       csite%sum_dgd(recp)            = csite%sum_dgd(donp)            * dawgt              &
                                      + csite%sum_dgd(recp)            * rawgt
 
@@ -7098,6 +7093,30 @@ module fuse_fiss_utils
                                      + csite%cstar (recp)             * rawgt
       !------------------------------------------------------------------------------------!
 
+
+
+      !------------------------------------------------------------------------------------!
+      !      Fire-related sub-daily averages.  Merge all the sub-daily means.              !
+      !------------------------------------------------------------------------------------!
+      do t=1,ndfire
+         csite%tdfire_can_temp   (t,recp)   = csite%tdfire_can_temp   (t,donp) * dawgt     &
+                                            + csite%tdfire_can_temp   (t,recp) * rawgt
+         csite%tdfire_can_rhv    (t,recp)   = csite%tdfire_can_rhv    (t,donp) * dawgt     &
+                                            + csite%tdfire_can_rhv    (t,recp) * rawgt
+         csite%tdfire_can_vpdef  (t,recp)   = csite%tdfire_can_vpdef  (t,donp) * dawgt     &
+                                            + csite%tdfire_can_vpdef  (t,recp) * rawgt
+         csite%tdfire_sfc_wetness(t,recp)   = csite%tdfire_sfc_wetness(t,donp) * dawgt     &
+                                            + csite%tdfire_sfc_wetness(t,recp) * rawgt
+         csite%tdfire_sfc_mstpot (t,recp)   = csite%tdfire_sfc_mstpot (t,donp) * dawgt     &
+                                            + csite%tdfire_sfc_mstpot (t,recp) * rawgt
+         csite%tdfire_can_vels   (t,recp)   = csite%tdfire_can_vels   (t,donp) * dawgt     &
+                                            + csite%tdfire_can_vels   (t,recp) * rawgt
+         csite%tdfire_can_tdew   (t,recp)   = csite%tdfire_can_tdew   (t,donp) * dawgt     &
+                                            + csite%tdfire_can_tdew   (t,recp) * rawgt
+         csite%tdfire_fdi_vpd    (t,recp)   = csite%tdfire_fdi_vpd    (t,donp) * dawgt     &
+                                            + csite%tdfire_fdi_vpd    (t,recp) * rawgt
+      end do
+      !------------------------------------------------------------------------------------!
 
 
       !------------------------------------------------------------------------------------!

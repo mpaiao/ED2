@@ -44,6 +44,7 @@ module ename_coms
       !----- Timestep specification. ------------------------------------------------------!
       real                                              :: dtlsm
       real                                              :: radfrq
+      real                                              :: firefrq
       integer                                           :: month_yrstep
 
       !----- Analysis/history files. ------------------------------------------------------!
@@ -351,6 +352,7 @@ module ename_coms
 
       enl%dtlsm                     = undef_real
       enl%radfrq                    = undef_real
+      enl%firefrq                   = undef_real
       enl%month_yrstep              = undef_integer
 
       enl%ifoutput                  = undef_integer

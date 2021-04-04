@@ -2716,7 +2716,8 @@ module average_utils
       use ed_max_dims   , only : n_pft         & ! intent(in)
                                , n_age         & ! intent(in)
                                , n_dbh         ! ! intent(in)
-      use ed_misc_coms  , only : writing_long  ! ! intent(in)
+      use ed_misc_coms  , only : writing_long  & ! intent(in)
+                               , ndfire        ! ! intent(in)
       use consts_coms   , only : umols_2_kgCyr & ! intent(in)
                                , day_sec       ! ! intent(in)
       implicit none
@@ -2730,6 +2731,7 @@ module average_utils
       integer                       :: isi
       integer                       :: ipa
       integer                       :: ico
+      integer                       :: ifr
       real                          :: day_seci
       !------------------------------------------------------------------------------------!
 
@@ -2777,7 +2779,9 @@ module average_utils
                ! variables, as we already applied the weighting factor throughout the      !
                ! daily integration.                                                        !
                !---------------------------------------------------------------------------!
-               csite%today_can_vels(ipa) = sqrt(csite%today_can_vels(ipa))
+               do ifr=1,ndfire
+                  csite%tdfire_can_vels(ifr,ipa) = sqrt(csite%tdfire_can_vels(ifr,ipa))
+               end do
                !---------------------------------------------------------------------------!
 
 
@@ -3532,14 +3536,12 @@ module average_utils
             csite => cpoly%site(isi)
 
             !----- Reset variables stored in polygontype. ---------------------------------!
-            cpoly%today_pcpg           (isi) =  0.0
-            cpoly%today_atm_tdew       (isi) =  0.0
-            cpoly%tdmin_atm_temp       (isi) =  huge_num
-            cpoly%tdmax_atm_temp       (isi) = -huge_num
-            cpoly%tdmin_atm_vpdef      (isi) =  huge_num
-            cpoly%tdmax_atm_vpdef      (isi) = -huge_num
-            cpoly%today_fire_density   (isi) = 0.0
-            cpoly%today_fire_extinction(isi) = 0.0
+            cpoly%tdfire_pcpg           (:,isi) = 0.0
+            cpoly%tdfire_atm_tdew       (:,isi) = 0.0
+            cpoly%tdfire_atm_temp       (:,isi) = 0.0
+            cpoly%tdfire_atm_vpdef      (:,isi) = 0.0
+            cpoly%today_fire_density      (isi) = 0.0
+            cpoly%today_fire_extinction   (isi) = 0.0
             !------------------------------------------------------------------------------!
 
 
@@ -3569,20 +3571,15 @@ module average_utils
 
 
                !---------------------------------------------------------------------------!
-               !    Variables used by the new fire model. Note that we should not set      !
-               ! daily minima and maxima to zero, but with very large numbers (positive/   !
-               ! negative) so they will be replaced immediately.                           !
+               !    Variables used by the new fire model.                                 !
                !---------------------------------------------------------------------------!
-               csite%tdmax_can_temp   (ipa) = -huge_num
-               csite%tdmin_can_temp   (ipa) =  huge_num
-               csite%tdmax_can_rhv    (ipa) = -huge_num
-               csite%tdmin_can_rhv    (ipa) =  huge_num
-               csite%tdmax_can_vpdef  (ipa) = -huge_num
-               csite%tdmin_can_vpdef  (ipa) =  huge_num
-               csite%today_sfc_wetness(ipa) =       0.0
-               csite%today_sfc_mstpot (ipa) =       0.0
-               csite%today_can_vels   (ipa) =       0.0
-               csite%today_can_tdew   (ipa) =       0.0
+               csite%tdfire_can_temp   (:,ipa) =  0.0
+               csite%tdfire_can_rhv    (:,ipa) =  0.0
+               csite%tdfire_can_vpdef  (:,ipa) =  0.0
+               csite%tdfire_can_tdew   (:,ipa) =  0.0
+               csite%tdfire_can_vels   (:,ipa) =  0.0
+               csite%tdfire_sfc_wetness(:,ipa) =  0.0
+               csite%tdfire_sfc_mstpot (:,ipa) =  0.0
                !---------------------------------------------------------------------------!
 
 

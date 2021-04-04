@@ -3043,6 +3043,7 @@ module ed_init_history
                               , memoffs       & ! intent(inout)
                               , memsize       ! ! intent(inout)
       use ed_misc_coms , only : ndcycle       & ! intent(in)
+                              , ndfire        & ! intent(in)
                               , writing_long  & ! intent(in)
                               , writing_eorq  & ! intent(in)
                               , writing_dcyc  ! ! intent(in)
@@ -3278,18 +3279,6 @@ module ed_init_history
                      ,'COMBUSTED_FUEL_SI            ',dsetrank,iparallel,.true. ,foundvar)
       call hdf_getslab_r(cpoly%avg_running_pcpg                                            &
                      ,'AVG_RUNNING_PCPG             ',dsetrank,iparallel,.true. ,foundvar)
-      call hdf_getslab_r(cpoly%today_pcpg                                                  &
-                     ,'TODAY_PCPG                   ',dsetrank,iparallel,.true. ,foundvar)
-      call hdf_getslab_r(cpoly%today_atm_tdew                                              &
-                     ,'TODAY_ATM_TDEW               ',dsetrank,iparallel,.true. ,foundvar)
-      call hdf_getslab_r(cpoly%tdmin_atm_temp                                              &
-                     ,'TDMIN_ATM_TEMP               ',dsetrank,iparallel,.true. ,foundvar)
-      call hdf_getslab_r(cpoly%tdmax_atm_temp                                              &
-                     ,'TDMAX_ATM_TEMP               ',dsetrank,iparallel,.true. ,foundvar)
-      call hdf_getslab_r(cpoly%tdmax_atm_vpdef                                             &
-                     ,'TDMAX_ATM_VPDEF              ',dsetrank,iparallel,.true. ,foundvar)
-      call hdf_getslab_r(cpoly%tdmin_atm_vpdef                                             &
-                     ,'TDMIN_ATM_VPDEF              ',dsetrank,iparallel,.true. ,foundvar)
       call hdf_getslab_r(cpoly%today_fire_density                                          &
                      ,'TODAY_FIRE_DENSITY           ',dsetrank,iparallel,.true. ,foundvar)
       call hdf_getslab_r(cpoly%today_fire_extinction                                       &
@@ -3549,7 +3538,7 @@ module ed_init_history
       !------------------------------------------------------------------------------------!
       !------------------------------------------------------------------------------------!
       !------------------------------------------------------------------------------------!
-      !      2-D variables, dimensions: (n_pft;nsites).                                    !
+      !      2-D variables, dimensions: (n_months;nsites).                                 !
       !------------------------------------------------------------------------------------!
       dsetrank    = 2
       globdims(1) = 12_8
@@ -3582,6 +3571,41 @@ module ed_init_history
                         ,'AVG_MONTHLY_ACCP '     ,dsetrank,iparallel,.true.,foundvar)
       call hdf_getslab_r(cpoly%crop_yield                                                  &
                         ,'CROP_YIELD_SI '        ,dsetrank,iparallel,.true.,foundvar)
+      !------------------------------------------------------------------------------------!
+      !------------------------------------------------------------------------------------!
+      !------------------------------------------------------------------------------------!
+
+
+
+
+
+
+      !------------------------------------------------------------------------------------!
+      !------------------------------------------------------------------------------------!
+      !------------------------------------------------------------------------------------!
+      !      2-D variables, dimensions: (n_pft;nsites).                                    !
+      !------------------------------------------------------------------------------------!
+      dsetrank    = 2
+      globdims(1) = int(ndfire,8)
+      chnkdims(1) = int(ndfire,8)
+      memdims (1) = int(ndfire,8)
+      memsize (1) = int(ndfire,8)
+      chnkoffs(1) = 0_8
+      memoffs (1) = 0_8
+      globdims(2) = int(nsites_global ,8)
+      chnkdims(2) = int(cpoly%nsites  ,8)
+      chnkoffs(2) = int(pysi_index - 1,8)
+      memdims (2) = int(cpoly%nsites  ,8)
+      memsize (2) = int(cpoly%nsites  ,8)
+      memoffs (2) = 0_8
+      call hdf_getslab_r(cpoly%tdfire_pcpg                                                 &
+                     ,'TDFIRE_PCPG                  ',dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_r(cpoly%tdfire_atm_tdew                                             &
+                     ,'TDFIRE_ATM_TDEW              ',dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_r(cpoly%tdfire_atm_temp                                             &
+                     ,'TDFIRE_ATM_TEMP              ',dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_r(cpoly%tdfire_atm_vpdef                                            &
+                     ,'TDFIRE_ATM_VPDEF             ',dsetrank,iparallel,.true. ,foundvar)
       !------------------------------------------------------------------------------------!
       !------------------------------------------------------------------------------------!
       !------------------------------------------------------------------------------------!
@@ -3823,6 +3847,7 @@ module ed_init_history
                                     , memoffs       & ! intent(inout)
                                     , memsize       ! ! intent(inout)
       use ed_misc_coms       , only : ndcycle       & ! intent(in)
+                                    , ndfire        & ! intent(in)
                                     , writing_long  & ! intent(in)
                                     , writing_eorq  & ! intent(in)
                                     , writing_dcyc  ! ! intent(in)
@@ -4178,26 +4203,6 @@ module ed_init_history
                      ,'TODAY_BF_DECOMP             ',dsetrank,iparallel,.true. ,foundvar)
       call hdf_getslab_r(csite%today_rh                                                    &
                      ,'TODAY_RH                    ',dsetrank,iparallel,.true. ,foundvar)
-      call hdf_getslab_r(csite%tdmax_can_temp                                              &
-                     ,'TDMAX_CAN_TEMP              ',dsetrank,iparallel,.true. ,foundvar)
-      call hdf_getslab_r(csite%tdmin_can_temp                                              &
-                     ,'TDMIN_CAN_TEMP              ',dsetrank,iparallel,.true. ,foundvar)
-      call hdf_getslab_r(csite%tdmax_can_rhv                                               &
-                     ,'TDMAX_CAN_RHV               ',dsetrank,iparallel,.true. ,foundvar)
-      call hdf_getslab_r(csite%tdmin_can_rhv                                               &
-                     ,'TDMIN_CAN_RHV               ',dsetrank,iparallel,.true. ,foundvar)
-      call hdf_getslab_r(csite%tdmax_can_vpdef                                             &
-                     ,'TDMAX_CAN_VPDEF             ',dsetrank,iparallel,.true. ,foundvar)
-      call hdf_getslab_r(csite%tdmin_can_vpdef                                             &
-                     ,'TDMIN_CAN_VPDEF             ',dsetrank,iparallel,.true. ,foundvar)
-      call hdf_getslab_r(csite%today_sfc_wetness                                           &
-                     ,'TODAY_SFC_WETNESS           ',dsetrank,iparallel,.true. ,foundvar)
-      call hdf_getslab_r(csite%today_sfc_mstpot                                            &
-                     ,'TODAY_SFC_MSTPOT            ',dsetrank,iparallel,.true. ,foundvar)
-      call hdf_getslab_r(csite%today_can_vels                                              &
-                     ,'TODAY_CAN_VELS              ',dsetrank,iparallel,.true. ,foundvar)
-      call hdf_getslab_r(csite%today_can_tdew                                              &
-                     ,'TODAY_CAN_TDEW              ',dsetrank,iparallel,.true. ,foundvar)
       call hdf_getslab_r(csite%veg_rough                                                   &
                      ,'VEG_ROUGH                   ',dsetrank,iparallel,.true. ,foundvar)
       call hdf_getslab_r(csite%veg_height                                                  &
@@ -4232,10 +4237,6 @@ module ed_init_history
                      ,'MINERALIZED_N_INPUT         ',dsetrank,iparallel,.false.,foundvar)
       call hdf_getslab_r(csite%nesterov_index                                              &
                      ,'NESTEROV_INDEX              ',dsetrank,iparallel,.true. ,foundvar)
-      call hdf_getslab_r(csite%fdi_vpdmax_index                                            &
-                     ,'FDI_VPDMAX_INDEX            ',dsetrank,iparallel,.true. ,foundvar)
-      call hdf_getslab_r(csite%fdi_vpdmin_index                                            &
-                     ,'FDI_VPDMIN_INDEX            ',dsetrank,iparallel,.true. ,foundvar)
       call hdf_getslab_r(csite%rshort_g                                                    &
                      ,'RSHORT_G                    ',dsetrank,iparallel,.true. ,foundvar)
       call hdf_getslab_r(csite%rshort_g_beam                                               &
@@ -5055,6 +5056,49 @@ module ed_init_history
                         ,'A_O_MAX              ',dsetrank,iparallel,.true. ,foundvar)
       call hdf_getslab_r(csite%A_c_max                                                     &
                         ,'A_C_MAX              ',dsetrank,iparallel,.true. ,foundvar)
+      !------------------------------------------------------------------------------------!
+      !------------------------------------------------------------------------------------!
+      !------------------------------------------------------------------------------------!
+
+
+
+
+
+
+      !------------------------------------------------------------------------------------!
+      !------------------------------------------------------------------------------------!
+      !------------------------------------------------------------------------------------!
+      !      2-D variables, dimensions: (ndfire,npatches).                                 !
+      !------------------------------------------------------------------------------------!
+      dsetrank    = 2
+      globdims(1) = int(ndfire,8)
+      chnkdims(1) = int(ndfire,8)
+      memdims (1) = int(ndfire,8)
+      memsize (1) = int(ndfire,8)
+      chnkoffs(1) = 0_8
+      memoffs (1) = 0_8
+      globdims(2) = int(npatches_global,8)
+      chnkdims(2) = int(csite%npatches ,8)
+      chnkoffs(2) = int(sipa_index - 1 ,8)
+      memdims (2) = int(csite%npatches ,8)
+      memsize (2) = int(csite%npatches ,8)
+      memoffs (2) = 0_8
+      call hdf_getslab_r(csite%tdfire_can_temp                                             &
+                     ,'TDFIRE_CAN_TEMP             ',dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_r(csite%tdfire_can_rhv                                              &
+                     ,'TDFIRE_CAN_RHV              ',dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_r(csite%tdfire_can_vpdef                                            &
+                     ,'TDFIRE_CAN_VPDEF            ',dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_r(csite%tdfire_sfc_wetness                                          &
+                     ,'TDFIRE_SFC_WETNESS          ',dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_r(csite%tdfire_sfc_mstpot                                           &
+                     ,'TDFIRE_SFC_MSTPOT           ',dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_r(csite%tdfire_can_vels                                             &
+                     ,'TDFIRE_CAN_VELS             ',dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_r(csite%tdfire_can_tdew                                             &
+                     ,'TDFIRE_CAN_TDEW             ',dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_r(csite%tdfire_fdi_vpd                                              &
+                     ,'TDFIRE_FDI_VPD              ',dsetrank,iparallel,.true. ,foundvar)
       !------------------------------------------------------------------------------------!
       !------------------------------------------------------------------------------------!
       !------------------------------------------------------------------------------------!

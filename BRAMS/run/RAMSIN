@@ -1887,13 +1887,17 @@ $END
 $ED2_INFO
 
    !---------------------------------------------------------------------------------------!
-   ! DTLSM  -- Basic time step [seconds] for photosynthesis, and maximum step for thermo-  !
-   !           dynamics. Recommended values range from 240 to 900 seconds when using the   !
-   !           4th-order Runge Kutta integrator (INTEGRATION_SCHEME=1). We discourage      !
-   !           using the forward Euler scheme (INTEGRATION_SCHEME=0), but in case you      !
-   !           really want to use it, set the time step to 60 seconds or shorter.          !
+   ! DTLSM   -- Basic time step [seconds] for photosynthesis, and maximum step for thermo- !
+   !            dynamics. Recommended values range from 240 to 900 seconds when using the  !
+   !            4th-order Runge Kutta integrator (INTEGRATION_SCHEME=1). We discourage     !
+   !            using the forward Euler scheme (INTEGRATION_SCHEME=0), but in case you     !
+   !            really want to use it, set the time step to 60 seconds or shorter.         !
+   ! FIREFRQ -- Time step for the fire model [seconds] (used only if INCLUDE_FIRE=4).      !
+   !            This must be an integer multiple of DTLSM, and it must be a divisor of     !
+   !            86400 seconds (1 day).  We recommend it to be about 3600 (1 hour).         !
    !---------------------------------------------------------------------------------------!
-   DTLSM  = 600.0,
+   DTLSM   =  600.0,
+   FIREFRQ = 3600.0,
    !---------------------------------------------------------------------------------------!
 
 

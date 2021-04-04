@@ -1798,10 +1798,6 @@ module disturbance
       csite%mineralized_soil_N         (np) = 0.0
       csite%sum_dgd                    (np) = 0.0
       csite%sum_chd                    (np) = 0.0
-      csite%tdmax_can_temp             (np) = 0.0
-      csite%tdmin_can_temp             (np) = 0.0
-      csite%tdmax_can_rhv              (np) = 0.0
-      csite%tdmin_can_rhv              (np) = 0.0
       !------------------------------------------------------------------------------------!
 
       return
@@ -1824,7 +1820,8 @@ module disturbance
                               , patchtype    ! ! structure
       use ed_max_dims  , only : n_pft        ! ! intent(in)
       use grid_coms    , only : nzg          ! ! intent(in)
-      use ed_misc_coms , only : writing_long & ! intent(in)
+      use ed_misc_coms , only : ndfire       & ! intent(in)
+                              , writing_long & ! intent(in)
                               , writing_eorq & ! intent(in)
                               , writing_dcyc ! ! intent(in)
       use therm_lib    , only : tq2enthalpy  & ! function
@@ -1984,30 +1981,6 @@ module disturbance
                                             * area_fac
       csite%today_rh                   (np) = csite%today_rh                   (np)        &
                                             + csite%today_rh                   (cp)        &
-                                            * area_fac
-      csite%tdmax_can_temp             (np) = csite%tdmax_can_temp             (np)        &
-                                            + csite%tdmax_can_temp             (cp)        &
-                                            * area_fac
-      csite%tdmin_can_temp             (np) = csite%tdmin_can_temp             (np)        &
-                                            + csite%tdmin_can_temp             (cp)        &
-                                            * area_fac
-      csite%tdmax_can_rhv              (np) = csite%tdmax_can_rhv              (np)        &
-                                            + csite%tdmax_can_rhv              (cp)        &
-                                            * area_fac
-      csite%tdmin_can_rhv              (np) = csite%tdmin_can_rhv              (np)        &
-                                            + csite%tdmin_can_rhv              (cp)        &
-                                            * area_fac
-      csite%today_sfc_wetness          (np) = csite%today_sfc_wetness          (np)        &
-                                            + csite%today_sfc_wetness          (cp)        &
-                                            * area_fac
-      csite%today_sfc_mstpot           (np) = csite%today_sfc_mstpot           (np)        &
-                                            + csite%today_sfc_mstpot           (cp)        &
-                                            * area_fac
-      csite%today_can_vels             (np) = csite%today_can_vels             (np)        &
-                                            + csite%today_can_vels             (cp)        &
-                                            * area_fac
-      csite%today_can_tdew             (np) = csite%today_can_tdew             (np)        &
-                                            + csite%today_can_tdew             (cp)        &
                                             * area_fac
       csite%fgc_in                     (np) = csite%fgc_in                     (np)        &
                                             + csite%fgc_in                     (cp)        &
@@ -2178,6 +2151,37 @@ module disturbance
                                          + csite%ebudget_residual        (cp)              &
                                          * area_fac
       !------------------------------------------------------------------------------------!
+
+
+
+      !------------------------------------------------------------------------------------!
+      !      Ancillary fire variables, multiple times a day.                               !
+      !------------------------------------------------------------------------------------!
+      do k=1,ndfire
+         csite%tdfire_can_temp    (k,np) = csite%tdfire_can_temp    (k,np)                 &
+                                         + csite%tdfire_can_temp    (k,cp)                 &
+                                         * area_fac
+         csite%tdfire_can_rhv     (k,np) = csite%tdfire_can_rhv     (k,np)                 &
+                                         + csite%tdfire_can_rhv     (k,cp)                 &
+                                         * area_fac
+         csite%tdfire_can_tdew    (k,np) = csite%tdfire_can_tdew    (k,np)                 &
+                                         + csite%tdfire_can_tdew    (k,cp)                 &
+                                         * area_fac
+         csite%tdfire_can_vpdef   (k,np) = csite%tdfire_can_vpdef   (k,np)                 &
+                                         + csite%tdfire_can_vpdef   (k,cp)                 &
+                                         * area_fac
+         csite%tdfire_can_vels    (k,np) = csite%tdfire_can_vels    (k,np)                 &
+                                         + csite%tdfire_can_vels    (k,cp)                 &
+                                         * area_fac
+         csite%tdfire_sfc_wetness (k,np) = csite%tdfire_sfc_wetness (k,np)                 &
+                                         + csite%tdfire_sfc_wetness (k,np)                 &
+                                         * area_fac
+         csite%tdfire_sfc_mstpot  (k,np) = csite%tdfire_sfc_wetness (k,np)                 &
+                                         + csite%tdfire_sfc_mstpot  (k,cp)                 &
+                                         * area_fac
+      end do
+      !------------------------------------------------------------------------------------!
+
 
 
       !----- Reproduction array. ----------------------------------------------------------!

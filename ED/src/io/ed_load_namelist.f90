@@ -199,12 +199,14 @@ subroutine copy_nl(copy_type)
                                    , iclobber                  & ! intent(out)
                                    , frqfast                   & ! intent(out)
                                    , ndcycle                   & ! intent(out)
+                                   , ndfire                    & ! intent(out)
                                    , sfilin                    & ! intent(out)
                                    , ied_init_mode             & ! intent(out)
                                    , current_time              & ! intent(out)
                                    , thsums_database           & ! intent(out)
                                    , end_time                  & ! intent(out)
                                    , radfrq                    & ! intent(out)
+                                   , firefrq                   & ! intent(out)
                                    , ivegt_dynamics            & ! intent(out)
                                    , ibigleaf                  & ! intent(out)
                                    , integration_scheme        & ! intent(out)
@@ -340,6 +342,7 @@ subroutine copy_nl(copy_type)
       iyearz                    = nl%iyearz
       dtlsm                     = nl%dtlsm
       radfrq                    = nl%radfrq
+      firefrq                   = nl%firefrq
       month_yrstep              = nl%month_yrstep
 
       ifoutput                  = nl%ifoutput
@@ -703,6 +706,18 @@ subroutine copy_nl(copy_type)
       ndcycle = 1 
    else
       ndcycle = max(1,int(day_sec / frqfast))
+   end if
+   !---------------------------------------------------------------------------------------!
+
+
+   !---------------------------------------------------------------------------------------!
+   !     The following variable will be used to allocate the mean diurnal cycle for the    !
+   ! FIRESTARTER model.                                                                    !
+   !---------------------------------------------------------------------------------------!
+   if (firefrq == 0.) then
+      ndfire = 1
+   else
+      ndfire = max(1,int(day_sec / firefrq))
    end if
    !---------------------------------------------------------------------------------------!
 

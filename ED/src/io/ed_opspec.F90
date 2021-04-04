@@ -448,6 +448,7 @@ subroutine ed_opspec_times
                            , itimez           & ! intent(in)
                            , dtlsm            & ! intent(in)
                            , radfrq           & ! intent(in)
+                           , firefrq          & ! intent(in)
                            , month_yrstep     & ! intent(in)
                            , ifoutput         & ! intent(in)
                            , isoutput         & ! intent(in)
@@ -1104,6 +1105,35 @@ subroutine ed_opspec_times
       write(reason,fmt='(a,1x,f8.2,1x,a,1x,f8.2,a)')  &
           'DTLSM must be a divisor of RADFRQ. Your DTLSM is set to',dtlsm, &
           'and your RADFRQ is set to',radfrq,'...'
+      call opspec_fatal(reason,'opspec_times')  
+      ifaterr=ifaterr+1
+   end if
+   !---------------------------------------------------------------------------------------!
+
+
+
+
+
+   !----- DTLSM must be an integer divisor of FIREFRQ so integrals make sense. ------------!
+   if (mod(firefrq,dtlsm) /= 0.0) then
+      write(reason,fmt='(a,1x,f8.2,1x,a,1x,f8.2,a)')  &
+          'DTLSM must be a divisor of FIREFRQ. Your DTLSM is set to',dtlsm, &
+          'and your FIREFRQ is set to',firefrq,'...'
+      call opspec_fatal(reason,'opspec_times')  
+      ifaterr=ifaterr+1
+   end if
+   !---------------------------------------------------------------------------------------!
+
+
+
+   !---------------------------------------------------------------------------------------!
+   !    Also make sure that the fire time step is a divisor of one day (the new fire model !
+   ! is always called daily, and this ensures the number of bins for sub-daily average is  !
+   ! an integer.                                                                           !
+   !---------------------------------------------------------------------------------------!
+   if (mod(day_sec,firefrq) /= 0.0) then
+      write(reason,fmt='(a,1x,f8.2,1x,a,1x,es14.7)')  &
+          'FIREFRQ must be a divisor of ',day_sec,' sec. Yours is set to ',firefrq
       call opspec_fatal(reason,'opspec_times')  
       ifaterr=ifaterr+1
    end if

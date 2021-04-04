@@ -260,7 +260,10 @@ module rk4_integ_utils
       use met_driver_coms, only : met_driv_state  ! ! structure
       use therm_lib      , only : eslif           & ! function
                                 , tslif           ! ! function
-      use ed_misc_coms   , only : dtlsm_o_day_sec ! ! intent(in)
+      use ed_misc_coms   , only : current_time    & ! intent(in)
+                                , ndfire          & ! intent(in)
+                                , firefrq         & ! intent(in)
+                                , dtlsm_o_firefrq ! ! intent(in)
       use consts_coms    , only : ep              ! ! intent(in)
       implicit none
       !----- Arguments. -------------------------------------------------------------------!
@@ -268,6 +271,7 @@ module rk4_integ_utils
       integer                  , intent(in)   :: isi
       !----- Local variables --------------------------------------------------------------!
       type(met_driv_state)     , pointer      :: cmet
+      integer                                 :: ifr
       real                                    :: atm_pvap
       real                                    :: atm_psat
       real                                    :: atm_tdew
@@ -281,17 +285,10 @@ module rk4_integ_utils
 
 
       !------------------------------------------------------------------------------------!
-      !     Update today's average rainfall rate.                                          !
+      !      Alias for bin for variables needed by the new fire models.   This will ensure !
+      ! that midnight goes to the last bin.                                                !
       !------------------------------------------------------------------------------------!
-      cpoly%today_pcpg(isi) = cpoly%today_pcpg(isi) + cmet%pcpg * dtlsm_o_day_sec
-      !------------------------------------------------------------------------------------!
-
-
-      !------------------------------------------------------------------------------------!
-      !     Minimum and maximum temperature.                                               !
-      !------------------------------------------------------------------------------------!
-      cpoly%tdmin_atm_temp(isi) = min(cpoly%tdmin_atm_temp(isi),cmet%atm_tmp)
-      cpoly%tdmax_atm_temp(isi) = max(cpoly%tdmax_atm_temp(isi),cmet%atm_tmp)
+      ifr = 1 + mod(ceiling(current_time%time/firefrq) - 1,ndfire)
       !------------------------------------------------------------------------------------!
 
 
@@ -302,11 +299,25 @@ module rk4_integ_utils
       atm_pvap                   = cmet%prss * cmet%atm_shv / (ep + (1.-ep) * cmet%atm_shv)
       atm_tdew                   = tslif(atm_pvap)
       atm_vpdef                  = max(0.,atm_psat - atm_pvap)
-      cpoly%today_atm_tdew (isi) = cpoly%today_atm_tdew (isi) + atm_tdew  * dtlsm_o_day_sec
-      cpoly%tdmin_atm_vpdef(isi) = min(cpoly%tdmin_atm_vpdef(isi),atm_vpdef)
-      cpoly%tdmax_atm_vpdef(isi) = max(cpoly%tdmax_atm_vpdef(isi),atm_vpdef)
       !------------------------------------------------------------------------------------!
 
+
+      !------------------------------------------------------------------------------------!
+      !      Integrate variables.                                                          !
+      !------------------------------------------------------------------------------------!
+      !------ Precipitation. --------------------------------------------------------------!
+      cpoly%tdfire_pcpg     (ifr,isi) = cpoly%tdfire_pcpg     (ifr,isi)                    &
+                                      + cmet%pcpg    * dtlsm_o_firefrq
+      !------ Air temperature. ------------------------------------------------------------!
+      cpoly%tdfire_atm_temp (ifr,isi) = cpoly%tdfire_atm_temp (ifr,isi)                    &
+                                      + cmet%atm_tmp * dtlsm_o_firefrq
+      !------ Dew point temperature. ------------------------------------------------------!
+      cpoly%tdfire_atm_tdew (ifr,isi) = cpoly%tdfire_atm_tdew (ifr,isi)                    &
+                                      + atm_tdew     * dtlsm_o_firefrq
+      !------ Vapour pressure deficit. ----------------------------------------------------!
+      cpoly%tdfire_atm_vpdef(ifr,isi) = cpoly%tdfire_atm_vpdef(ifr,isi)                    &
+                                      + atm_vpdef    * dtlsm_o_firefrq
+      !------------------------------------------------------------------------------------!
 
 
 

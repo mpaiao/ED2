@@ -46,7 +46,8 @@ module ed_state_vars
                                  , history_fast      & ! intent(in)
                                  , history_dail      & ! intent(in)
                                  , history_eorq      & ! intent(in)
-                                 , ndcycle           ! ! intent(in)
+                                 , ndcycle           & ! intent(in)
+                                 , ndfire            ! ! intent(in)
 
    implicit none
    !=======================================================================================!
@@ -1593,36 +1594,6 @@ module ed_state_vars
       !<The "today" variable is used in the model, whereas dmean and mmean are for 
       !<output only.
 
-      real, pointer, dimension(:) :: tdmax_can_temp
-      !<Maximum canopy air space temperature, used by EMBERFIRE/FIRESTARTER.
-
-      real, pointer, dimension(:) :: tdmin_can_temp
-      !<Minimum canopy air space temperature, used by EMBERFIRE/FIRESTARTER.
-
-      real, pointer, dimension(:) :: tdmax_can_rhv
-      !<Maximum canopy air space relative humidity, used by EMBERFIRE/FIRESTARTER.
-
-      real, pointer, dimension(:) :: tdmin_can_rhv
-      !<Minimum canopy air space relative humidity, used by EMBERFIRE/FIRESTARTER.
-
-      real, pointer, dimension(:) :: tdmax_can_vpdef
-      !<Maximum canopy air space vapour pressure deficit, used by EMBERFIRE/FIRESTARTER.
-
-      real, pointer, dimension(:) :: tdmin_can_vpdef
-      !<Minimum canopy air space vapour pressure deficit, used by EMBERFIRE/FIRESTARTER.
-
-      real, pointer, dimension(:) :: today_sfc_wetness
-      !<Average relative soil moisture, used by EMBERFIRE/FIRESTARTER.
-
-      real, pointer, dimension(:) :: today_sfc_mstpot
-      !<Average soil matric potential, used by EMBERFIRE/FIRESTARTER.
-
-      real, pointer, dimension(:) :: today_can_vels
-      !<Average wind speed at the canopy air space, used by EMBERFIRE/FIRESTARTER.
-
-      real, pointer, dimension(:) :: today_can_tdew
-      !<Average dewpoint temperature of the canopy air space, used by EMBERFIRE/FIRESTARTER.
-
       real, pointer,dimension(:,:) :: repro    !(n_pft,npatches)  
       !<Carbon available to establish recruits [kgC/m2]
 
@@ -1677,12 +1648,6 @@ module ed_state_vars
 
       real , pointer,dimension(:) :: nesterov_index
       !<Nesterov index (fire model) [degC^2]
-
-      real , pointer,dimension(:) :: fdi_vpdmax_index
-      !<VPD-based fire danger index (maximum daily VPD) [--]
-
-      real , pointer,dimension(:) :: fdi_vpdmin_index
-      !<VPD-based fire danger index (minimum daily VPD) [--]
 
       real , pointer,dimension(:) :: rshort_g
       !<Short wave radiation absorbed by the ground (W/m2)
@@ -1856,6 +1821,34 @@ module ed_state_vars
       real,pointer,dimension(:)   :: runoff_rate
       real,pointer,dimension(:)   :: runoff
       real,pointer,dimension(:)   :: qrunoff
+
+
+
+      !----- Variables used by EMBERFIRE/FIRESTARTER. -------------------------------------!
+      real, pointer, dimension(:,:) :: tdfire_can_temp
+      !<Average canopy air space temperature, at sub-daily bins.
+
+      real, pointer, dimension(:,:) :: tdfire_can_rhv
+      !<Average canopy air space relative humidity, at sub-daily bins.
+
+      real, pointer, dimension(:,:) :: tdfire_can_vpdef
+      !<Average canopy air space vapour pressure deficit, at sub-daily bins.
+
+      real, pointer, dimension(:,:) :: tdfire_sfc_wetness
+      !<Average relative soil moisture, at sub-daily bins.
+
+      real, pointer, dimension(:,:) :: tdfire_sfc_mstpot
+      !<Average soil matric potential, at sub-daily bins.
+
+      real, pointer, dimension(:,:) :: tdfire_can_vels
+      !<Average canopy air space wind speed, at sub-daily bins.
+
+      real, pointer, dimension(:,:) :: tdfire_can_tdew
+      !<Average canopy air space dewpoint temperature, at sub-daily bins.
+
+      real , pointer,dimension(:,:) :: tdfire_fdi_vpd
+      !<VPD-based fire danger index, at sub-daily bins [--]
+
 
       !====================================================================================!
       !====================================================================================!
@@ -2538,24 +2531,6 @@ module ed_state_vars
       real,pointer,dimension(:) :: avg_running_pcpg
       !<Running average of precipitation rate (kg/m2/s)
 
-      real,pointer,dimension(:) :: today_pcpg
-      !<Daily average precipitation rate of day (internal use only)
-
-      real,pointer,dimension(:) :: today_atm_tdew
-      !<Daily average dew point temperature (internal use only)
-
-      real,pointer,dimension(:) :: tdmin_atm_temp
-      !<Daily minimum temperature (internal use only)
-
-      real,pointer,dimension(:) :: tdmax_atm_temp
-      !<Daily maximum temperature (internal use only)
-
-      real,pointer,dimension(:) :: tdmax_atm_vpdef
-      !<Daily maximum vapour pressure deficit (internal use only)
-
-      real,pointer,dimension(:) :: tdmin_atm_vpdef
-      !<Daily minimum vapour pressure deficit (internal use only)
-
       real,pointer,dimension(:) :: today_fire_density
       !<Daily average fire density (internal use only)
 
@@ -2586,6 +2561,22 @@ module ed_state_vars
       real, pointer, dimension(:,:) :: avg_fire_f_stgc
       !<Combusted fraction of structural C on ground over the past 12 months.
 
+      real,pointer,dimension(:,:) :: tdfire_pcpg
+      !<Average precipitation rate, at sub-daily bins  (internal use only).
+
+      real,pointer,dimension(:,:) :: tdfire_atm_tdew
+      !<Average dew point temperature, at sub-daily bins (internal use only).
+
+      real,pointer,dimension(:,:) :: tdfire_atm_temp
+      !<Average air temperature, at sub-daily bins (internal use only).
+
+      real,pointer,dimension(:,:) :: tdfire_atm_vpdef
+      !<Average air vapour pressure deficit, at sub-daily bins (internal use only).
+
+
+      !-----------------------------------
+      ! PHENOLOGY
+      !-----------------------------------
 
       type(prescribed_phen),pointer, dimension(:) :: phen_pars
 
@@ -4992,12 +4983,6 @@ module ed_state_vars
       allocate(cpoly%fire_f_fgc                    (                          nsites))
       allocate(cpoly%fire_f_stgc                   (                          nsites))
       allocate(cpoly%avg_running_pcpg              (                          nsites))
-      allocate(cpoly%today_pcpg                    (                          nsites))
-      allocate(cpoly%today_atm_tdew                (                          nsites))
-      allocate(cpoly%tdmin_atm_temp                (                          nsites))
-      allocate(cpoly%tdmax_atm_temp                (                          nsites))
-      allocate(cpoly%tdmax_atm_vpdef               (                          nsites))
-      allocate(cpoly%tdmin_atm_vpdef               (                          nsites))
       allocate(cpoly%today_fire_density            (                          nsites))
       allocate(cpoly%today_fire_extinction         (                          nsites))
       allocate(cpoly%lambda_fire                   (                       12,nsites))
@@ -5018,6 +5003,10 @@ module ed_state_vars
       allocate(cpoly%rd_bar_toc                    (                    n_pft,nsites))
       allocate(cpoly%llspan_toc                    (                    n_pft,nsites))
       allocate(cpoly%sla_toc                       (                    n_pft,nsites))
+      allocate(cpoly%tdfire_pcpg                   (                   ndfire,nsites))
+      allocate(cpoly%tdfire_atm_tdew               (                   ndfire,nsites))
+      allocate(cpoly%tdfire_atm_temp               (                   ndfire,nsites))
+      allocate(cpoly%tdfire_atm_vpdef              (                   ndfire,nsites))
       allocate(cpoly%basal_area                    (       n_pft,       n_dbh,nsites))
       allocate(cpoly%basal_area_growth             (       n_pft,       n_dbh,nsites))
       allocate(cpoly%agb                           (       n_pft,       n_dbh,nsites))
@@ -5026,7 +5015,6 @@ module ed_state_vars
       allocate(cpoly%basal_area_cut                (       n_pft,       n_dbh,nsites))
       allocate(cpoly%agb_mort                      (       n_pft,       n_dbh,nsites))
       allocate(cpoly%agb_cut                       (       n_pft,       n_dbh,nsites))
-
       allocate(cpoly%crop_yield                    (                       12,nsites))
       allocate(cpoly%crop_harvest                  (                          nsites))
       allocate(cpoly%logging_harvest               (                          nsites))
@@ -5319,16 +5307,14 @@ module ed_state_vars
       allocate(csite%today_Af_decomp               (              npatches))
       allocate(csite%today_Bf_decomp               (              npatches))
       allocate(csite%today_rh                      (              npatches))
-      allocate(csite%tdmax_can_temp                (              npatches))
-      allocate(csite%tdmin_can_temp                (              npatches))
-      allocate(csite%tdmax_can_rhv                 (              npatches))
-      allocate(csite%tdmin_can_rhv                 (              npatches))
-      allocate(csite%tdmax_can_vpdef               (              npatches))
-      allocate(csite%tdmin_can_vpdef               (              npatches))
-      allocate(csite%today_sfc_wetness             (              npatches))
-      allocate(csite%today_sfc_mstpot              (              npatches))
-      allocate(csite%today_can_vels                (              npatches))
-      allocate(csite%today_can_tdew                (              npatches))
+      allocate(csite%tdfire_can_temp               (       ndfire,npatches))
+      allocate(csite%tdfire_can_rhv                (       ndfire,npatches))
+      allocate(csite%tdfire_can_vpdef              (       ndfire,npatches))
+      allocate(csite%tdfire_can_vels               (       ndfire,npatches))
+      allocate(csite%tdfire_can_tdew               (       ndfire,npatches))
+      allocate(csite%tdfire_sfc_wetness            (       ndfire,npatches))
+      allocate(csite%tdfire_sfc_mstpot             (       ndfire,npatches))
+      allocate(csite%tdfire_fdi_vpd                (       ndfire,npatches))
       allocate(csite%repro                         (        n_pft,npatches))
       allocate(csite%veg_rough                     (              npatches))
       allocate(csite%veg_height                    (              npatches))
@@ -5347,8 +5333,6 @@ module ed_state_vars
       allocate(csite%mineralized_N_loss            (              npatches))
       allocate(csite%mineralized_N_input           (              npatches))
       allocate(csite%nesterov_index                (              npatches))
-      allocate(csite%fdi_vpdmax_index              (              npatches))
-      allocate(csite%fdi_vpdmin_index              (              npatches))
       allocate(csite%rshort_g                      (              npatches))
       allocate(csite%rshort_g_beam                 (              npatches))
       allocate(csite%rshort_g_diffuse              (              npatches))
@@ -7348,12 +7332,10 @@ module ed_state_vars
       nullify(cpoly%fire_f_fgc                 )
       nullify(cpoly%fire_f_stgc                )
       nullify(cpoly%avg_running_pcpg           )
-      nullify(cpoly%today_pcpg                 )
-      nullify(cpoly%today_atm_tdew             )
-      nullify(cpoly%tdmin_atm_temp             )
-      nullify(cpoly%tdmax_atm_temp             )
-      nullify(cpoly%tdmax_atm_vpdef            )
-      nullify(cpoly%tdmin_atm_vpdef            )
+      nullify(cpoly%tdfire_pcpg                )
+      nullify(cpoly%tdfire_atm_tdew            )
+      nullify(cpoly%tdfire_atm_temp            )
+      nullify(cpoly%tdfire_atm_vpdef           )
       nullify(cpoly%today_fire_density         )
       nullify(cpoly%today_fire_extinction      )
       nullify(cpoly%avg_burnt_area             )
@@ -7626,16 +7608,14 @@ module ed_state_vars
       nullify(csite%today_Af_decomp            )
       nullify(csite%today_Bf_decomp            )
       nullify(csite%today_rh                   )
-      nullify(csite%tdmax_can_temp             )
-      nullify(csite%tdmin_can_temp             )
-      nullify(csite%tdmax_can_rhv              )
-      nullify(csite%tdmin_can_rhv              )
-      nullify(csite%tdmax_can_vpdef            )
-      nullify(csite%tdmin_can_vpdef            )
-      nullify(csite%today_sfc_wetness          )
-      nullify(csite%today_sfc_mstpot           )
-      nullify(csite%today_can_vels             )
-      nullify(csite%today_can_tdew             )
+      nullify(csite%tdfire_can_temp            )
+      nullify(csite%tdfire_can_rhv             )
+      nullify(csite%tdfire_can_vpdef           )
+      nullify(csite%tdfire_sfc_wetness         )
+      nullify(csite%tdfire_sfc_mstpot          )
+      nullify(csite%tdfire_can_vels            )
+      nullify(csite%tdfire_can_tdew            )
+      nullify(csite%tdfire_fdi_vpd             )
       nullify(csite%repro                      )
       nullify(csite%veg_rough                  )
       nullify(csite%veg_height                 )
@@ -7654,8 +7634,6 @@ module ed_state_vars
       nullify(csite%mineralized_N_loss         )
       nullify(csite%mineralized_N_input        )
       nullify(csite%nesterov_index             )
-      nullify(csite%fdi_vpdmax_index           )
-      nullify(csite%fdi_vpdmin_index           )
       nullify(csite%rshort_g                   )
       nullify(csite%rshort_g_beam              )
       nullify(csite%rshort_g_diffuse           )
@@ -8812,16 +8790,14 @@ module ed_state_vars
       if(associated(csite%today_Af_decomp            )) deallocate(csite%today_Af_decomp            )
       if(associated(csite%today_Bf_decomp            )) deallocate(csite%today_Bf_decomp            )
       if(associated(csite%today_rh                   )) deallocate(csite%today_rh                   )
-      if(associated(csite%tdmax_can_temp             )) deallocate(csite%tdmax_can_temp             )
-      if(associated(csite%tdmin_can_temp             )) deallocate(csite%tdmin_can_temp             )
-      if(associated(csite%tdmax_can_rhv              )) deallocate(csite%tdmax_can_rhv              )
-      if(associated(csite%tdmin_can_rhv              )) deallocate(csite%tdmin_can_rhv              )
-      if(associated(csite%tdmax_can_vpdef            )) deallocate(csite%tdmax_can_vpdef            )
-      if(associated(csite%tdmin_can_vpdef            )) deallocate(csite%tdmin_can_vpdef            )
-      if(associated(csite%today_sfc_wetness          )) deallocate(csite%today_sfc_wetness          )
-      if(associated(csite%today_sfc_mstpot           )) deallocate(csite%today_sfc_mstpot           )
-      if(associated(csite%today_can_vels             )) deallocate(csite%today_can_vels             )
-      if(associated(csite%today_can_tdew             )) deallocate(csite%today_can_tdew             )
+      if(associated(csite%tdfire_can_temp            )) deallocate(csite%tdfire_can_temp            )
+      if(associated(csite%tdfire_can_rhv             )) deallocate(csite%tdfire_can_rhv             )
+      if(associated(csite%tdfire_can_vpdef           )) deallocate(csite%tdfire_can_vpdef           )
+      if(associated(csite%tdfire_sfc_wetness         )) deallocate(csite%tdfire_sfc_wetness         )
+      if(associated(csite%tdfire_sfc_mstpot          )) deallocate(csite%tdfire_sfc_mstpot          )
+      if(associated(csite%tdfire_can_vels            )) deallocate(csite%tdfire_can_vels            )
+      if(associated(csite%tdfire_can_tdew            )) deallocate(csite%tdfire_can_tdew            )
+      if(associated(csite%tdfire_fdi_vpd             )) deallocate(csite%tdfire_fdi_vpd             )
       if(associated(csite%repro                      )) deallocate(csite%repro                      )
       if(associated(csite%veg_rough                  )) deallocate(csite%veg_rough                  )
       if(associated(csite%veg_height                 )) deallocate(csite%veg_height                 )
@@ -8840,8 +8816,6 @@ module ed_state_vars
       if(associated(csite%mineralized_N_loss         )) deallocate(csite%mineralized_N_loss         )
       if(associated(csite%mineralized_N_input        )) deallocate(csite%mineralized_N_input        )
       if(associated(csite%nesterov_index             )) deallocate(csite%nesterov_index             )
-      if(associated(csite%fdi_vpdmax_index           )) deallocate(csite%fdi_vpdmax_index           )
-      if(associated(csite%fdi_vpdmin_index           )) deallocate(csite%fdi_vpdmin_index           )
       if(associated(csite%rshort_g                   )) deallocate(csite%rshort_g                   )
       if(associated(csite%rshort_g_beam              )) deallocate(csite%rshort_g_beam              )
       if(associated(csite%rshort_g_diffuse           )) deallocate(csite%rshort_g_diffuse           )
@@ -10022,16 +9996,6 @@ module ed_state_vars
          osite%today_Af_decomp            (opa) = isite%today_Af_decomp            (ipa)
          osite%today_Bf_decomp            (opa) = isite%today_Bf_decomp            (ipa)
          osite%today_rh                   (opa) = isite%today_rh                   (ipa)
-         osite%tdmax_can_temp             (opa) = isite%tdmax_can_temp             (ipa)
-         osite%tdmin_can_temp             (opa) = isite%tdmin_can_temp             (ipa)
-         osite%tdmax_can_rhv              (opa) = isite%tdmax_can_rhv              (ipa)
-         osite%tdmin_can_rhv              (opa) = isite%tdmin_can_rhv              (ipa)
-         osite%tdmax_can_vpdef            (opa) = isite%tdmax_can_vpdef            (ipa)
-         osite%tdmin_can_vpdef            (opa) = isite%tdmin_can_vpdef            (ipa)
-         osite%today_sfc_wetness          (opa) = isite%today_sfc_wetness          (ipa)
-         osite%today_sfc_mstpot           (opa) = isite%today_sfc_mstpot           (ipa)
-         osite%today_can_vels             (opa) = isite%today_can_vels             (ipa)
-         osite%today_can_tdew             (opa) = isite%today_can_tdew             (ipa)
          osite%veg_rough                  (opa) = isite%veg_rough                  (ipa)
          osite%veg_height                 (opa) = isite%veg_height                 (ipa)
          osite%veg_displace               (opa) = isite%veg_displace               (ipa)
@@ -10049,8 +10013,6 @@ module ed_state_vars
          osite%mineralized_N_loss         (opa) = isite%mineralized_N_loss         (ipa)
          osite%mineralized_N_input        (opa) = isite%mineralized_N_input        (ipa)
          osite%nesterov_index             (opa) = isite%nesterov_index             (ipa)
-         osite%fdi_vpdmax_index           (opa) = isite%fdi_vpdmax_index           (ipa)
-         osite%fdi_vpdmin_index           (opa) = isite%fdi_vpdmin_index           (ipa)
          osite%rshort_g                   (opa) = isite%rshort_g                   (ipa)
          osite%rshort_g_beam              (opa) = isite%rshort_g_beam              (ipa)
          osite%rshort_g_diffuse           (opa) = isite%rshort_g_diffuse           (ipa)
@@ -10217,6 +10179,20 @@ module ed_state_vars
             do n=1,ff_nhgt
                osite%cumlai_profile(m,n,opa) = isite%cumlai_profile(m,n,ipa)
             end do
+         end do
+         !---------------------------------------------------------------------------------!
+
+
+         !----- Fire-model variables. -----------------------------------------------------!
+         do m=1,ndfire
+            osite%tdfire_can_temp   (m,opa) = isite%tdfire_can_temp   (m,ipa)
+            osite%tdfire_can_rhv    (m,opa) = isite%tdfire_can_rhv    (m,ipa)
+            osite%tdfire_can_vpdef  (m,opa) = isite%tdfire_can_vpdef  (m,ipa)
+            osite%tdfire_sfc_wetness(m,opa) = isite%tdfire_sfc_wetness(m,ipa)
+            osite%tdfire_sfc_mstpot (m,opa) = isite%tdfire_sfc_mstpot (m,ipa)
+            osite%tdfire_can_vels   (m,opa) = isite%tdfire_can_vels   (m,ipa)
+            osite%tdfire_can_tdew   (m,opa) = isite%tdfire_can_tdew   (m,ipa)
+            osite%tdfire_fdi_vpd    (m,opa) = isite%tdfire_fdi_vpd    (m,ipa)
          end do
          !---------------------------------------------------------------------------------!
 
@@ -10800,16 +10776,6 @@ module ed_state_vars
       osite%today_Af_decomp            (1:z) = pack(isite%today_Af_decomp            ,lmask)
       osite%today_Bf_decomp            (1:z) = pack(isite%today_Bf_decomp            ,lmask)
       osite%today_rh                   (1:z) = pack(isite%today_rh                   ,lmask)
-      osite%tdmax_can_temp             (1:z) = pack(isite%tdmax_can_temp             ,lmask)
-      osite%tdmin_can_temp             (1:z) = pack(isite%tdmin_can_temp             ,lmask)
-      osite%tdmax_can_rhv              (1:z) = pack(isite%tdmax_can_rhv              ,lmask)
-      osite%tdmin_can_rhv              (1:z) = pack(isite%tdmin_can_rhv              ,lmask)
-      osite%tdmax_can_vpdef            (1:z) = pack(isite%tdmax_can_vpdef            ,lmask)
-      osite%tdmin_can_vpdef            (1:z) = pack(isite%tdmin_can_vpdef            ,lmask)
-      osite%today_sfc_wetness          (1:z) = pack(isite%today_sfc_wetness          ,lmask)
-      osite%today_sfc_mstpot           (1:z) = pack(isite%today_sfc_mstpot           ,lmask)
-      osite%today_can_vels             (1:z) = pack(isite%today_can_vels             ,lmask)
-      osite%today_can_tdew             (1:z) = pack(isite%today_can_tdew             ,lmask)
       osite%veg_rough                  (1:z) = pack(isite%veg_rough                  ,lmask)
       osite%veg_height                 (1:z) = pack(isite%veg_height                 ,lmask)
       osite%veg_displace               (1:z) = pack(isite%veg_displace               ,lmask)
@@ -10827,8 +10793,6 @@ module ed_state_vars
       osite%mineralized_N_loss         (1:z) = pack(isite%mineralized_N_loss         ,lmask)
       osite%mineralized_N_input        (1:z) = pack(isite%mineralized_N_input        ,lmask)
       osite%nesterov_index             (1:z) = pack(isite%nesterov_index             ,lmask)
-      osite%fdi_vpdmax_index           (1:z) = pack(isite%fdi_vpdmax_index           ,lmask)
-      osite%fdi_vpdmin_index           (1:z) = pack(isite%fdi_vpdmin_index           ,lmask)
       osite%rshort_g                   (1:z) = pack(isite%rshort_g                   ,lmask)
       osite%rshort_g_beam              (1:z) = pack(isite%rshort_g_beam              ,lmask)
       osite%rshort_g_diffuse           (1:z) = pack(isite%rshort_g_diffuse           ,lmask)
@@ -10929,6 +10893,20 @@ module ed_state_vars
          do n=1,ff_nhgt
             osite%cumlai_profile(m,n,1:z) = pack(isite%cumlai_profile(m,n,:),lmask)
          end do
+      end do
+      !------------------------------------------------------------------------------------!
+
+
+      !----- Fire-model variables. --------------------------------------------------------!
+      do m=1,ndfire
+         osite%tdfire_can_temp   (m,1:z) = pack(isite%tdfire_can_temp   (m,:),lmask)
+         osite%tdfire_can_rhv    (m,1:z) = pack(isite%tdfire_can_rhv    (m,:),lmask)
+         osite%tdfire_can_vpdef  (m,1:z) = pack(isite%tdfire_can_vpdef  (m,:),lmask)
+         osite%tdfire_sfc_wetness(m,1:z) = pack(isite%tdfire_sfc_wetness(m,:),lmask)
+         osite%tdfire_sfc_mstpot (m,1:z) = pack(isite%tdfire_sfc_mstpot (m,:),lmask)
+         osite%tdfire_can_vels   (m,1:z) = pack(isite%tdfire_can_vels   (m,:),lmask)
+         osite%tdfire_can_tdew   (m,1:z) = pack(isite%tdfire_can_tdew   (m,:),lmask)
+         osite%tdfire_fdi_vpd    (m,1:z) = pack(isite%tdfire_fdi_vpd    (m,:),lmask)
       end do
       !------------------------------------------------------------------------------------!
 
@@ -13587,7 +13565,7 @@ module ed_state_vars
                             ,'NZS :90:hist:anal:dail:mont:dcyc:year')
 
       nvar=nvar+1
-      call vtable_edio_i_sca(ff_nhgt,nvar,igr,0,0                                              &
+      call vtable_edio_i_sca(ff_nhgt,nvar,igr,0,0                                          &
                             ,var_len,var_len_global,max_ptrs                               &
                             ,'FF_NHGT :90:hist:anal:dail:mont:dcyc:year')
       call vtable_edio_i_sca(ff_nhgt,nvar,igr,1,0                                          &
@@ -13595,12 +13573,20 @@ module ed_state_vars
                             ,'FF_NHGT :90:hist:anal:dail:mont:dcyc:year')
 
       nvar=nvar+1
-      call vtable_edio_i_sca(ndcycle,nvar,igr,0,0                                              &
+      call vtable_edio_i_sca(ndcycle,nvar,igr,0,0                                          &
                             ,var_len,var_len_global,max_ptrs                               &
                             ,'NDCYCLE :90:hist:anal:dail:mont:dcyc:year')
-      call vtable_edio_i_sca(ndcycle,nvar,igr,1,0                                              &
+      call vtable_edio_i_sca(ndcycle,nvar,igr,1,0                                          &
                             ,var_len,var_len_global,max_ptrs                               &
                             ,'NDCYCLE :90:hist:anal:dail:mont:dcyc:year')
+
+      nvar=nvar+1
+      call vtable_edio_i_sca(ndfire,nvar,igr,0,0                                           &
+                            ,var_len,var_len_global,max_ptrs                               &
+                            ,'NDFIRE  :90:hist:anal:dail:mont:dcyc:year')
+      call vtable_edio_i_sca(ndfire,nvar,igr,1,0                                           &
+                            ,var_len,var_len_global,max_ptrs                               &
+                            ,'NDFIRE  :90:hist:anal:dail:mont:dcyc:year')
 
       nvar=nvar+1
       call vtable_edio_i_sca(islcolflg(igr),nvar,igr,0,0                                   &
@@ -21974,6 +21960,7 @@ module ed_state_vars
       call filltab_polygontype_p24     (cpoly,igr,init,var_len,var_len_global,max_ptrs,nvar)
       call filltab_polygontype_m21     (cpoly,igr,init,var_len,var_len_global,max_ptrs,nvar)
       call filltab_polygontype_p29     (cpoly,igr,init,var_len,var_len_global,max_ptrs,nvar)
+      call filltab_polygontype_p292    (cpoly,igr,init,var_len,var_len_global,max_ptrs,nvar)
       call filltab_polygontype_p246    (cpoly,igr,init,var_len,var_len_global,max_ptrs,nvar)
       call filltab_polygontype_p255    (cpoly,igr,init,var_len,var_len_global,max_ptrs,nvar)
       !------------------------------------------------------------------------------------!
@@ -22521,66 +22508,6 @@ module ed_state_vars
          call metadata_edio(nvar,igr                                                       &
                            ,'Running average of precipitation rate'                        &
                            ,'[kg/m2/s]','(isite)') 
-      end if
-
-      if (associated(cpoly%today_pcpg)) then
-         nvar=nvar+1
-         call vtable_edio_r(npts,cpoly%today_pcpg                                          &
-                           ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
-                           ,'TODAY_PCPG :21:hist') 
-         call metadata_edio(nvar,igr                                                       &
-                           ,'Internal variable, do not use it for analysis'                &
-                           ,'[--]','(isite)') 
-      end if
-
-      if (associated(cpoly%today_atm_tdew)) then
-         nvar=nvar+1
-         call vtable_edio_r(npts,cpoly%today_atm_tdew                                      &
-                           ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
-                           ,'TODAY_ATM_TDEW :21:hist') 
-         call metadata_edio(nvar,igr                                                       &
-                           ,'Internal variable, do not use it for analysis'                &
-                           ,'[--]','(isite)') 
-      end if
-
-      if (associated(cpoly%tdmax_atm_vpdef)) then
-         nvar=nvar+1
-         call vtable_edio_r(npts,cpoly%tdmax_atm_vpdef                                     &
-                           ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
-                           ,'TDMAX_ATM_VPDEF :21:hist') 
-         call metadata_edio(nvar,igr                                                       &
-                           ,'Internal variable, do not use it for analysis'                &
-                           ,'[--]','(isite)') 
-      end if
-
-      if (associated(cpoly%tdmin_atm_vpdef)) then
-         nvar=nvar+1
-         call vtable_edio_r(npts,cpoly%tdmin_atm_vpdef                                     &
-                           ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
-                           ,'TDMIN_ATM_VPDEF :21:hist') 
-         call metadata_edio(nvar,igr                                                       &
-                           ,'Internal variable, do not use it for analysis'                &
-                           ,'[--]','(isite)') 
-      end if
-
-      if (associated(cpoly%tdmin_atm_temp)) then
-         nvar=nvar+1
-         call vtable_edio_r(npts,cpoly%tdmin_atm_temp                                      &
-                           ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
-                           ,'TDMIN_ATM_TEMP :21:hist') 
-         call metadata_edio(nvar,igr                                                       &
-                           ,'Internal variable, do not use it for analysis'                &
-                           ,'[--]','(isite)') 
-      end if
-
-      if (associated(cpoly%tdmax_atm_temp)) then
-         nvar=nvar+1
-         call vtable_edio_r(npts,cpoly%tdmax_atm_temp                                      &
-                           ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
-                           ,'TDMAX_ATM_TEMP :21:hist') 
-         call metadata_edio(nvar,igr                                                       &
-                           ,'Internal variable, do not use it for analysis'                &
-                           ,'[--]','(isite)') 
       end if
 
       if (associated(cpoly%today_fire_density)) then
@@ -23944,6 +23871,100 @@ module ed_state_vars
 
 
 
+
+
+
+
+
+
+
+   !=======================================================================================!
+   !=======================================================================================!
+   !  SUBROUTINE: FILLTAB_POLYGONTYPE_P292
+   !> \brief This routine will fill the pointer table with the site-level variables
+   !> (polygontype) that have two dimensions (ndfire,nsites) and are real (type 292).
+   !---------------------------------------------------------------------------------------!
+   subroutine filltab_polygontype_p292(cpoly,igr,init,var_len,var_len_global,max_ptrs,nvar)
+      use ed_var_tables, only : vtable_edio_r  & ! sub-routine
+                              , metadata_edio  ! ! sub-routine
+
+      implicit none
+      !----- Arguments. -------------------------------------------------------------------!
+      type(polygontype), target        :: cpoly
+      integer          , intent(in)    :: init
+      integer          , intent(in)    :: igr
+      integer          , intent(in)    :: var_len
+      integer          , intent(in)    :: max_ptrs
+      integer          , intent(in)    :: var_len_global
+      integer          , intent(inout) :: nvar
+      !----- Local variables. -------------------------------------------------------------!
+      integer                          :: npts
+      !------------------------------------------------------------------------------------!
+
+
+
+
+
+
+      !------------------------------------------------------------------------------------!
+      !------------------------------------------------------------------------------------!
+      !     This is the 2-D block, with dimensions being nsites and 12 months.  Make sure  !
+      ! to include only variables of type 29 here, as they will all use the same npts.     !
+      !------------------------------------------------------------------------------------!
+      npts = cpoly%nsites * ndfire
+
+      if (associated(cpoly%tdfire_pcpg)) then
+         nvar=nvar+1
+         call vtable_edio_r(npts,cpoly%tdfire_pcpg                                         &
+                           ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'TDFIRE_PCPG :292:hist') 
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Internal variable, do not use it for analysis'                &
+                           ,'[--]','(isite)') 
+      end if
+
+      if (associated(cpoly%tdfire_atm_tdew)) then
+         nvar=nvar+1
+         call vtable_edio_r(npts,cpoly%tdfire_atm_tdew                                     &
+                           ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'TDFIRE_ATM_TDEW :292:hist') 
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Internal variable, do not use it for analysis'                &
+                           ,'[--]','(isite)') 
+      end if
+
+      if (associated(cpoly%tdfire_atm_vpdef)) then
+         nvar=nvar+1
+         call vtable_edio_r(npts,cpoly%tdfire_atm_vpdef                                    &
+                           ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'TDFIRE_ATM_VPDEF :292:hist') 
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Internal variable, do not use it for analysis'                &
+                           ,'[--]','(isite)') 
+      end if
+
+      if (associated(cpoly%tdfire_atm_temp)) then
+         nvar=nvar+1
+         call vtable_edio_r(npts,cpoly%tdfire_atm_temp                                     &
+                           ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'TDFIRE_ATM_TEMP :292:hist') 
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Internal variable, do not use it for analysis'                &
+                           ,'[--]','(isite)') 
+      end if
+
+
+      return
+   end subroutine filltab_polygontype_p292
+   !=======================================================================================!
+   !=======================================================================================!
+
+
+
+
+
+
+
    !=======================================================================================!
    !=======================================================================================!
    !  SUBROUTINE: FILLTAB_POLYGONTYPE_P246
@@ -24176,6 +24197,7 @@ module ed_state_vars
       call filltab_sitetype_m32      (csite,igr,init,var_len,var_len_global,max_ptrs,nvar)
       call filltab_sitetype_p33      (csite,igr,init,var_len,var_len_global,max_ptrs,nvar)
       call filltab_sitetype_p34      (csite,igr,init,var_len,var_len_global,max_ptrs,nvar)
+      call filltab_sitetype_p392     (csite,igr,init,var_len,var_len_global,max_ptrs,nvar)
       call filltab_sitetype_p346     (csite,igr,init,var_len,var_len_global,max_ptrs,nvar)
       !------------------------------------------------------------------------------------!
 
@@ -24729,26 +24751,6 @@ module ed_state_vars
                            ,nvar,igr,init,csite%paglob_id,var_len,var_len_global,max_ptrs  &
                            ,'NESTEROV_INDEX :31:hist:dail') 
          call metadata_edio(nvar,igr,'Nesterov index','[degC^2]','(ipatch)') 
-      end if
-
-      if (associated(csite%fdi_vpdmax_index)) then
-         nvar=nvar+1
-         call vtable_edio_r(npts,csite%fdi_vpdmax_index                                    &
-                           ,nvar,igr,init,csite%paglob_id,var_len,var_len_global,max_ptrs  &
-                           ,'FDI_VPDMAX_INDEX :31:hist:dail') 
-         call metadata_edio(nvar,igr                                                       &
-                           ,'VPD-based fire danger index (daily maximum)'                  &
-                           ,'[--]','(ipatch)') 
-      end if
-
-      if (associated(csite%fdi_vpdmin_index)) then
-         nvar=nvar+1
-         call vtable_edio_r(npts,csite%fdi_vpdmin_index                                    &
-                           ,nvar,igr,init,csite%paglob_id,var_len,var_len_global,max_ptrs  &
-                           ,'FDI_VPDMIN_INDEX :31:hist:dail') 
-         call metadata_edio(nvar,igr                                                       &
-                           ,'VPD-based fire danger index (daily minimum)'                  &
-                           ,'[--]','(ipatch)') 
       end if
 
       if (associated(csite%rshort_g)) then
@@ -25815,106 +25817,6 @@ module ed_state_vars
          call vtable_edio_r(npts,csite%today_rh                                            &
                            ,nvar,igr,init,csite%paglob_id,var_len,var_len_global,max_ptrs  &
                            ,'TODAY_RH                      :31:hist')
-         call metadata_edio(nvar,igr                                                       &
-                           ,'For internal ED2 use only.  Do not use for research'          &
-                           ,'[   NA]','(ipatch)'            )
-      end if
-
-      if (associated(csite%tdmax_can_temp )) then
-         nvar=nvar+1
-         call vtable_edio_r(npts,csite%tdmax_can_temp                                      &
-                           ,nvar,igr,init,csite%paglob_id,var_len,var_len_global,max_ptrs  &
-                           ,'TDMAX_CAN_TEMP                :31:hist')
-         call metadata_edio(nvar,igr                                                       &
-                           ,'For internal ED2 use only.  Do not use for research'          &
-                           ,'[   NA]','(ipatch)'            )
-      end if
-
-      if (associated(csite%tdmin_can_temp )) then
-         nvar=nvar+1
-         call vtable_edio_r(npts,csite%tdmin_can_temp                                      &
-                           ,nvar,igr,init,csite%paglob_id,var_len,var_len_global,max_ptrs  &
-                           ,'TDMIN_CAN_TEMP                :31:hist')
-         call metadata_edio(nvar,igr                                                       &
-                           ,'For internal ED2 use only.  Do not use for research'          &
-                           ,'[   NA]','(ipatch)'            )
-      end if
-
-      if (associated(csite%tdmax_can_rhv )) then
-         nvar=nvar+1
-         call vtable_edio_r(npts,csite%tdmax_can_rhv                                      &
-                           ,nvar,igr,init,csite%paglob_id,var_len,var_len_global,max_ptrs  &
-                           ,'TDMAX_CAN_RHV                :31:hist')
-         call metadata_edio(nvar,igr                                                       &
-                           ,'For internal ED2 use only.  Do not use for research'          &
-                           ,'[   NA]','(ipatch)'            )
-      end if
-
-      if (associated(csite%tdmin_can_rhv )) then
-         nvar=nvar+1
-         call vtable_edio_r(npts,csite%tdmin_can_rhv                                      &
-                           ,nvar,igr,init,csite%paglob_id,var_len,var_len_global,max_ptrs  &
-                           ,'TDMIN_CAN_RHV                :31:hist')
-         call metadata_edio(nvar,igr                                                       &
-                           ,'For internal ED2 use only.  Do not use for research'          &
-                           ,'[   NA]','(ipatch)'            )
-      end if
-
-      if (associated(csite%tdmax_can_vpdef)) then
-         nvar=nvar+1
-         call vtable_edio_r(npts,csite%tdmax_can_vpdef                                     &
-                           ,nvar,igr,init,csite%paglob_id,var_len,var_len_global,max_ptrs  &
-                           ,'TDMAX_CAN_VPDEF              :31:hist')
-         call metadata_edio(nvar,igr                                                       &
-                           ,'For internal ED2 use only.  Do not use for research'          &
-                           ,'[   NA]','(ipatch)'            )
-      end if
-
-      if (associated(csite%tdmin_can_vpdef)) then
-         nvar=nvar+1
-         call vtable_edio_r(npts,csite%tdmin_can_vpdef                                     &
-                           ,nvar,igr,init,csite%paglob_id,var_len,var_len_global,max_ptrs  &
-                           ,'TDMIN_CAN_VPDEF              :31:hist')
-         call metadata_edio(nvar,igr                                                       &
-                           ,'For internal ED2 use only.  Do not use for research'          &
-                           ,'[   NA]','(ipatch)'            )
-      end if
-
-      if (associated(csite%today_sfc_wetness)) then
-         nvar=nvar+1
-         call vtable_edio_r(npts,csite%today_sfc_wetness                                   &
-                           ,nvar,igr,init,csite%paglob_id,var_len,var_len_global,max_ptrs  &
-                           ,'TODAY_SFC_WETNESS            :31:hist')
-         call metadata_edio(nvar,igr                                                       &
-                           ,'For internal ED2 use only.  Do not use for research'          &
-                           ,'[   NA]','(ipatch)'            )
-      end if
-
-      if (associated(csite%today_sfc_mstpot)) then
-         nvar=nvar+1
-         call vtable_edio_r(npts,csite%today_sfc_mstpot                                    &
-                           ,nvar,igr,init,csite%paglob_id,var_len,var_len_global,max_ptrs  &
-                           ,'TODAY_SFC_MSTPOT             :31:hist')
-         call metadata_edio(nvar,igr                                                       &
-                           ,'For internal ED2 use only.  Do not use for research'          &
-                           ,'[   NA]','(ipatch)'            )
-      end if
-
-      if (associated(csite%today_can_vels)) then
-         nvar=nvar+1
-         call vtable_edio_r(npts,csite%today_can_vels                                      &
-                           ,nvar,igr,init,csite%paglob_id,var_len,var_len_global,max_ptrs  &
-                           ,'TODAY_CAN_VELS               :31:hist')
-         call metadata_edio(nvar,igr                                                       &
-                           ,'For internal ED2 use only.  Do not use for research'          &
-                           ,'[   NA]','(ipatch)'            )
-      end if
-
-      if (associated(csite%today_can_tdew)) then
-         nvar=nvar+1
-         call vtable_edio_r(npts,csite%today_can_tdew                                      &
-                           ,nvar,igr,init,csite%paglob_id,var_len,var_len_global,max_ptrs  &
-                           ,'TODAY_CAN_TDEW               :31:hist')
          call metadata_edio(nvar,igr                                                       &
                            ,'For internal ED2 use only.  Do not use for research'          &
                            ,'[   NA]','(ipatch)'            )
@@ -29842,6 +29744,132 @@ module ed_state_vars
 
       return
    end subroutine filltab_sitetype_p34
+   !=======================================================================================!
+   !=======================================================================================!
+
+
+
+
+
+
+   !=======================================================================================!
+   !=======================================================================================!
+   !  SUBROUTINE: FILLTAB_SITETYPE_P392
+   !> \brief This routine will fill the pointer table with the patch-level variables
+   !> (sitetype) that have two dimensions (ndfire,npatches).
+   !---------------------------------------------------------------------------------------!
+   subroutine filltab_sitetype_p392(csite,igr,init,var_len,var_len_global,max_ptrs,nvar)
+      use ed_var_tables, only : vtable_edio_r  & ! sub-routine
+                              , metadata_edio  ! ! sub-routine
+
+      implicit none
+      !----- Arguments. -------------------------------------------------------------------!
+      type(sitetype), target        :: csite
+      integer       , intent(in)    :: init
+      integer       , intent(in)    :: igr
+      integer       , intent(in)    :: var_len
+      integer       , intent(in)    :: max_ptrs
+      integer       , intent(in)    :: var_len_global
+      integer       , intent(inout) :: nvar
+      !----- Local variables. -------------------------------------------------------------!
+      integer                       :: npts
+      !------------------------------------------------------------------------------------!
+
+
+
+
+
+
+      !------------------------------------------------------------------------------------!
+      !------------------------------------------------------------------------------------!
+      !       This part should have only 2-D vectors with dimensions npatches and ndfire.  !
+      !  Notice that they all use the same npts.  Here you should only add variables of    !
+      ! type 392.                                                                          !
+      !------------------------------------------------------------------------------------!
+      npts = csite%npatches * ndfire
+
+      if (associated(csite%tdfire_can_temp )) then
+         nvar=nvar+1
+         call vtable_edio_r(npts,csite%tdfire_can_temp                                     &
+                           ,nvar,igr,init,csite%paglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'TDFIRE_CAN_TEMP               :392:hist')
+         call metadata_edio(nvar,igr                                                       &
+                           ,'For internal ED2 use only.  Do not use for research'          &
+                           ,'[   NA]','(ipatch)'            )
+      end if
+
+      if (associated(csite%tdfire_can_rhv )) then
+         nvar=nvar+1
+         call vtable_edio_r(npts,csite%tdfire_can_rhv                                      &
+                           ,nvar,igr,init,csite%paglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'TDFIRE_CAN_RHV               :392:hist')
+         call metadata_edio(nvar,igr                                                       &
+                           ,'For internal ED2 use only.  Do not use for research'          &
+                           ,'[   NA]','(ipatch)'            )
+      end if
+
+      if (associated(csite%tdfire_can_vpdef)) then
+         nvar=nvar+1
+         call vtable_edio_r(npts,csite%tdfire_can_vpdef                                    &
+                           ,nvar,igr,init,csite%paglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'TDFIRE_CAN_VPDEF             :392:hist')
+         call metadata_edio(nvar,igr                                                       &
+                           ,'For internal ED2 use only.  Do not use for research'          &
+                           ,'[   NA]','(ipatch)'            )
+      end if
+
+      if (associated(csite%tdfire_sfc_wetness)) then
+         nvar=nvar+1
+         call vtable_edio_r(npts,csite%tdfire_sfc_wetness                                  &
+                           ,nvar,igr,init,csite%paglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'TDFIRE_SFC_WETNESS           :392:hist')
+         call metadata_edio(nvar,igr                                                       &
+                           ,'For internal ED2 use only.  Do not use for research'          &
+                           ,'[   NA]','(ipatch)'            )
+      end if
+
+      if (associated(csite%tdfire_sfc_mstpot)) then
+         nvar=nvar+1
+         call vtable_edio_r(npts,csite%tdfire_sfc_mstpot                                   &
+                           ,nvar,igr,init,csite%paglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'TDFIRE_SFC_MSTPOT            :392:hist')
+         call metadata_edio(nvar,igr                                                       &
+                           ,'For internal ED2 use only.  Do not use for research'          &
+                           ,'[   NA]','(ipatch)'            )
+      end if
+
+      if (associated(csite%tdfire_can_vels)) then
+         nvar=nvar+1
+         call vtable_edio_r(npts,csite%tdfire_can_vels                                     &
+                           ,nvar,igr,init,csite%paglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'TDFIRE_CAN_VELS              :392:hist')
+         call metadata_edio(nvar,igr                                                       &
+                           ,'For internal ED2 use only.  Do not use for research'          &
+                           ,'[   NA]','(ipatch)'            )
+      end if
+
+      if (associated(csite%tdfire_can_tdew)) then
+         nvar=nvar+1
+         call vtable_edio_r(npts,csite%tdfire_can_tdew                                     &
+                           ,nvar,igr,init,csite%paglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'TDFIRE_CAN_TDEW              :392:hist')
+         call metadata_edio(nvar,igr                                                       &
+                           ,'For internal ED2 use only.  Do not use for research'          &
+                           ,'[   NA]','(ipatch)'            )
+      end if
+
+      if (associated(csite%tdfire_fdi_vpd)) then
+         nvar=nvar+1
+         call vtable_edio_r(npts,csite%tdfire_fdi_vpd                                      &
+                           ,nvar,igr,init,csite%paglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'TDFIRE_FDI_VPD               :392:hist') 
+         call metadata_edio(nvar,igr                                                       &
+                           ,'For internal ED2 use only.  Do not use for research'          &
+                           ,'[   NA]','(ipatch)'            )
+      end if
+
+      return
+   end subroutine filltab_sitetype_p392
    !=======================================================================================!
    !=======================================================================================!
 

@@ -856,7 +856,8 @@ module ed_type_init
                                 , ied_init_mode        & ! intent(in)
                                 , integration_scheme   & ! intent(in)
                                 , dtlsm                & ! intent(in)
-                                , dteuler              ! ! intent(in)
+                                , dteuler              & ! intent(in)
+                                , ndfire               ! ! intent(in)
       implicit none
       !----- Arguments. -------------------------------------------------------------------!
       type(sitetype)   , target     :: csite
@@ -978,20 +979,16 @@ module ed_type_init
 
 
       !------------------------------------------------------------------------------------!
-      !    Variables used by the new fire model. Note that we should not set daily minima  !
-      ! and maxima to zero, but with very large numbers (positive/negative) so they will   !
-      ! be replaced immediately.                                                           !
+      !    Variables used by the new fire model.                                           !
       !------------------------------------------------------------------------------------!
-      csite%tdmax_can_temp                  (ipaa:ipaz) = -huge_num
-      csite%tdmin_can_temp                  (ipaa:ipaz) =  huge_num
-      csite%tdmax_can_rhv                   (ipaa:ipaz) = -huge_num
-      csite%tdmin_can_temp                  (ipaa:ipaz) =  huge_num
-      csite%tdmax_can_vpdef                 (ipaa:ipaz) = -huge_num
-      csite%tdmin_can_vpdef                 (ipaa:ipaz) =  huge_num
-      csite%today_sfc_wetness               (ipaa:ipaz) =       0.0
-      csite%today_sfc_mstpot                (ipaa:ipaz) =       0.0
-      csite%today_can_vels                  (ipaa:ipaz) =       0.0
-      csite%today_can_tdew                  (ipaa:ipaz) =       0.0
+      csite%tdfire_can_temp        (1:ndfire,ipaa:ipaz) = 0.0
+      csite%tdfire_can_rhv         (1:ndfire,ipaa:ipaz) = 0.0
+      csite%tdfire_can_vpdef       (1:ndfire,ipaa:ipaz) = 0.0
+      csite%tdfire_sfc_wetness     (1:ndfire,ipaa:ipaz) = 0.0
+      csite%tdfire_sfc_mstpot      (1:ndfire,ipaa:ipaz) = 0.0
+      csite%tdfire_can_vels        (1:ndfire,ipaa:ipaz) = 0.0
+      csite%tdfire_can_tdew        (1:ndfire,ipaa:ipaz) = 0.0
+      csite%tdfire_fdi_vpd         (1:ndfire,ipaa:ipaz) = 0.0
       !------------------------------------------------------------------------------------!
 
 
@@ -1090,8 +1087,6 @@ module ed_type_init
       csite%mineralized_N_loss              (ipaa:ipaz) = 0.0
       csite%mineralized_N_input             (ipaa:ipaz) = 0.0
       csite%nesterov_index                  (ipaa:ipaz) = 0.0
-      csite%fdi_vpdmax_index                (ipaa:ipaz) = 0.0
-      csite%fdi_vpdmin_index                (ipaa:ipaz) = 0.0
       csite%tstar                           (ipaa:ipaz) = 0.0
       csite%qstar                           (ipaa:ipaz) = 0.0
       csite%cstar                           (ipaa:ipaz) = 0.0
@@ -1739,15 +1734,12 @@ module ed_type_init
 
 
       !------------------------------------------------------------------------------------!
-      !      Initialise daily meteorological summaries.  For minimum and maximum           !
-      ! temperatures, we should set values that would be discarded at the first step.      !
+      !      Initialise daily meteorological summaries.                                    !
       !------------------------------------------------------------------------------------!
-      cpoly%today_pcpg     (:) = 0.
-      cpoly%tdmax_atm_temp (:) = -huge_num
-      cpoly%tdmin_atm_temp (:) =  huge_num
-      cpoly%tdmax_atm_vpdef(:) = -huge_num
-      cpoly%tdmin_atm_vpdef(:) =  huge_num
-      cpoly%today_atm_tdew (:) = 0.
+      cpoly%tdfire_pcpg     (:,:) = 0.
+      cpoly%tdfire_atm_temp (:,:) = 0.
+      cpoly%tdfire_atm_vpdef(:,:) = 0.
+      cpoly%tdfire_atm_tdew (:,:) = 0.
       !------------------------------------------------------------------------------------!
 
 

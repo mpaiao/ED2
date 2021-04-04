@@ -55,6 +55,7 @@ module ed_misc_coms
    integer :: nsub_euler
    real    :: dteuler
    real    :: radfrq
+   real    :: firefrq
 
    integer :: ifoutput
    integer :: idoutput
@@ -80,6 +81,7 @@ module ed_misc_coms
    real ::  outfast
 
    integer :: ndcycle
+   integer :: ndfire
 
    integer :: nrec_fast
    integer :: nrec_state
@@ -311,22 +313,26 @@ module ed_misc_coms
 
    !---------------------------------------------------------------------------------------!
    !     Some useful conversion factors.                                                   !
-   ! 1. DTLSMI          -- inverse of the RK4 time step.  These are useful for averaging   !
-   !                       data during one RK4 time step.                                  !
-   ! 2. FRQSUMI         -- inverse of the elapsed time between two analyses (or one day).  !
-   !                       This should be used by variables that are fluxes and are solved !
-   !                       by RK4, they are holding the integral over the past frqsum      !
-   !                       seconds.                                                        !
-   ! 3. DTLSM_O_FRQSUM  -- inverse of the number of the main time steps (DTLSM) since      !
-   !                       previous analysis.  Only photosynthesis- and decomposition-     !
-   !                       related variables, or STATE VARIABLES should use this factor.   !
-   !                       Do not use this for energy and water fluxes, CO2 eddy flux, and !
-   !                       CO2 storage.                                                    !
-   ! 4. RADFRQ_O_FRQSUM -- inverse of the number of radiation time steps since the         !
-   !                       previous analysis.  Only radiation-related variables should use !
-   !                       this factor.                                                    !
-   ! 5. DTLSM_O_DAY_SEC -- inverse of the number of main time steps within a day.  These   !
-   !                       are used for the new fire model.                                !
+   ! 1. DTLSMI            -- inverse of the RK4 time step.  These are useful for averaging !
+   !                         data during one RK4 time step.                                !
+   ! 2. FRQSUMI           -- inverse of the elapsed time between two analyses (or one      !
+   !                         day).  This should be used by variables that are fluxes and   !
+   !                         are solved by RK4, they are holding the integral over the     !
+   !                         past frqsum seconds.                                          !
+   ! 3. DTLSM_O_FRQSUM    -- inverse of the number of the main time steps (DTLSM) since    !
+   !                         previous analysis.  Only photosynthesis- and decomposition-   !
+   !                         related variables, or STATE VARIABLES should use this factor. !
+   !                         Do not use this for energy and water fluxes, CO2 eddy flux,   !
+   !                         and CO2 storage.                                              !
+   ! 4. RADFRQ_O_FRQSUM   -- inverse of the number of radiation time steps since the       !
+   !                         previous analysis.  Only radiation-related variables should   !
+   !                         use this factor.                                              !
+   ! 5. DTLSM_O_DAY_SEC   -- inverse of the number of main time steps within a day.  These !
+   !                         are used for the new fire model.                              !
+   ! 6. DTLSM_O_FIREFRQ   -- number of RK4 time steps in a fire time step.  These are      !
+   !                         useful for integrating variables for the fire model.          !
+   ! 7. FIREFRQ_O_DAY_SEC -- inverse of the number of main time steps within a day.        !
+   !                         These are used for integrating the new fire model.            !
    !---------------------------------------------------------------------------------------!
    real(kind=4) :: dtlsmi
    real(kind=8) :: dtlsmi8
@@ -334,6 +340,8 @@ module ed_misc_coms
    real(kind=4) :: dtlsm_o_frqsum
    real(kind=4) :: radfrq_o_frqsum
    real(kind=4) :: dtlsm_o_day_sec
+   real(kind=4) :: dtlsm_o_firefrq
+   real(kind=4) :: firefrq_o_day_sec
    !---------------------------------------------------------------------------------------!
 
 
