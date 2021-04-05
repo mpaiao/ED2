@@ -1796,15 +1796,15 @@ module fire
          !----- Make the header. ----------------------------------------------------------!
          if (printout) then
             open (unit=35,file=firefile,status='replace',action='write')
-            write (unit=35,fmt='(38(a,1x))')                                               &
+            write (unit=35,fmt='(37(a,1x))')                                               &
                      '  YEAR',      ' MONTH',      '   DAY',      '  STEP',      '   ISI'  &
               ,'    APY_AREA','    LANDFRAC','       FRAGN','     LU_AREA','         HDI'  &
               ,'   C2G_FLASH','TOT_IGNITION','    NESTEROV','     FDI_VPD',' MOIST_BHERB'  &
-              ,'MOIST_BWOODY',' MOIST_BFUEL','      ROSFWD','    FS_IAREA','  FCOMB_FAST'  &
-              ,'FCOMB_STRUCT',' FCOMB_BHERB','FCOMB_BWOODY',' FX_DURATION','FX_INTENSITY'  &
-              ,'  FX_TLETHAL','  FP_FDI_FUN',' FP_WIND_FUN','  SUPPRESSIB',' FP_ANTH_FUN'  &
-              ,' FP_WILD_FUN',' FP_FUEL_FUN',' FP_CNTG_FUN','PROB_PERSIST','  BAREA_STEP'  &
-              ,'  BURNT_AREA','FIRE_DENSITY','FIRE_EXTINCT'
+              ,'MOIST_BWOODY',' MOIST_BFUEL','      ROSFWD','  FCOMB_FAST','FCOMB_STRUCT'  &
+              ,' FCOMB_BHERB','FCOMB_BWOODY',' FX_DURATION','FX_INTENSITY','  FX_TLETHAL'  &
+              ,'  FP_FDI_FUN',' FP_WIND_FUN','  SUPPRESSIB',' FP_ANTH_FUN',' FP_WILD_FUN'  &
+              ,' FP_FUEL_FUN',' FP_CNTG_FUN','PROB_PERSIST','  BAREA_STEP','  BURNT_AREA'  &
+              ,'FIRE_DENSITY','FIRE_EXTINCT'
             close (unit=35,status='keep')
          end if
          !---------------------------------------------------------------------------------!
