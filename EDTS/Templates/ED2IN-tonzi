@@ -51,17 +51,21 @@ $ED_NL
 
 
    !---------------------------------------------------------------------------------------!
-   ! DTLSM  -- Time step to integrate photosynthesis, and the maximum time step for        !
-   !           integration of energy and water budgets (units: seconds).  Notice that the  !
-   !           model will take steps shorter than this if this is too coarse and could     !
-   !           lead to loss of accuracy or unrealistic results in the biophysics.          !
-   !           Recommended values are < 60 seconds if INTEGRATION_SCHEME is 0, and 240-900 !
-   !           seconds otherwise.                                                          !
-   ! RADFRQ -- Time step to integrate radiation, in seconds.  This must be an integer      !
-   !            multiple of DTLSM, and we recommend it to be exactly the same as DTLSM.    !
+   ! DTLSM   -- Basic time step [seconds] for photosynthesis, and maximum step for thermo- !
+   !            dynamics. Recommended values range from 240 to 900 seconds when using the  !
+   !            4th-order Runge Kutta integrator (INTEGRATION_SCHEME=1). We discourage     !
+   !            using the forward Euler scheme (INTEGRATION_SCHEME=0), but in case you     !
+   !            really want to use it, set the time step to 60 seconds or shorter.         !
+   ! RADFRQ  -- Time step for the canopy radiative transfer model [seconds].  This value   !
+   !            must be an integer multiple of DTLSM, and we recommend it to be exactly    !
+   !            the same as DTSLM.                                                         !
+   ! FIREFRQ -- Time step for the fire model [seconds] (used only if INCLUDE_FIRE=4).      !
+   !            This must be an integer multiple of DTLSM, and it must be a divisor of     !
+   !            86400 seconds (1 day).  We recommend it to be about 3600 (1 hour).         !
    !---------------------------------------------------------------------------------------!
-   NL%DTLSM  =  600
-   NL%RADFRQ  = 600
+   NL%DTLSM   =  600
+   NL%RADFRQ  =  600
+   NL%FIREFRQ = 3600
    !---------------------------------------------------------------------------------------!
 
 
