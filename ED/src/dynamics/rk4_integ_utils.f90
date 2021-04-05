@@ -288,7 +288,7 @@ module rk4_integ_utils
       !      Alias for bin for variables needed by the new fire models.   This will ensure !
       ! that midnight goes to the last bin.                                                !
       !------------------------------------------------------------------------------------!
-      ifr = 1 + mod(ceiling(current_time%time/firefrq) - 1,ndfire)
+      ifr = 1 + modulo(ceiling(current_time%time/firefrq) - 1,ndfire)
       !------------------------------------------------------------------------------------!
 
 
