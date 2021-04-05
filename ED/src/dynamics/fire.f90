@@ -1796,18 +1796,15 @@ module fire
          !----- Make the header. ----------------------------------------------------------!
          if (printout) then
             open (unit=35,file=firefile,status='replace',action='write')
-            write (unit=35,fmt='(54(a,1x))')                                               &
+            write (unit=35,fmt='(38(a,1x))')                                               &
                      '  YEAR',      ' MONTH',      '   DAY',      '  STEP',      '   ISI'  &
               ,'    APY_AREA','    LANDFRAC','       FRAGN','     LU_AREA','         HDI'  &
-              ,'   C2G_FLASH','IGNR_NATURAL','IGNR_ANTHROP','TOT_IGNITION',' BFUEL_D0001'  &
-              ,' BFUEL_D0010',' BFUEL_D0100',' BFUEL_D1000','   BHERB_TOT','  BWOODY_TOT'  &
-              ,'    NESTEROV','     FDI_VPD',' MOIST_BHERB','MOIST_BWOODY',' MOIST_BFUEL'  &
-              ,'   MEXT_DEAD','   MEXT_LIVE','      ROSFWD','      ROSBWD','    FS_IAREA'  &
-              ,' FCOMB_B0001',' FCOMB_B0010',' FCOMB_B0100',' FCOMB_B1000',' FCOMB_BHERB'  &
-              ,'FCOMB_BWOODY','FCOMB_WN1000','  FCOMB_FAST','FCOMB_STRUCT',' FX_DURATION'  &
-              ,'FX_INTENSITY','  FX_TLETHAL','  FP_FDI_FUN',' FP_WIND_FUN','  SUPPRESSIB'  &
-              ,' FP_ANTH_FUN',' FP_WILD_FUN',' FP_FUEL_FUN',' FP_CNTG_FUN','PROB_PERSIST'  &
-              ,'  BAREA_STEP','  BURNT_AREA','FIRE_DENSITY','FIRE_EXTINCT'
+              ,'   C2G_FLASH','TOT_IGNITION','    NESTEROV','     FDI_VPD',' MOIST_BHERB'  &
+              ,'MOIST_BWOODY',' MOIST_BFUEL','      ROSFWD','    FS_IAREA','  FCOMB_FAST'  &
+              ,'FCOMB_STRUCT',' FCOMB_BHERB'.'FCOMB_BWOODY',' FX_DURATION','FX_INTENSITY'  &
+              ,'  FX_TLETHAL','  FP_FDI_FUN',' FP_WIND_FUN','  SUPPRESSIB',' FP_ANTH_FUN'  &
+              ,' FP_WILD_FUN',' FP_FUEL_FUN',' FP_CNTG_FUN','PROB_PERSIST','  BAREA_STEP'  &
+              ,'  BURNT_AREA','FIRE_DENSITY','FIRE_EXTINCT'
             close (unit=35,status='keep')
          end if
          !---------------------------------------------------------------------------------!
@@ -2495,13 +2492,17 @@ module fire
 
                !---------------------------------------------------------------------------!
                !       Probability of fire persistence (i.e., probability that  fires will !
-               ! not extinguish).                                                          !
+               ! not extinguish).  Because the fire time step is flexible and we don't     !
+               ! want parameters to be strongly dependent upon the fire time step, we      !
+               ! assume this probability refers to the probability of fires to persist for !
+               ! 24 hours.  This is different from HESFIRE (which uses 12-h steps) but     !
+               ! 24 hours is more convenient for ED2.                                      !
                !---------------------------------------------------------------------------!
                prob_persist = fp_fuel_fun * fp_cntg_fun * fp_wild_fun
                if (prob_persist < almost_zero) then
-                  cpoly%fire_extinction(isi) = - lnexp_min / dtfire
+                  cpoly%fire_extinction(isi) = - lnexp_min / dtfull
                else
-                  cpoly%fire_extinction(isi) = - log(prob_persist) / dtfire
+                  cpoly%fire_extinction(isi) = - log(prob_persist) / dtfull
                end if
                !---------------------------------------------------------------------------!
 
@@ -2653,20 +2654,16 @@ module fire
                !---------------------------------------------------------------------------!
                if (printout) then
                   open(unit=35,file=firefile,status='old',position='append',action='write')
-                  write(unit=35,fmt='(5(i6,1x),49(es12.3,1x))')                            &
+                  write(unit=35,fmt='(5(i6,1x),33(es12.3,1x))')                            &
                              current_time%year,current_time%month,current_time%date,iwhen  &
                             ,isi,apy_area,cgrid%landfrac(ipy),fragn,lu_area                &
                             ,cpoly%seitimes(isei,isi)%hdi,cpoly%flashtimes(iflash,isi)%c2g &
-                            ,nat_ign_rate,anth_ign_rate,total_ignition,bfuel_d0001_tot     &
-                            ,bfuel_d0010_tot,bfuel_d0100_tot,bfuel_d1000_tot,bherb_tot     &
-                            ,bwoody_tot,nesterov_avg,fdivpd_avg,moist_bherb_avg            &
-                            ,moist_bwoody_avg,moist_bfuel_avg,Mx_i(1),Mx_i(2),rosfwd_avg   &
-                            ,rosbwd_avg,fs_iarea_avg,fx_b0001,fx_b0010,fx_b0100,fx_b1000   &
-                            ,fx_bherb,fx_bwoody,fx_wn1000,fx_f_fgc,fx_f_stgc,fx_duration   &
-                            ,fx_intensity,fx_tlethal,fp_fdi_fun,fp_wind_fun                &
-                            ,suppressibility,fp_anth_fun,fp_wild_fun,fp_fuel_fun           &
-                            ,fp_cntg_fun,prob_persist,burnt_area_step                      &
-                            ,cpoly%burnt_area(isi),cpoly%fire_density(isi)                 &
+                            ,total_ignition,nesterov_avg,fdivpd_avg,moist_bherb_avg        &
+                            ,moist_bwoody_avg,moist_bfuel_avg,rosfwd_avg,fx_f_fgc          &
+                            ,fx_f_stgc,fx_f_bherb,fx_f_bwoody,fx_duration,fx_intensity     &
+                            ,fx_tlethal,fp_fdi_fun,fp_wind_fun,suppressibility,fp_anth_fun &
+                            ,fp_wild_fun,fp_fuel_fun,fp_cntg_fun,prob_persist              &
+                            ,burnt_area_step,cpoly%burnt_area(isi),cpoly%fire_density(isi) &
                             ,cpoly%fire_extinction(isi)
                   close(unit=35,status='keep')
                end if
