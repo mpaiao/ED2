@@ -1780,6 +1780,7 @@ module fire
       !------ External functions. ---------------------------------------------------------!
       real              , external  :: solid_area     ! Solid-angle area          [     m2]
       real              , external  :: bpow01         ! Power funct. for [0-1]    [    ---]
+      real              , external  :: cbrt           ! Cube root                 [    ---]
       !----- Local parameters. ------------------------------------------------------------!
       character(len=23) , parameter :: firefile = 'firestarter_details.txt'
       logical           , parameter :: printout = .true.
@@ -2498,7 +2499,7 @@ module fire
                ! 24 hours.  This is different from HESFIRE (which uses 12-h steps) but     !
                ! 24 hours is more convenient for ED2.                                      !
                !---------------------------------------------------------------------------!
-               prob_persist = fp_fuel_fun * fp_cntg_fun * fp_wild_fun
+               prob_persist = cbrt( fp_fuel_fun * fp_cntg_fun * fp_wild_fun )
                if (prob_persist < almost_zero) then
                   cpoly%fire_extinction(isi) = - lnexp_min / dtfull
                else
