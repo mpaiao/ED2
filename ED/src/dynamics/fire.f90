@@ -814,6 +814,7 @@ module fire
       integer                       :: ipa
       integer                       :: ico
       integer                       :: ipft
+      integer                       :: k
       logical                       :: dry_day
       real                          :: avgrun_accp
       real                          :: frain_fdivpd
@@ -1002,11 +1003,15 @@ module fire
                !      Find the fire danger index, following D19, but using the VPD from    !
                ! ED2 equations (Murphy-Koop) instead of the Goff-Gratch equation.  Follow- !
                ! ing the rationale of PS09, we make VPD dimensionless by dividing it by    !
-               ! the reference pressure at the sea level.                                  !
+               ! the reference pressure at the sea level.  We also make sure that values   !
+               ! are bounded between 0. and 1.                                             !
                !---------------------------------------------------------------------------!
-               csite%tdfire_fdi_vpd(:,ipa) = alpha_pat                                     &
-                                           * csite%tdfire_can_vpdef(:,ipa) / prefsea       &
-                                           * fpc_pat * frain_fdivpd
+               do k=1,ndfire
+                  csite%tdfire_fdi_vpd(k,ipa) = alpha_pat * fpc_pat * frain_fdivpd         &
+                                              * csite%tdfire_can_vpdef(k,ipa) / prefsea
+                  csite%tdfire_fdi_vpd(k,ipa) = max( 0.                                    &
+                                                   , min( 1., csite%tdfire_fdi_vpd(k,ipa)) )
+               end do
                fdi_vpd_max                 = maxval(csite%tdfire_fdi_vpd(:,ipa),dim=1)
                fdi_vpd_min                 = minval(csite%tdfire_fdi_vpd(:,ipa),dim=1)
                !---------------------------------------------------------------------------!
@@ -1384,9 +1389,7 @@ module fire
                   !------------------------------------------------------------------------!
                   !       Use the fire danger index to estimate fuel moisture.             !
                   !------------------------------------------------------------------------!
-                  lnexp           = max( lnexp_min                                         &
-                                       , min( lnexp_max, fe_fdivpd_exp*fdivpd_pat ) )
-                  moist_bfuel_pat = exp(lnexp)
+                  moist_bfuel_pat = max(0.,min(1.,1. - bpow01(fdivpd_pat,fe_fdivpd_exp)))
                   !------------------------------------------------------------------------!
                else
                   !------------------------------------------------------------------------!
@@ -2186,9 +2189,7 @@ module fire
                      !---------------------------------------------------------------------!
                      !       Use the fire danger index to estimate fuel moisture.          !
                      !---------------------------------------------------------------------!
-                     lnexp           = max( lnexp_min                                      &
-                                          , min( lnexp_max, fe_fdivpd_exp*fdivpd_pat ) )
-                     moist_bfuel_pat = exp(lnexp)
+                     moist_bfuel_pat = max(0.,min(1.,1. - bpow01(fdivpd_pat,fe_fdivpd_exp)))
                      fdi_pat         = fdivpd_pat
                      !---------------------------------------------------------------------!
                   else

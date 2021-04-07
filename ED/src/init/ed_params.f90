@@ -1277,11 +1277,11 @@ subroutine init_disturb_params
 
 
    !---------------------------------------------------------------------------------------!
-   !      Exponential factor for VPD-based FDI to retrieve fuel moisture.  Currently       !
-   ! assume that fuel moisture drops below the fire moisture of extinction when FDI is     !
-   ! greater than 1/6.                                                                     !
+   !      Exponential factor for VPD-based FDI to retrieve fuel moisture.  This number     !
+   ! is based on a quick fit between surface moisture and VPD-based FDI, and may need to   !
+   ! be optimised.                                                                         !
    !---------------------------------------------------------------------------------------!
-   fe_fdivpd_exp = 6. * log(fr_Mxdead)
+   fe_fdivpd_exp = 0.10
    !---------------------------------------------------------------------------------------!
 
 
