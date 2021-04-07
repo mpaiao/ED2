@@ -1170,7 +1170,7 @@ subroutine init_disturb_params
    !------  Upper bound for FDI effect on termination  [       ---] -----------------------!
    ft_fdi_upr    = 0.50
    !------  Exponent for FDI effect on termination     [       ---] -----------------------!
-   ft_fdi_exp    = 1.2
+   ft_fdi_exp    = 0.43
    !---------------------------------------------------------------------------------------!
 
 
