@@ -2464,7 +2464,7 @@ module fire
                ! cannot sustain vegetation.                                                !
                !---------------------------------------------------------------------------!
                flamn       = max(0.,min(1.,(1. - fragn) * cgrid%landfrac(ipy)))
-               fp_cntg_fun = bpow01(flamn,ft_frag_exp)
+               fp_cntg_fun = 1. - bpow01(1. - flamn,ft_frag_exp)
                if (fp_cntg_fun < almost_zero) fp_cntg_fun = 0.0
                !---------------------------------------------------------------------------!
 
