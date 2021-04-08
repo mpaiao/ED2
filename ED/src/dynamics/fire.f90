@@ -2804,7 +2804,7 @@ module fire
             open (unit=35,file=firefile,status='replace',action='write')
             write (unit=35,fmt='(19(a,1x))')                                               &
                      '  YEAR',      ' MONTH',      '   DAY',      '  STEP',      '   ISI'  &
-              ,'         IPA','         ICO','         PFT','         DBH','      HEIGHT'  &
+              ,      '   IPA',      '   ICO',      '   PFT','         DBH','      HEIGHT'  &
               ,'      THBARK','FX_INTENSITY','     HSCORCH','CROWN_DAMAGE','  FX_TLETHAL'  &
               ,'TLETHAL_CRIT','       PMTAU','        PMCK','      P_MORT'
             close (unit=35,status='keep')
