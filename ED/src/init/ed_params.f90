@@ -1104,8 +1104,8 @@ subroutine init_disturb_params
    fx_a0100      = 1.49e-5
    !------  Relative factor for living fuel moisture    [       ---] ----------------------!
    fx_rmfac      = 9.0
-   !------  Slope for duration of lethal heating        [   m2 s/kg] ----------------------!
-   fx_tlh_slope  = 236.4
+   !------  Slope for duration of lethal heating        [       s/m] ----------------------!
+   fx_tlh_slope  = 75591.
    !------  Slope for critical lethal heating time      [      1/cm] ----------------------!
    fx_tlc_slope  = 174.
    !------  Intercept for cambial damage mortality      [          ] ----------------------!

@@ -1625,6 +1625,7 @@ module fire
                                , fi_sf_maxage           & ! intent(in)
                                , fr_h                   & ! intent(in)
                                , fr_Mxdead              & ! intent(in)
+                               , fr_sigma_00            & ! intent(in)
                                , fs_bck_exp             & ! intent(in)
                                , fs_gw_infty            & ! intent(in)
                                , fs_gw_upr              & ! intent(in)
@@ -1645,7 +1646,6 @@ module fire
                                , fx_a0001               & ! intent(in)
                                , fx_a0010               & ! intent(in)
                                , fx_a0100               & ! intent(in)
-                               , fx_rmfac               & ! intent(in)
                                , fx_tlh_slope           & ! intent(in)
                                , n_fst                  ! ! intent(in)
       use pft_coms      , only : agf_bs                 & ! intent(in)
@@ -1685,6 +1685,8 @@ module fire
       real                       :: bherb             ! Cohort Herbaceous fuels   [ kgC/pl]
       real                       :: bherb_pat         ! Patch Herbaceous fuels    [ kgC/m2]
       real                       :: bherb_tot         ! Site Herbaceous fuels     [ kgC/m2]
+      real                       :: bfuel_all_pat     ! Patch Total fuels         [ kgC/m2]
+      real                       :: bfuel_all_tot     ! Site Total fuels          [ kgC/m2]
       real                       :: bfuel_d0001_pat   ! Patch 1-hr dead fuels     [ kgC/m2]
       real                       :: bfuel_d0001_tot   ! Site 1-hr dead fuels      [ kgC/m2]
       real                       :: bfuel_d0010_pat   ! Patch 10-hr dead fuels    [ kgC/m2]
@@ -1747,6 +1749,7 @@ module fire
       real                       :: fx_tlethal        ! Step lethal heat duration [      s]
       real                       :: fx_wn1000         ! F. consumpt. woody-1000h  [ kgC/m2]
       real                       :: fx_wn1000_potl    ! Potl. F. C. woody-1000h   [ kgC/m2]
+      real                       :: g_sigma           ! Effective SAV             [    1/m]
       real                       :: g_Umax            ! Maximum wind for ROS      [    m/s]
       real                       :: gw_factor         ! Wind speed effect on ROS  [    m/s]
       real                       :: hb_ratio          ! Head:back ratio           [    ---]
@@ -1776,6 +1779,7 @@ module fire
       real                       :: rosfwd            ! Forward rate of spread    [    m/s]
       real                       :: rosbwd_avg        ! Site-avg bwd. spread rate [    m/s]
       real                       :: rosfwd_avg        ! Site-avg fwd. spread rate [    m/s]
+      real                       :: sigma_avg         ! Site-avg effective SAV    [    1/m]
       real                       :: sfc_wetness       ! Sfc. soil wetness         [    ---]
       real                       :: suppressibility   ! Fire suppressibility      [    ---]
       real                       :: total_ignition    ! Number of ignitions       [   1/m2]
@@ -2072,6 +2076,7 @@ module fire
                bfuel_d0111_tot = 0.
                bherb_tot       = 0.
                bwoody_tot      = 0.
+               bfuel_all_tot   = 0.
                !---------------------------------------------------------------------------!
 
 
@@ -2112,6 +2117,11 @@ module fire
                !------ Initialise average indices. ----------------------------------------!
                nesterov_avg    = 0.
                fdivpd_avg      = 0.
+               !---------------------------------------------------------------------------!
+
+
+               !------ Initialise site-average effective SAV. -----------------------------!
+               sigma_avg       = 0.
                !---------------------------------------------------------------------------!
 
 
@@ -2169,6 +2179,16 @@ module fire
                         !------------------------------------------------------------------!
                      end if
                   end do spread_cohort_loop
+                  !------------------------------------------------------------------------!
+
+
+                  !------ Find total fuel loads. ------------------------------------------!
+                  bfuel_all_pat = bfuel_d0111_pat + bherb_pat + bwoody_pat
+                  !------------------------------------------------------------------------!
+
+
+
+                  !------ Integrate site-level fuel loads. --------------------------------!
                   bfuel_d0001_tot = bfuel_d0001_tot + bfuel_d0001_pat * csite%area(ipa)
                   bfuel_d0010_tot = bfuel_d0010_tot + bfuel_d0010_pat * csite%area(ipa)
                   bfuel_d0100_tot = bfuel_d0100_tot + bfuel_d0100_pat * csite%area(ipa)
@@ -2176,6 +2196,7 @@ module fire
                   bfuel_d0111_tot = bfuel_d0111_tot + bfuel_d0111_pat * csite%area(ipa)
                   bherb_tot       = bherb_tot       + bherb_pat       * csite%area(ipa)
                   bwoody_tot      = bwoody_tot      + bwoody_pat      * csite%area(ipa)
+                  bfuel_all_tot   = bfuel_all_tot   + bfuel_all_pat   * csite%area(ipa)
                   !------------------------------------------------------------------------!
 
 
@@ -2275,7 +2296,7 @@ module fire
                                      ,bfuel_d1000_pat,bherb_pat,bwoody_pat                 &
                                      ,moist_bfuel_pat,moist_bfuel_pat,moist_bfuel_pat      &
                                      ,moist_bfuel_pat,moist_bherb_pat,moist_bwoody_pat     &
-                                     ,can_vels,.false.,g_Umax,rosfwd     )
+                                     ,can_vels,.false.,g_sigma,g_Umax,rosfwd     )
                   !------ Backward. -------------------------------------------------------!
                   lnexp  = max( lnexp_min, min( lnexp_max, fs_bck_exp * can_vels ) )
                   rosbwd = rosfwd * exp(lnexp)
@@ -2303,6 +2324,11 @@ module fire
                                   + csite%nesterov_index(ipa) * csite%area(ipa)
                   fdivpd_avg      = fdivpd_avg                                             &
                                   + fdivpd_pat                * csite%area(ipa)
+                  !------------------------------------------------------------------------!
+
+
+                  !------ Integrate effective SAV. ----------------------------------------!
+                  sigma_avg       = sigma_avg + g_sigma * bfuel_all_pat * csite%area(ipa)
                   !------------------------------------------------------------------------!
 
 
@@ -2345,26 +2371,13 @@ module fire
 
 
                !---------------------------------------------------------------------------!
-               !       Normalise fuel moisture for dead and live components.               !
+               !       Normalise effective surface-area-to-volume ratio.                   !
                !---------------------------------------------------------------------------!
-               if (bfuel_d0111_tot > tiny_num) then
-                  moist_bfuel_avg = moist_bfuel_avg   / bfuel_d0111_tot
+               if (bfuel_all_tot > tiny_num) then
+                  sigma_avg = sigma_avg / bfuel_all_tot
                else
-                  moist_bfuel_avg = 1.0
+                  sigma_avg = fr_sigma_00
                end if
-               if (bherb_tot  > tiny_num) then
-                  moist_bherb_avg  = moist_bherb_avg  / bherb_tot
-               else
-                  moist_bherb_avg  = 1.0
-               end if
-               if (bwoody_tot > tiny_num) then
-                  moist_bwoody_avg = moist_bwoody_avg / bwoody_tot
-               else
-                  moist_bwoody_avg = 1.0
-               end if
-               !------ Apply correction factor for fuel moisture. -------------------------!
-               moist_bherb_avg  = max(0., (1.+fx_rmfac) * moist_bherb_avg  - 1. ) / fx_rmfac
-               moist_bwoody_avg = max(0., (1.+fx_rmfac) * moist_bwoody_avg - 1. ) / fx_rmfac
                !---------------------------------------------------------------------------!
 
 
@@ -2549,19 +2562,13 @@ module fire
                !---------------------------------------------------------------------------!
                !       Find duration of lethal bole heating.                               !
                !---------------------------------------------------------------------------!
-               if (fx_intensity == 0.0) then
-                  !----- No burning, set it to zero. --------------------------------------!
-                  fx_tlethal = 0.0
+               if (sigma_avg > tiny_num .and. fx_intensity > tiny_num) then
+                  !----- Find lethal duration. --------------------------------------------!
+                  fx_tlethal = fx_tlh_slope / sigma_avg
                   !------------------------------------------------------------------------!
                else
-                  !----- Find lethal duration. --------------------------------------------!
-                  fx_tlethal = fx_tlh_slope * C2B                                          &
-                             * ( bfuel_d0001_tot * (1. - fx_f_b0001 ) * (1. - fx_f_b0001 ) &
-                               + bfuel_d0010_tot * (1. - fx_f_b0010 ) * (1. - fx_f_b0010 ) &
-                               + bfuel_d0100_tot * (1. - fx_f_b0100 ) * (1. - fx_f_b0100 ) &
-                               + bherb_tot       * (1. - fx_f_bherb ) * (1. - fx_f_bherb ) &
-                               + bwoody_tot      * (1. - fh_f1000)                         &
-                                                 * (1. - fx_f_wn1000) * (1. - fx_f_wn1000) )
+                  !----- No burning, set it to zero. --------------------------------------!
+                  fx_tlethal = 0.0
                   !------------------------------------------------------------------------!
                end if
                !---------------------------------------------------------------------------!
@@ -3126,7 +3133,7 @@ module fire
    subroutine rate_of_spread(isi                                                           &
                             ,bfuel_d0001,bfuel_d0010,bfuel_d0100,bfuel_d1000,bherb,bwoody  &
                             ,moist_b0001,moist_b0010,moist_b0100,moist_b1000,moist_bherb   &
-                            ,moist_bwoody,can_wind,use_max,g_Umax,rosfwd)
+                            ,moist_bwoody,can_wind,use_max,g_sigma,g_Umax,rosfwd)
       use disturb_coms, only : n_fst         & ! intent(in)
                              , n_fcl         & ! intent(in)
                              , n_sbmax       & ! intent(in)
@@ -3180,6 +3187,7 @@ module fire
       real   , intent(in)            :: moist_bwoody ! Woody fuel moisture      [      ---]
       real   , intent(in)            :: can_wind     ! Canopy air space wind    [      m/s]
       logical, intent(in)            :: use_max      ! Find maximum spread      [      T|F]
+      real   , intent(out)           :: g_sigma      ! Effective SAV            [      1/m]
       real   , intent(out)           :: g_Umax       ! Max. wind (corrected)    [      m/s]
       real   , intent(out)           :: rosfwd       ! Forward rate of spread   [      m/s]
       !----- Local variables (by fuel class and status). ----------------------------------!
@@ -3211,7 +3219,6 @@ module fire
       real                           :: g_wood       ! Fuel load                [   kgB/m2]
       real                           :: g_fai        ! Fuel area index          [  m2_f/m2]
       real                           :: g_wnod       ! Net fuel load            [   kgB/m2]
-      real                           :: g_sigma      ! Effective SAV            [      1/m]
       real                           :: g_hh         ! Heat content             [      1/m]
       real                           :: g_W          ! Dead-to-live load ratio  [    kg/kg]
       real                           :: g_rhob       ! Effective bulk density   [    kg/m3]
