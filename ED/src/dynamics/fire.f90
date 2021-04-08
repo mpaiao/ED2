@@ -2776,6 +2776,7 @@ module fire
       type(sitetype)   , pointer     :: csite
       type(patchtype)  , pointer     :: cpatch
       logical                        :: has_tlethal
+      logical                        :: has_tlcrit
       logical                        :: has_intensity
       integer                        :: ipa
       integer                        :: ico
@@ -2859,7 +2860,8 @@ module fire
             !------------------------------------------------------------------------------!
             !      Flags for critical fire duration and sufficient fire intensity.         !
             !------------------------------------------------------------------------------!
-            has_tlethal   = tlethal_crit > tiny_num
+            has_tlethal   = fx_tlethal   > tiny_num
+            has_tlcrit    = tlethal_crit > tiny_num
             has_intensity = fx_intensity > tiny_num
             !------------------------------------------------------------------------------!
 
@@ -2867,7 +2869,7 @@ module fire
             !      Find the mortality probability due to cambial damage.  Check the        !
             ! critical fire duration to avoid singularities.                               !
             !------------------------------------------------------------------------------!
-            if ( has_tlethal ) then
+            if ( has_tlcrit ) then
                !------ Find the tl:tc ratio. ----------------------------------------------!
                pmtau = fx_pmtau_di + fx_pmtau_ds * fx_tlethal / tlethal_crit
                pmtau = max(0.,min(1., pmtau))
