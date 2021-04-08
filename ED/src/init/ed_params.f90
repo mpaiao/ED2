@@ -5428,11 +5428,12 @@ subroutine init_pft_mort_params()
    !    America using satellite data. Geosci. Model Dev., 12: 5029-5054.                   !
    !    doi:10.5194/gmd-12-5029-2019 (D19).                                                !
    !---------------------------------------------------------------------------------------!
-   alpha_fdivpd(:) = merge( 1.1299                                                         &
-                          , merge( merge( 1.2135, 22.4181, is_savannah(:) )                &
-                                 , 1.2135                                                  &
-                                 , is_tropical (:)                          )              &
-                          , is_grass (:)                                                  )
+   ! alpha_fdivpd(:) = merge( 1.1299                                                       &
+   !                        , merge( merge( 1.2135, 22.4181, is_savannah(:) )              &
+   !                               , 1.2135                                                &
+   !                               , is_tropical (:)                          )            &
+   !                        , is_grass (:)                                                )
+   alpha_fdivpd(:) = 22.4181
    !---------------------------------------------------------------------------------------!
 
 

@@ -423,7 +423,7 @@ module fire
                !---------------------------------------------------------------------------!
                !      Find burnt area.                                                     !
                !---------------------------------------------------------------------------!
-               lnexp = max( lnexp_min, min( lnexp_max, - cpoly%ignition_rate(isi) ) )
+               lnexp = max( lnexp_min, min( lnexp_max, - cpoly%lambda_fire(imo,isi) ) )
                cpoly%avg_burnt_area(imo,isi) = (1. - cpoly%burnt_area(isi))                &
                                              * (1. - exp(lnexp))
                cpoly%burnt_area        (isi) = min(1., cpoly%burnt_area        (isi)       &
@@ -470,9 +470,8 @@ module fire
                         !------------------------------------------------------------------!
                         lnexp           = fire_s_efac(ipft) * cpatch%thbark(ico)
                         lnexp           = max(lnexp_min,min(lnexp_max,lnexp))
-                        fire_lethal_now = 1.                                               &
-                                        - ( ( 1. - fire_s_max(ipft) )                      &
-                                          / ( 1. - fire_s_max(ipft) * exp(lnexp)) )
+                        fire_lethal_now = ( 1. - fire_s_max(ipft) )                        &
+                                        / ( 1. - fire_s_max(ipft) * exp(lnexp) ) 
                         fire_lethal_now = max(0.,min(1.,fire_lethal_now))
                         !------------------------------------------------------------------!
 
@@ -2602,7 +2601,7 @@ module fire
 
 
                   !----- Integrate lethality. ---------------------------------------------!
-                  call integ_fire_lethality( cpoly,isi,fx_intensity,fx_tlethal             &
+                  call integ_fire_lethality( cpoly,isi,iwhen,fx_intensity,fx_tlethal       &
                                            , burnt_area_step / cgrid%landfrac(ipy) )
                   !------------------------------------------------------------------------!
 
@@ -2747,10 +2746,11 @@ module fire
    !     This subroutine integrates fire lethality (i.e., fire mortality given that there  !
    ! was fire) when running FIRESTARTER.                                                   !
    !---------------------------------------------------------------------------------------!
-   subroutine integ_fire_lethality(cpoly,isi,fx_intensity,fx_tlethal,burnt_area_step)
+   subroutine integ_fire_lethality(cpoly,isi,iwhen,fx_intensity,fx_tlethal,burnt_area_step)
       use disturb_coms , only : fx_tlc_slope  & ! intent(in)
                               , fx_pmtau_di   & ! intent(in)
                               , fx_pmtau_ds   ! ! intent(in)
+      use ed_misc_coms , only : current_time  ! ! intent(in)
       use ed_state_vars, only : polygontype   & ! structure
                               , sitetype      & ! structure
                               , patchtype     ! ! structure
@@ -2768,12 +2768,15 @@ module fire
       !----- Arguments. -------------------------------------------------------------------!
       type(polygontype), target      :: cpoly
       integer          , intent(in)  :: isi
+      integer          , intent(in)  :: iwhen
       real             , intent(in)  :: fx_intensity
       real             , intent(in)  :: fx_tlethal
       real             , intent(in)  :: burnt_area_step
       !----- Local variables. -------------------------------------------------------------!
       type(sitetype)   , pointer     :: csite
       type(patchtype)  , pointer     :: cpatch
+      logical                        :: has_tlethal
+      logical                        :: has_intensity
       integer                        :: ipa
       integer                        :: ico
       integer                        :: ipft
@@ -2785,6 +2788,32 @@ module fire
       real                           :: tlethal_crit
       real                           :: chbase
       real                           :: clength
+      !----- Local parameters. ------------------------------------------------------------!
+      character(len=23) , parameter  :: firefile = 'lethalfire_details.txt'
+      logical           , parameter  :: printout = .true.
+      !----- Locally saved variables. -----------------------------------------------------!
+      logical           , save      :: first_time = .true. ! First time calling   [    T|F]
+      !------------------------------------------------------------------------------------!
+
+
+      !----- First time, and the user wants to print the output.  Make a header. ----------!
+      if (first_time) then
+
+         !----- Make the header. ----------------------------------------------------------!
+         if (printout) then
+            open (unit=35,file=firefile,status='replace',action='write')
+            write (unit=35,fmt='(19(a,1x))')                                               &
+                     '  YEAR',      ' MONTH',      '   DAY',      '  STEP',      '   ISI'  &
+              ,'         IPA','         ICO','         PFT','         DBH','      HEIGHT'  &
+              ,'      THBARK','FX_INTENSITY','     HSCORCH','CROWN_DAMAGE','  FX_TLETHAL'  &
+              ,'TLETHAL_CRIT','       PMTAU','        PMCK','      P_MORT'
+            close (unit=35,status='keep')
+         end if
+         !---------------------------------------------------------------------------------!
+
+
+         first_time = .false.
+      end if
       !------------------------------------------------------------------------------------!
 
 
@@ -2826,16 +2855,24 @@ module fire
             !------------------------------------------------------------------------------!
 
 
+
+            !------------------------------------------------------------------------------!
+            !      Flags for critical fire duration and sufficient fire intensity.         !
+            !------------------------------------------------------------------------------!
+            has_tlethal   = tlethal_crit > tiny_num
+            has_intensity = fx_intensity > tiny_num
+            !------------------------------------------------------------------------------!
+
             !------------------------------------------------------------------------------!
             !      Find the mortality probability due to cambial damage.  Check the        !
             ! critical fire duration to avoid singularities.                               !
             !------------------------------------------------------------------------------!
-            if ( tlethal_crit > tiny_num ) then
+            if ( has_tlethal ) then
                !------ Find the tl:tc ratio. ----------------------------------------------!
                pmtau = fx_pmtau_di + fx_pmtau_ds * fx_tlethal / tlethal_crit
                pmtau = max(0.,min(1., pmtau))
                !---------------------------------------------------------------------------!
-            else if (fx_intensity > tiny_num) then
+            else if ( has_intensity ) then
                !------ Critical duration is zero, assume maximum mortality. ---------------!
                pmtau = 1.0
                !---------------------------------------------------------------------------!
@@ -2864,6 +2901,25 @@ module fire
             cpatch%fire_lethal_prob   (ico) = cpatch%fire_lethal_prob   (ico)              &
                                             + p_mort * burnt_area_step
             !------------------------------------------------------------------------------!
+
+
+
+
+            !------------------------------------------------------------------------------!
+            !     Print the output if needed.                                              !
+            !------------------------------------------------------------------------------!
+            if (printout .and. ( has_tlethal .or. has_intensity ) ) then
+               open(unit=35,file=firefile,status='old',position='append',action='write')
+               write(unit=35,fmt='(8(i6,1x),3(f12.4,1x),f12.3,1x,7(f12.4,1x))')            &
+                          current_time%year,current_time%month,current_time%date,iwhen     &
+                         ,isi,ipa,ico,ipft,cpatch%dbh(ico),cpatch%hite(ico)                &
+                         ,cpatch%thbark(ico),fx_intensity,scorch_height,crown_damage       &
+                         ,fx_tlethal,tlethal_crit,pmtau,pmck,p_mort
+               close(unit=35,status='keep')
+            end if
+            !------------------------------------------------------------------------------!
+
+
          end do cohort_loop
          !---------------------------------------------------------------------------------!
       end do patch_loop
