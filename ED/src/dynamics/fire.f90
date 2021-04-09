@@ -1579,6 +1579,10 @@ module fire
    !!    Synergy between land use and climate change increases future fire risk in Amazon
    !!    forests. Earth Syst. Dynam., 8: 1237-1246. doi:10.5194/esd-8-1237-2017 (LP17).
    !!
+   !! Peterson, D. L., and K. C. Ryan, 1986: Modeling postfire conifer mortality for 
+   !!    long-range planning. Environ. Manage., 10 (6), 797-808, doi:10.1007/BF01867732
+   !!    (PR86).
+   !!
    !! Rothermel RC. 1972. A mathematical model for predicting fire spread in wildland
    !!    fuels. Res. Pap. INT- 115, U.S. Department of Agriculture, Intermountain Forest
    !!    and Range Experiment Station, Ogden, UT, U. S. A.,
@@ -1625,7 +1629,6 @@ module fire
                                , fi_sf_maxage           & ! intent(in)
                                , fr_h                   & ! intent(in)
                                , fr_Mxdead              & ! intent(in)
-                               , fr_sigma_00            & ! intent(in)
                                , fs_bck_exp             & ! intent(in)
                                , fs_gw_infty            & ! intent(in)
                                , fs_gw_upr              & ! intent(in)
@@ -1749,7 +1752,6 @@ module fire
       real                       :: fx_tlethal        ! Step lethal heat duration [      s]
       real                       :: fx_wn1000         ! F. consumpt. woody-1000h  [ kgC/m2]
       real                       :: fx_wn1000_potl    ! Potl. F. C. woody-1000h   [ kgC/m2]
-      real                       :: g_sigma           ! Effective SAV             [    1/m]
       real                       :: g_Umax            ! Maximum wind for ROS      [    m/s]
       real                       :: gw_factor         ! Wind speed effect on ROS  [    m/s]
       real                       :: hb_ratio          ! Head:back ratio           [    ---]
@@ -1779,7 +1781,6 @@ module fire
       real                       :: rosfwd            ! Forward rate of spread    [    m/s]
       real                       :: rosbwd_avg        ! Site-avg bwd. spread rate [    m/s]
       real                       :: rosfwd_avg        ! Site-avg fwd. spread rate [    m/s]
-      real                       :: sigma_avg         ! Site-avg effective SAV    [    1/m]
       real                       :: sfc_wetness       ! Sfc. soil wetness         [    ---]
       real                       :: suppressibility   ! Fire suppressibility      [    ---]
       real                       :: total_ignition    ! Number of ignitions       [   1/m2]
@@ -2120,11 +2121,6 @@ module fire
                !---------------------------------------------------------------------------!
 
 
-               !------ Initialise site-average effective SAV. -----------------------------!
-               sigma_avg       = 0.
-               !---------------------------------------------------------------------------!
-
-
 
                !---------------------------------------------------------------------------!
                !     Loop through patches.                                                 !
@@ -2296,7 +2292,7 @@ module fire
                                      ,bfuel_d1000_pat,bherb_pat,bwoody_pat                 &
                                      ,moist_bfuel_pat,moist_bfuel_pat,moist_bfuel_pat      &
                                      ,moist_bfuel_pat,moist_bherb_pat,moist_bwoody_pat     &
-                                     ,can_vels,.false.,g_sigma,g_Umax,rosfwd     )
+                                     ,can_vels,.false.,g_Umax,rosfwd     )
                   !------ Backward. -------------------------------------------------------!
                   lnexp  = max( lnexp_min, min( lnexp_max, fs_bck_exp * can_vels ) )
                   rosbwd = rosfwd * exp(lnexp)
@@ -2324,11 +2320,6 @@ module fire
                                   + csite%nesterov_index(ipa) * csite%area(ipa)
                   fdivpd_avg      = fdivpd_avg                                             &
                                   + fdivpd_pat                * csite%area(ipa)
-                  !------------------------------------------------------------------------!
-
-
-                  !------ Integrate effective SAV. ----------------------------------------!
-                  sigma_avg       = sigma_avg + g_sigma * bfuel_all_pat * csite%area(ipa)
                   !------------------------------------------------------------------------!
 
 
@@ -2365,18 +2356,6 @@ module fire
                   !------ No land to burn, set burnt area to zero... ----------------------!
                   burnt_area_potl = 0.0
                   !------------------------------------------------------------------------!
-               end if
-               !---------------------------------------------------------------------------!
-
-
-
-               !---------------------------------------------------------------------------!
-               !       Normalise effective surface-area-to-volume ratio.                   !
-               !---------------------------------------------------------------------------!
-               if (bfuel_all_tot > tiny_num) then
-                  sigma_avg = sigma_avg / bfuel_all_tot
-               else
-                  sigma_avg = fr_sigma_00
                end if
                !---------------------------------------------------------------------------!
 
@@ -2560,11 +2539,17 @@ module fire
 
 
                !---------------------------------------------------------------------------!
-               !       Find duration of lethal bole heating.                               !
+               !       Find duration of lethal bole heating, following PR86.               !
                !---------------------------------------------------------------------------!
-               if (sigma_avg > tiny_num .and. fx_intensity > tiny_num) then
+               if (fx_intensity > tiny_num) then
                   !----- Find lethal duration. --------------------------------------------!
-                  fx_tlethal = fx_tlh_slope / sigma_avg
+                  fx_tlethal = fx_tlh_slope * C2B                                          &
+                             * ( bfuel_d0001_tot      * (1. - sqrt(1. - fx_f_b0001 ) )     &
+                               + bfuel_d0010_tot      * (1. - sqrt(1. - fx_f_b0010 ) )     &
+                               + bfuel_d0100_tot      * (1. - sqrt(1. - fx_f_b0100 ) )     &
+                               + bherb_tot            * (1. - sqrt(1. - fx_f_bherb ) )     &
+                               + bwoody_tot           * (1. - fh_f1000)                    &
+                                                      * (1. - sqrt(1. - fx_f_wn1000) ) )
                   !------------------------------------------------------------------------!
                else
                   !----- No burning, set it to zero. --------------------------------------!
@@ -3133,7 +3118,7 @@ module fire
    subroutine rate_of_spread(isi                                                           &
                             ,bfuel_d0001,bfuel_d0010,bfuel_d0100,bfuel_d1000,bherb,bwoody  &
                             ,moist_b0001,moist_b0010,moist_b0100,moist_b1000,moist_bherb   &
-                            ,moist_bwoody,can_wind,use_max,g_sigma,g_Umax,rosfwd)
+                            ,moist_bwoody,can_wind,use_max,g_Umax,rosfwd)
       use disturb_coms, only : n_fst         & ! intent(in)
                              , n_fcl         & ! intent(in)
                              , n_sbmax       & ! intent(in)
@@ -3187,7 +3172,6 @@ module fire
       real   , intent(in)            :: moist_bwoody ! Woody fuel moisture      [      ---]
       real   , intent(in)            :: can_wind     ! Canopy air space wind    [      m/s]
       logical, intent(in)            :: use_max      ! Find maximum spread      [      T|F]
-      real   , intent(out)           :: g_sigma      ! Effective SAV            [      1/m]
       real   , intent(out)           :: g_Umax       ! Max. wind (corrected)    [      m/s]
       real   , intent(out)           :: rosfwd       ! Forward rate of spread   [      m/s]
       !----- Local variables (by fuel class and status). ----------------------------------!
@@ -3219,6 +3203,7 @@ module fire
       real                           :: g_wood       ! Fuel load                [   kgB/m2]
       real                           :: g_fai        ! Fuel area index          [  m2_f/m2]
       real                           :: g_wnod       ! Net fuel load            [   kgB/m2]
+      real                           :: g_sigma      ! Effective SAV            [      1/m]
       real                           :: g_hh         ! Heat content             [      1/m]
       real                           :: g_W          ! Dead-to-live load ratio  [    kg/kg]
       real                           :: g_rhob       ! Effective bulk density   [    kg/m3]
