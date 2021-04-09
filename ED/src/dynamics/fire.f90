@@ -2798,9 +2798,9 @@ module fire
       real                           :: clength
       !----- Local parameters. ------------------------------------------------------------!
       character(len=23) , parameter  :: firefile = 'lethalfire_details.txt'
-      logical           , parameter  :: printout = .true.
+      logical           , parameter  :: printout = .false.
       !----- Locally saved variables. -----------------------------------------------------!
-      logical           , save      :: first_time = .true. ! First time calling   [    T|F]
+      logical           , save       :: first_time = .true. ! First time calling  [    T|F]
       !------------------------------------------------------------------------------------!
 
 
