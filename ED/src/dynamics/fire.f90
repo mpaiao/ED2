@@ -1650,6 +1650,7 @@ module fire
                                , fx_a0010               & ! intent(in)
                                , fx_a0100               & ! intent(in)
                                , fx_tlh_slope           & ! intent(in)
+                               , fx_rmfac               & ! intent(in)
                                , n_fst                  ! ! intent(in)
       use pft_coms      , only : agf_bs                 & ! intent(in)
                                , C2B                    & ! intent(in)
@@ -2324,6 +2325,31 @@ module fire
 
 
                end do fst_patch_loop
+               !---------------------------------------------------------------------------!
+
+
+
+               !---------------------------------------------------------------------------!
+               !       Normalise fuel moisture for dead and live components.               !
+               !---------------------------------------------------------------------------!
+               if (bfuel_d0111_tot  > tiny_num) then
+                  moist_bfuel_avg  = moist_bfuel_avg  / bfuel_d0111_tot
+               else
+                  moist_bfuel_avg  = 1.0
+               end if
+               if (bherb_tot  > tiny_num) then
+                  moist_bherb_avg  = moist_bherb_avg  / bherb_tot
+               else
+                  moist_bherb_avg  = 1.0
+               end if
+               if (bwoody_tot > tiny_num) then
+                  moist_bwoody_avg = moist_bwoody_avg / bwoody_tot
+               else
+                  moist_bwoody_avg = 1.0
+               end if
+               !------ Apply correction factor for fuel moisture. -------------------------!
+               moist_bherb_avg  = max(0., (1.+fx_rmfac) * moist_bherb_avg  - 1.) / fx_rmfac
+               moist_bwoody_avg = max(0., (1.+fx_rmfac) * moist_bwoody_avg - 1.) / fx_rmfac
                !---------------------------------------------------------------------------!
 
 

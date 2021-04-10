@@ -646,6 +646,9 @@ subroutine exterminate_patches_except(keeppa)
                              , patchtype          ! ! structure
    use grid_coms      , only : ngrids             ! ! intent(in)
    use fuse_fiss_utils, only : terminate_patches  ! ! sub-routine
+
+   implicit none
+
    !----- Arguments -----------------------------------------------------------------------!
    integer                        , intent(in)  :: keeppa
    !----- Local variables -----------------------------------------------------------------!
