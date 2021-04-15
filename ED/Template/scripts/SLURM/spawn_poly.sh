@@ -1395,6 +1395,11 @@ do
          scentype="sheffield"
          iscenario="sheffield"
          ;;
+      WFDE5_CHIRPS)
+         #----- WFDEI (CHIRPS Precipitation). ---------------------------------------------#
+         scentype="WFDE5"
+         iscenario="WFDE5_SOUTHAM_CHIRPS"
+         ;;
       WFDEI_CHIRPS)
          #----- WFDEI (CHIRPS Precipitation). ---------------------------------------------#
          scentype="WFDEI"
@@ -1639,6 +1644,12 @@ do
       metcycf=2010
       imetavg=1
       ;;
+   WFDE5_CHIRPS)
+      metdriverdb="${fullscen}/${iscenario}_HEADER"
+      metcyc1=1981
+      metcycf=2018
+      imetavg=2
+      ;;
    WFDEI_CHIRPS)
       metdriverdb="${fullscen}/${iscenario}_HEADER"
       metcyc1=1981
@@ -1676,7 +1687,7 @@ do
    #     Correct years so it is not tower-based or Sheffield.                              #
    #---------------------------------------------------------------------------------------#
    case ${iscenario} in
-   default|eft|shr|ERA5*|ERAINT*|MERRA2*|PGMF3*|Sheffield|WFDEI*)
+   default|eft|shr|ERA5*|ERAINT*|MERRA2*|PGMF3*|Sheffield|WFDE5*|WFDEI*)
       echo "Nothing" > /dev/null
       ;;
    *)

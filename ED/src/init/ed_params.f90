@@ -1281,7 +1281,7 @@ subroutine init_disturb_params
    ! is based on a quick fit between surface moisture and VPD-based FDI, and may need to   !
    ! be optimised.                                                                         !
    !---------------------------------------------------------------------------------------!
-   fe_fdivpd_exp = 0.10
+   fe_fdivpd_exp = 0.06
    !---------------------------------------------------------------------------------------!
 
 
