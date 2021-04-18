@@ -1708,6 +1708,9 @@ module fire
       real                       :: bwoody            ! Cohort living woody fuels [ kgC/pl]
       real                       :: bwoody_pat        ! Patch living woody fuels  [ kgC/m2]
       real                       :: bwoody_tot        ! Site living woody fuels   [ kgC/m2]
+      real                       :: bwn1000           ! Cohort 1-100hr woody fuel [ kgC/pl]
+      real                       :: bwn1000_pat       ! Patch 1-100hr woody fuel  [ kgC/m2]
+      real                       :: bwn1000_tot       ! Site 1-100hr woody fuels  [ kgC/m2]
       real                       :: can_vels          ! Canopy air velocity       [    m/s]
       real                       :: ell_length        ! Length of main ell. axis  [      m]
       real                       :: fdi_pat           ! Patch fire danger index   [     --]
@@ -2078,6 +2081,7 @@ module fire
                bfuel_d0111_tot = 0.
                bherb_tot       = 0.
                bwoody_tot      = 0.
+               bwn1000_tot     = 0.
                bfuel_all_tot   = 0.
                !---------------------------------------------------------------------------!
 
@@ -2149,6 +2153,7 @@ module fire
                   bfuel_d0111_pat = bfuel_d0100_pat + bfuel_d0010_pat + bfuel_d0001_pat
                   bherb_pat       = 0.
                   bwoody_pat      = 0.
+                  bwn1000_pat     = 0.
                   spread_cohort_loop: do ico=1,cpatch%ncohorts
                      ipft = cpatch%pft(ico)
                      if (is_grass(ipft) .or. cpatch%hite(ico) <= fuel_height_max) then
@@ -2170,9 +2175,15 @@ module fire
                         !------------------------------------------------------------------!
 
 
+                        !----- Woody living fuel (excluding 1000-hr fuels). ---------------!
+                        bwn1000 = bwoody * (1. - fh_f1000)
+                        !------------------------------------------------------------------!
+
+
                         !------ Accumulate fuels to the patch level. ----------------------!
-                        bherb_pat  = bherb_pat  + cpatch%nplant(ico) * bherb
-                        bwoody_pat = bwoody_pat + cpatch%nplant(ico) * bwoody
+                        bherb_pat   = bherb_pat   + cpatch%nplant(ico) * bherb
+                        bwoody_pat  = bwoody_pat  + cpatch%nplant(ico) * bwoody
+                        bwn1000_pat = bwn1000_pat + cpatch%nplant(ico) * bwn1000
                         !------------------------------------------------------------------!
                      end if
                   end do spread_cohort_loop
@@ -2180,7 +2191,7 @@ module fire
 
 
                   !------ Find total fuel loads. ------------------------------------------!
-                  bfuel_all_pat = bfuel_d0111_pat + bherb_pat + bwoody_pat
+                  bfuel_all_pat = bfuel_d0111_pat + bherb_pat + bwn1000_pat
                   !------------------------------------------------------------------------!
 
 
@@ -2193,6 +2204,7 @@ module fire
                   bfuel_d0111_tot = bfuel_d0111_tot + bfuel_d0111_pat * csite%area(ipa)
                   bherb_tot       = bherb_tot       + bherb_pat       * csite%area(ipa)
                   bwoody_tot      = bwoody_tot      + bwoody_pat      * csite%area(ipa)
+                  bwn1000_tot     = bwn1000_tot     + bwn1000_pat     * csite%area(ipa)
                   bfuel_all_tot   = bfuel_all_tot   + bfuel_all_pat   * csite%area(ipa)
                   !------------------------------------------------------------------------!
 
@@ -2263,10 +2275,10 @@ module fire
 
                   !------------------------------------------------------------------------!
                   !      Find herb and woody fuel wetness, using the wetness of the top    !
-                  ! soil.                                                                  !
+                  ! soil and T10 correction factor.                                        !
                   !------------------------------------------------------------------------!
-                  moist_bherb_pat  = max(0.,min(1.,sfc_wetness))
-                  moist_bwoody_pat = max(0.,min(1.,sfc_wetness))
+                  moist_bherb_pat  = max(0., (1.+fx_rmfac) * sfc_wetness - 1.) / fx_rmfac
+                  moist_bwoody_pat = max(0., (1.+fx_rmfac) * sfc_wetness - 1.) / fx_rmfac
                   !------------------------------------------------------------------------!
 
 
@@ -2280,7 +2292,7 @@ module fire
                   moist_bherb_avg  = moist_bherb_avg                                       &
                                    + moist_bherb_pat  * bherb_pat       * csite%area(ipa)
                   moist_bwoody_avg = moist_bwoody_avg                                      &
-                                   + moist_bwoody_pat * bwoody_pat      * csite%area(ipa)
+                                   + moist_bwoody_pat * bwn1000_pat     * csite%area(ipa)
                   !------------------------------------------------------------------------!
 
 
@@ -2290,7 +2302,7 @@ module fire
                   !------------------------------------------------------------------------!
                   !------ Forward. --------------------------------------------------------!
                   call rate_of_spread(isi,bfuel_d0001_pat,bfuel_d0010_pat,bfuel_d0100_pat  &
-                                     ,bfuel_d1000_pat,bherb_pat,bwoody_pat                 &
+                                     ,0.*bfuel_d1000_pat,bherb_pat,bwn1000_pat             &
                                      ,moist_bfuel_pat,moist_bfuel_pat,moist_bfuel_pat      &
                                      ,moist_bfuel_pat,moist_bherb_pat,moist_bwoody_pat     &
                                      ,can_vels,.false.,g_Umax,rosfwd     )
@@ -2342,14 +2354,15 @@ module fire
                else
                   moist_bherb_avg  = 1.0
                end if
-               if (bwoody_tot > tiny_num) then
-                  moist_bwoody_avg = moist_bwoody_avg / bwoody_tot
+               if (bwn1000_tot > tiny_num) then
+                  moist_bwoody_avg = moist_bwoody_avg / bwn1000_tot
                else
                   moist_bwoody_avg = 1.0
                end if
-               !------ Apply correction factor for fuel moisture. -------------------------!
-               moist_bherb_avg  = max(0., (1.+fx_rmfac) * moist_bherb_avg  - 1.) / fx_rmfac
-               moist_bwoody_avg = max(0., (1.+fx_rmfac) * moist_bwoody_avg - 1.) / fx_rmfac
+               !------ Ensure fuel moisture is bounded. -----------------------------------!
+               moist_bfuel_avg  = max(0., min(1., moist_bfuel_avg ))
+               moist_bherb_avg  = max(0., min(1., moist_bherb_avg ))
+               moist_bwoody_avg = max(0., min(1., moist_bwoody_avg))
                !---------------------------------------------------------------------------!
 
 
@@ -2391,7 +2404,7 @@ module fire
                !    Find moisture of extinction for fuels and the relative moisture.       !
                !---------------------------------------------------------------------------!
                call find_mextinct(bfuel_d0001_tot,bfuel_d0010_tot,bfuel_d0100_tot          &
-                                 ,bfuel_d1000_tot,bherb_tot,bwoody_tot                     &
+                                 ,bfuel_d1000_tot,bherb_tot,bwn1000_tot                    &
                                  ,moist_bfuel_avg,moist_bfuel_avg,moist_bfuel_avg          &
                                  ,moist_bfuel_avg,moist_bherb_avg,moist_bwoody_avg,Mx_i)
                rmoist_b0001  = moist_bfuel_avg  / Mx_i(1)
@@ -2412,13 +2425,13 @@ module fire
                                    ,fx_f_wn1000,fx_f_b0001,fx_f_b0010,fx_f_b0100           &
                                    ,fx_f_b1000)
                !----- Find fuel consumption. ----------------------------------------------!
-               fx_b0001_potl  = fx_f_b0001  * bfuel_d0001_tot            * burnt_area_potl
-               fx_b0010_potl  = fx_f_b0010  * bfuel_d0010_tot            * burnt_area_potl
-               fx_b0100_potl  = fx_f_b0100  * bfuel_d0100_tot            * burnt_area_potl
-               fx_b1000_potl  = fx_f_b1000  * bfuel_d1000_tot            * burnt_area_potl
-               fx_bherb_potl  = fx_f_bherb  * bherb_tot                  * burnt_area_potl
-               fx_bwoody_potl = fx_f_bwoody * bwoody_tot                 * burnt_area_potl
-               fx_wn1000_potl = fx_f_wn1000 * bwoody_tot * (1.-fh_f1000) * burnt_area_potl
+               fx_b0001_potl  = fx_f_b0001  * bfuel_d0001_tot * burnt_area_potl
+               fx_b0010_potl  = fx_f_b0010  * bfuel_d0010_tot * burnt_area_potl
+               fx_b0100_potl  = fx_f_b0100  * bfuel_d0100_tot * burnt_area_potl
+               fx_b1000_potl  = fx_f_b1000  * bfuel_d1000_tot * burnt_area_potl
+               fx_bherb_potl  = fx_f_bherb  * bherb_tot       * burnt_area_potl
+               fx_bwoody_potl = fx_f_bwoody * bwoody_tot      * burnt_area_potl
+               fx_wn1000_potl = fx_f_wn1000 * bwn1000_tot     * burnt_area_potl
                !---------------------------------------------------------------------------!
 
 
@@ -2574,8 +2587,7 @@ module fire
                                + bfuel_d0010_tot      * (1. - sqrt(1. - fx_f_b0010 ) )     &
                                + bfuel_d0100_tot      * (1. - sqrt(1. - fx_f_b0100 ) )     &
                                + bherb_tot            * (1. - sqrt(1. - fx_f_bherb ) )     &
-                               + bwoody_tot           * (1. - fh_f1000)                    &
-                                                      * (1. - sqrt(1. - fx_f_wn1000) ) )
+                               + bwn1000_tot          * (1. - sqrt(1. - fx_f_wn1000) ) )
                   !------------------------------------------------------------------------!
                else
                   !----- No burning, set it to zero. --------------------------------------!
