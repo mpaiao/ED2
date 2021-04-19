@@ -1281,7 +1281,7 @@ subroutine init_disturb_params
    ! is based on a quick fit between surface moisture and VPD-based FDI, and may need to   !
    ! be optimised.                                                                         !
    !---------------------------------------------------------------------------------------!
-   fe_fdivpd_exp = 0.06
+   fe_fdivpd_exp = 0.10
    !---------------------------------------------------------------------------------------!
 
 
@@ -5433,7 +5433,7 @@ subroutine init_pft_mort_params()
    !                               , 1.2135                                                &
    !                               , is_tropical (:)                          )            &
    !                        , is_grass (:)                                                )
-   alpha_fdivpd(:) = 22.4181
+   alpha_fdivpd(:) = 10.0
    !---------------------------------------------------------------------------------------!
 
 
