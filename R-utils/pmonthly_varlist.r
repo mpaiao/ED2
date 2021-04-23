@@ -2301,7 +2301,7 @@ theme[[n]] = list( vnam      = c(       "psc.resp",       "ssc.resp",      "stsc
                                 ,      "AG Litter")
                  , colour    = c(        "#811F9E",        "#1BA2F7",        "#880D32"
                                 ,        "#CCCA3D",        "#107C92",        "#F87856"
-                                ,        "#2BD2DB",        "#383838")
+                                ,        "#2BD2DB")
                  , lwd       = c(              2.5,              2.5,              2.5
                                 ,              2.5,              2.5,              2.5
                                 ,              2.5)
@@ -2376,7 +2376,7 @@ theme[[n]] = list( vnam      = c( "passive.soil.c",    "slow.soil.c", "microbe.s
                                 ,      "AG Litter")
                  , colour    = c(        "#811F9E",        "#1BA2F7",        "#880D32"
                                 ,        "#CCCA3D",        "#107C92",        "#F87856"
-                                ,        "#2BD2DB",        "#383838")
+                                ,        "#2BD2DB")
                  , lwd       = c(              2.5,              2.5,              2.5
                                 ,              2.5,              2.5,              2.5
                                 ,              2.5)

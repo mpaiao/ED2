@@ -879,7 +879,7 @@ standard.order.phylum.name <<- function(datum,nafill=TRUE){
    #---------------------------------------------------------------------------------------#
    idx = which( ( ! (is.na(datum$family) | (datum$family %in% unknown.family) ) ) 
               & ( ! datum$family %in% f2o$family )
-              & ( regexpr(pattern=unknown.family,text=datum$family,ignore.case=T) %==% -1)
+              & ( regexpr(pattern=unknown.family,text=datum$family,ignore.case=T) %eq% -1)
               )#end which
    if (length(idx) > 0){
      tofill.fam = t(t(sort(unique(datum$family[idx]))))
@@ -1541,7 +1541,7 @@ find.wood.density <<- function( datum
    }else if (is.character(weight) && (length(weight) == 1)){
       #----- Character with column name was provided. -------------------------------------#
       if (weight %in% names(datum)){
-         wgtfac = ifelse(datum[[weight]] %>% 0, datum[[weight]], 0)
+         wgtfac = ifelse(datum[[weight]] %gt% 0, datum[[weight]], 0)
       }else{
          stop(paste0(" Weight Variable name (",weight,") not found in datum!"))
       }#end if
@@ -1551,13 +1551,13 @@ find.wood.density <<- function( datum
       if (! (weight %wr% c(1,ncol(datum)))){
          stop(paste0(" Weight column index (",weight,") doesn't make sense"))
       }else if (is.numeric(datum[,weight])){
-         wgtfac = ifelse(datum[,weight] %>% 0, datum[,weight], 0)
+         wgtfac = ifelse(datum[,weight] %gt% 0, datum[,weight], 0)
       }else{
          stop(paste0(" Column ",weight," of data frame is not numeric!"))
       }#end if
       #------------------------------------------------------------------------------------#
    }else if (is.numeric(weight) && (length(weight) == nrow(datum))){
-      wgtfac = ifelse(weight %>% 0, weight, 0)
+      wgtfac = ifelse(weight %gt% 0, weight, 0)
    }else{
       stop("Variable weight is not properly set!")
    }#end if (is.null(weight))
@@ -2004,7 +2004,7 @@ find.trait <<- function( datum
    }else if (is.character(weight) && (length(weight) == 1)){
       #----- Character with column name was provided. -------------------------------------#
       if (weight %in% names(datum)){
-         wgtfac = ifelse(datum[[weight]] %>% 0, datum[[weight]], 0)
+         wgtfac = ifelse(datum[[weight]] %gt% 0, datum[[weight]], 0)
       }else{
          stop(paste0(" Weight Variable name (",weight,") not found in datum!"))
       }#end if
@@ -2014,13 +2014,13 @@ find.trait <<- function( datum
       if (! (weight %wr% c(1,ncol(datum)))){
          stop(paste0(" Weight column index (",weight,") doesn't make sense"))
       }else if (is.numeric(datum[,weight])){
-         wgtfac = ifelse(datum[,weight] %>% 0, datum[,weight], 0)
+         wgtfac = ifelse(datum[,weight] %gt% 0, datum[,weight], 0)
       }else{
          stop(paste0(" Column ",weight," of data frame is not numeric!"))
       }#end if
       #------------------------------------------------------------------------------------#
    }else if (is.numeric(weight) && (length(weight) == nrow(datum))){
-      wgtfac = ifelse(weight %>% 0, weight, 0)
+      wgtfac = ifelse(weight %gt% 0, weight, 0)
    }else{
       stop("Variable weight is not properly set!")
    }#end if (is.null(weight))

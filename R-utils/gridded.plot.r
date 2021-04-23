@@ -88,7 +88,7 @@ gridded.plot <<- function( x                = seq(from=0,to=1,len=nrow(z))
 
 
    #----- No messed-up axes are allowed, they must increase. ------------------------------#
-   if (any(diff(x) %<=% 0) || any(diff(y) %<=% 0)){
+   if (any(diff(x) %le% 0) || any(diff(y) %le% 0)){
        stop("increasing x and y values expected")
    }#end if
    #---------------------------------------------------------------------------------------#

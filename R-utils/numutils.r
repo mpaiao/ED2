@@ -54,11 +54,11 @@ bound <<- function(x,lwr=min(x,na.rm=TRUE),upr=max(x,na.rm=TRUE),buff=2^-23){
    #---------------------------------------------------------------------------------------#
    #   Don't let the bounds to be insane.                                                  #
    #---------------------------------------------------------------------------------------#
-   if (lwr %>% upr){
+   if (lwr %gt% upr){
       cat0(" - Lower limit: ",lwr)
       cat0(" - Upper limit: ",upr)
       stop(" Lower and upper limit must be finite and lower cannot be greater than upper.")
-   }#end if (lwr %>% upr)
+   }#end if (lwr %gt% upr)
    #---------------------------------------------------------------------------------------#
 
 
@@ -68,7 +68,7 @@ bound <<- function(x,lwr=min(x,na.rm=TRUE),upr=max(x,na.rm=TRUE),buff=2^-23){
    if (! (buff %wr% c(0,1-2^-23))){
       cat0(" - buff: ",buff)
       stop(" Buffer must be between 0 (including) and 1 (excluding).")
-   }#end if (lwr %>% upr)
+   }#end if (! (buff %wr% c(0,1-2^-23)))
    #---------------------------------------------------------------------------------------#
 
 
@@ -271,7 +271,7 @@ weighted.frac <<- function(x,w,na.rm=TRUE){
       names(ans) = names(x)
       return(ans)
       #------------------------------------------------------------------------------------#
-   }else if (all(w %==% 0.)){
+   }else if (all(w %eq% 0.)){
       #----- Give equal chances in case all weights were zero. ----------------------------#
       w = rep(x=1.,times=nrow(x))
       #------------------------------------------------------------------------------------#
@@ -404,7 +404,7 @@ weighted.sd <<- function(x,w,M=NULL,na.rm=FALSE){
    #---------------------------------------------------------------------------------------#
    #      Check whether at least one weight is non-zero.                                   #
    #---------------------------------------------------------------------------------------#
-   if (all(w %==% 0)){
+   if (all(w %eq% 0)){
       ans = NA
    }else{
       xwm    = weighted.mean(x=x,w=w)
@@ -735,7 +735,7 @@ meansdcv <<- function (x, na.rm = FALSE){
       nx    = length(xx)
       mu    = mean(xx)
       sigma = sd(xx)
-      cvar  = ifelse(sigma %>% 0,mu/sigma,NA)
+      cvar  = ifelse(sigma %gt% 0,mu/sigma,NA)
       
       ans = c( mean = mu
              , sd   = sigma
@@ -1086,7 +1086,7 @@ mean.se        <<- function(x,...)   sqrt(x = mean(x=x^2,...) / length(x[is.fini
 #==========================================================================================#
 #     Mean of elements that are finite and above minimum.                                  #
 #------------------------------------------------------------------------------------------#
-mean.above <<- function(x,xlwr,xnot=xlwr) if(any(x%>=%xlwr)){mean(x[x%>=%xlwr])}else{xnot}
+mean.above <<- function(x,xlwr,xnot=xlwr) if(any(x%ge%xlwr)){mean(x[x%ge%xlwr])}else{xnot}
 #==========================================================================================#
 #==========================================================================================#
 
@@ -1818,7 +1818,7 @@ thresh.cumsum <<- function(x,xthresh,thmax=TRUE,na.rm=FALSE){
 #------------------------------------------------------------------------------------------#
 aggr.fmin <<- function(x,fun=mean,fmin=0.5,...){
    #----- Check that fmin makes sense. ----------------------------------------------------#
-   if (! (fmin %>=% 0.0 & fmin %<=% 1.0)){
+   if (! (fmin %ge% 0.0 & fmin %le% 1.0)){
       stop (paste0("fmin must be between 0 and 1!  Yours is set to ",fmin,"..."))
    }#end if
    #---------------------------------------------------------------------------------------#
@@ -1886,7 +1886,7 @@ aggr.fmin <<- function(x,fun=mean,fmin=0.5,...){
 #------------------------------------------------------------------------------------------#
 aggr.se <<- function(x,fmin=0.5,...){
    #----- Check that fmin makes sense. ----------------------------------------------------#
-   if (! (fmin %>=% 0.0 & fmin %<=% 1.0)){
+   if (! (fmin %ge% 0.0 & fmin %le% 1.0)){
       stop (paste0("fmin must be between 0 and 1!  Yours is set to ",fmin,"..."))
    }#end if
    #---------------------------------------------------------------------------------------#

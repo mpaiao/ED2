@@ -768,10 +768,10 @@ for (place in myplaces){
                     , na.rm  = TRUE
                     )#end apply
    distave   = apply(X=lu$dist,MARGIN=c(2,3),FUN=mean)
-   selpftl   = pftave  %>% 0.
-   selpfts   = pftave  %>% 0. & (! (pft$key %in% "ALL") )
-   sellu     = luave   %>% 0.
-   seldist   = distave %>% 0.
+   selpftl   = pftave  %gt% 0.
+   selpfts   = pftave  %gt% 0. & (! (pft$key %in% "ALL") )
+   sellu     = luave   %gt% 0.
+   seldist   = distave %gt% 0.
    n.selpftl = sum(selpftl)
    n.selpfts = sum(selpfts)
    n.sellu   = sum(sellu  )
@@ -834,7 +834,7 @@ for (place in myplaces){
             thisvar = szpft[[vnam]][,ndbh+1,]
             if (plog){
                #----- Eliminate non-positive values in case it is a log plot. -------------#
-               badlog          = (! (thisvar %>% 0) ) & (! stackit)
+               badlog          = (! (thisvar %gt% 0) ) & (! stackit)
                thisvar[badlog] = NA_real_
             }#end if
          }else{
@@ -1029,7 +1029,7 @@ for (place in myplaces){
          thisvar = szpft[[vnam]]
          if (plog){
             xylog           = "y"
-            badlog          = ( ! (thisvar %>% 0) ) & (! stackit)
+            badlog          = ( ! (thisvar %gt% 0) ) & (! stackit)
             thisvar[badlog] = NA_real_
          }else{
             xylog           = ""
@@ -1950,7 +1950,7 @@ for (place in myplaces){
             thisvar = lu[[vnam]]
             if (plog){
                xylog           = "y"
-               badlog          = ! (thisvar %>% 0)
+               badlog          = ! (thisvar %gt% 0)
                thisvar[badlog] = NA
             }else{
                xylog           = ""

@@ -3443,7 +3443,7 @@
                       , plog     = FALSE
                       , plog.dbh = FALSE
                       , plt      = TRUE
-                      , qf.miss  = "ifelse(lai$ts %>% 0, gpp$ts/lai$ts, 0.)"
+                      , qf.miss  = "ifelse(lai$ts %gt% 0, gpp$ts/lai$ts, 0.)"
                       , pslwr    = NA_real_
                       , psupr    = NA_real_
                       )#end list

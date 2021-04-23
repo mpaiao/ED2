@@ -579,7 +579,7 @@ for (place in myplaces){
             thisvar = szpft[[vnam]][,ndbh+1,]
             if (plog){
                #----- Eliminate non-positive values in case it is a log plot. -------------#
-               badlog          = ! (thisvar %>% 0)
+               badlog          = ! (thisvar %gt% 0)
                thisvar[badlog] = NA
             }#end if
          }else{
@@ -718,7 +718,7 @@ for (place in myplaces){
          thisvar = szpft[[vnam]]
          if (plog){
             xylog           = "y"
-            badlog          = thisvar %<=% 0
+            badlog          = thisvar %le% 0
             thisvar[badlog] = NA
          }else{
             xylog           = ""
@@ -1090,7 +1090,7 @@ for (place in myplaces){
             thisvar = lu[[vnam]]
             if (plog){
                xylog           = "y"
-               badlog          = ! (thisvar %>% 0)
+               badlog          = ! (thisvar %gt% 0)
                thisvar[badlog] = NA
             }else{
                xylog           = ""
@@ -1984,7 +1984,7 @@ for (place in myplaces){
             #------------------------------------------------------------------------------#
             #     Discard cohorts that are near-recruit size.                              #
             #------------------------------------------------------------------------------#
-            keepww = popww %>% 0.
+            keepww = popww %gt% 0.
             ageww  = ageww[keepww]
             dbhww  = dbhww[keepww]
             pftww  = pftww[keepww]

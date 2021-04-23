@@ -351,7 +351,7 @@ read.q.files <<- function( datum
          mymont$MMEAN.VM.BAR.CO = pft$vm0[mymont$PFT]
       }#end if (! "SLA" %in% names(mymont))
       #----- Patch-level mean diel for canopy temperature and density may be missing. -----#
-      if (mean(c(mymont$QMEAN.CAN.TEMP.PA)) %==% 0.){
+      if (mean(c(mymont$QMEAN.CAN.TEMP.PA)) %eq% 0.){
          mymont$QMEAN.CAN.EXNER.PA = press2exner ( pres  = mymont$QMEAN.CAN.PRSS.PA )
          mymont$QMEAN.CAN.TEMP.PA  = extheta2temp( exner = mymont$QMEAN.CAN.EXNER.PA
                                                  , theta = mymont$QMEAN.CAN.THETA.PA
@@ -364,7 +364,7 @@ read.q.files <<- function( datum
                                                  , temp  = mymont$QMEAN.CAN.TEMP.PA
                                                  , qvpr  = mymont$QMEAN.CAN.SHV.PA
                                                  )#end idealdenssh
-      }#end if (mean(c(mymont$QMEAN.CAN.TEMP.PA)) %==% 0.)
+      }#end if (mean(c(mymont$QMEAN.CAN.TEMP.PA)) %eq% 0.)
       #------------------------------------------------------------------------------------#
 
 
@@ -1247,10 +1247,10 @@ read.q.files <<- function( datum
 
 
          #----- Flags to tell whether leaves and branchwood were resolvable. --------------#
-         leaf.okconow   = mymont$MMEAN.LEAF.HCAP.CO %>=% pft$veg.hcap.min[pftconow  ]
-         wood.okconow   = mymont$MMEAN.WOOD.HCAP.CO %>=% pft$veg.hcap.min[pftconow  ]
-         q.leaf.okconow = mymont$QMEAN.LEAF.HCAP.CO %>=% pft$veg.hcap.min[q.pftconow]
-         q.wood.okconow = mymont$QMEAN.WOOD.HCAP.CO %>=% pft$veg.hcap.min[q.pftconow]
+         leaf.okconow   = mymont$MMEAN.LEAF.HCAP.CO %ge% pft$veg.hcap.min[pftconow  ]
+         wood.okconow   = mymont$MMEAN.WOOD.HCAP.CO %ge% pft$veg.hcap.min[pftconow  ]
+         q.leaf.okconow = mymont$QMEAN.LEAF.HCAP.CO %ge% pft$veg.hcap.min[q.pftconow]
+         q.wood.okconow = mymont$QMEAN.WOOD.HCAP.CO %ge% pft$veg.hcap.min[q.pftconow]
          #---------------------------------------------------------------------------------#
 
 
@@ -3544,7 +3544,7 @@ read.q.files <<- function( datum
                                                          , w     = w.bleaf          [sel]
                                                          , na.rm = TRUE
                                                          )#end weighted.mean
-               szpft$llspan       [m,d,p] = ifelse( test = szpft$llspan[m,d,p] %>% 0
+               szpft$llspan       [m,d,p] = ifelse( test = szpft$llspan[m,d,p] %gt% 0
                                                   , yes  = 1./szpft$llspan[m,d,p]
                                                   , no   = NA_real_
                                                   )#end ifelse
@@ -4373,7 +4373,7 @@ read.q.files <<- function( datum
 #------------------------------------------------------------------------------------------#
 reweight.valid <<- function(x){
    xsum = sum(x,na.rm=TRUE)
-   if (xsum %==% 0){
+   if (xsum %eq% 0){
       ans = rep(NA_real_,times=length(x))
    }else{
       ans = x / xsum

@@ -1534,7 +1534,7 @@ for (p in loop.sites){
 
       #----- Create a quick filter for different u*. --------------------------------------#
       ustar.eco        = ifelse(obser$measured.ustar & measured.co2,obser$ustar,NA)
-      ust.measured.eco = outer(ustar.eco,obser$ust.filter,FUN='%>=%')
+      ust.measured.eco = outer(ustar.eco,obser$ust.filter,FUN='%ge%')
       #------------------------------------------------------------------------------------#
    }#end if
    #---------------------------------------------------------------------------------------#
@@ -8997,7 +8997,7 @@ if (plot.skill.taylor){
             #------------------------------------------------------------------------------#
             comp         = res[[iata]]$sim[[simul.key[1]]][[this.vnam]]
             sdev.obs.now = sqrt(comp$obs.moment[cc,d,nseason,2])
-            sel          = sel & sdev.obs.now %>% 0
+            sel          = sel & sdev.obs.now %gt% 0
             n.sel        = sum(sel)
             #------------------------------------------------------------------------------#
 
@@ -9537,7 +9537,7 @@ if (plot.skill.taylor){
                #----- Select fortnightly averages. ----------------------------------------#
                sel                = is.finite(obs[[this.fnmean]][,cc])
                sdev.obs.now       = sd(obs[[this.fnmean]][sel,cc],na.rm=TRUE)
-               sel                = sel & sdev.obs.now %>% 0.
+               sel                = sel & sdev.obs.now %gt% 0.
                this.obs           = obs[[this.fnmean]][sel,cc]
                this.mod           = mod[[this.fnmean]][sel,cc]
                percent.skill[p,d] = sum(sel)
@@ -9545,7 +9545,7 @@ if (plot.skill.taylor){
                #----- Select daily averages. ----------------------------------------------#
                sel                = is.finite(obs[[this.dmean]][,cc])
                sdev.obs.now       = sd(obs[[this.dmean]][sel,cc],na.rm=TRUE)
-               sel                = sel & sdev.obs.now %>% 0.
+               sel                = sel & sdev.obs.now %gt% 0.
                this.obs           = obs[[this.dmean]][sel,cc]
                this.mod           = mod[[this.dmean]][sel,cc]
                percent.skill[p,d] = sum(sel)
@@ -9558,7 +9558,7 @@ if (plot.skill.taylor){
                sel                = d.sel & s.sel & o.sel
                sel                = ifelse(is.na(sel),FALSE,sel)
                sdev.obs.now       = sd(obs[[this.vnam]][sel,cc],na.rm=TRUE)
-               sel                = sel & sdev.obs.now %>% 0.
+               sel                = sel & sdev.obs.now %gt% 0.
                this.obs           = obs[[this.vnam]][sel,cc]
                this.mod           = mod[[this.vnam]][sel,cc]
                if (sum(d.sel & s.sel) > 0){
@@ -9777,7 +9777,7 @@ if (plot.skill.taylor){
                for (p in sequence(nsites)){
                   iata      = sites$iata[p]
                   this.diel = diel.key[d]
-                  if (percent.skill[p,d] %>% 0){
+                  if (percent.skill[p,d] %gt% 0){
                      pair.now  = list.skill[[iata]][[this.diel]]
                   }else{
                      pair.now  = list(obs=c(NA,NA,NA),mod=c(NA,NA,NA))
@@ -10278,7 +10278,7 @@ if (plot.skill.taylor){
                sel                = ( is.finite(obs[[this.fnmean]][,cc])
                                     & this.vnam %in% v.inc )
                sdev.obs.now       = sd(obs[[this.fnmean]][sel,cc],na.rm=TRUE)
-               sel                = sel & sdev.obs.now %>% 0.
+               sel                = sel & sdev.obs.now %gt% 0.
                this.obs           = obs[[this.fnmean]][sel,cc]
                this.mod           = mod[[this.fnmean]][sel,cc]
                percent.skill[v,p] = sum(sel)
@@ -10287,7 +10287,7 @@ if (plot.skill.taylor){
                sel                = ( is.finite(obs[[this.dmean]][,cc])
                                     & this.vnam %in% v.inc )
                sdev.obs.now       = sd(obs[[this.dmean]][sel,cc],na.rm=TRUE)
-               sel                = sel & sdev.obs.now %>% 0.
+               sel                = sel & sdev.obs.now %gt% 0.
                this.obs           = obs[[this.dmean]][sel,cc]
                this.mod           = mod[[this.dmean]][sel,cc]
                percent.skill[v,p] = sum(sel)
@@ -10300,7 +10300,7 @@ if (plot.skill.taylor){
                sel                = d.sel & s.sel & o.sel
                sel                = ifelse(is.na(sel),FALSE,sel)
                sdev.obs.now       = sd(obs[[this.vnam]][sel,cc],na.rm=TRUE)
-               sel                = sel & sdev.obs.now %>% 0.
+               sel                = sel & sdev.obs.now %gt% 0.
                this.obs           = obs[[this.vnam]][sel,cc]
                this.mod           = mod[[this.vnam]][sel,cc]
                if (sum(d.sel & s.sel) > 0){
@@ -11048,7 +11048,7 @@ if (plot.soil.skill.taylor){
                   comp         = res[[iata]]$sim[[simul.key[1]]][[this.vnam]]
                   sdev.obs.now = sqrt(comp$obs.moment[cc,d,nseason,2])
                   sdev.mod.now = sqrt(comp$mod.moment[cc,d,nseason,2])
-                  sel          = sel & sdev.obs.now %>% 0
+                  sel          = sel & sdev.obs.now %gt% 0
                   n.sel        = sum(sel)
                   #------------------------------------------------------------------------#
 
@@ -12117,7 +12117,7 @@ if (make.summ.table){
 
 
             #------ Aggregate data to the total. ------------------------------------------#
-            if (df.now %>% 0 & o.sdev.now %>% 0){
+            if (df.now %gt% 0 & o.sdev.now %gt% 0){
                s.table$n      [v] = s.table$n      [v] + n.now
                s.table$df     [v] = s.table$df     [v] + df.now
                s.table$bias   [v] = s.table$bias   [v] + n.now  * bias.now

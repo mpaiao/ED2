@@ -370,16 +370,6 @@ try(unlockBinding("theme",envir),silent=TRUE)
 
 
 #------------------------------------------------------------------------------------------#
-#  SHADY BUSINESS...  We must unlock %>% from package forecast and replace by our          #
-# function.                                                                                #
-#------------------------------------------------------------------------------------------#
-envir = as.environment("package:forecast")
-try(unlockBinding("%>%",envir),silent=TRUE)
-#------------------------------------------------------------------------------------------#
-
-
-
-#------------------------------------------------------------------------------------------#
 #     Organise the files so we load them in the right order.                               #
 #------------------------------------------------------------------------------------------#
 at.first      = c("colour.utils.r","rconstants.r","globdims.r","unitlist.r")

@@ -1454,12 +1454,12 @@ if (reload.range && file.exists(rdata.range)){
                   #------ Bowen ratio: use the patch-level variable. ----------------------#
                   hflxca  = datum$patch$hflxca [[stamp]]
                   qwflxca = datum$patch$qwflxca[[stamp]]
-                  vnow    = ifelse(qwflxca %!=% 0, hflxca/qwflxca, NA)
+                  vnow    = ifelse(qwflxca %ne% 0, hflxca/qwflxca, NA)
                }else if(this.vnam %in% "tratio"){
                   #------ Bowen ratio: use the patch-level variable. ----------------------#
                   transp  = datum$patch$transp[[stamp]]
                   wflxca  = datum$patch$wflxca[[stamp]]
-                  vnow    = ifelse(wflxca %!=% 0, transp/wflxca, NA)
+                  vnow    = ifelse(wflxca %ne% 0, transp/wflxca, NA)
                }else if(this.patchvar){
                   #------ Use patch-level info if available... ----------------------------#
                   vnow = datum$patch [[this.vnam]][[stamp]]
@@ -1663,20 +1663,20 @@ for (p in loop.sites){
             szpft = NULL
             patch = NULL
          }else if (this.vnam %in% "bowen"){
-            emean = with(datum$emean,ifelse(qwflxca %!=% 0,hflxca/qwflxca,NA))
+            emean = with(datum$emean,ifelse(qwflxca %ne% 0,hflxca/qwflxca,NA))
             szpft = NULL
             patch = with( data = datum$patch
-                        , expr = mapply( FUN      = function(h,qw) ifelse(qw%!=%0,h/qw,NA)
+                        , expr = mapply( FUN      = function(h,qw) ifelse(qw%ne%0,h/qw,NA)
                                        , h        = hflxca
                                        , qw       = qwflxca
                                        , SIMPLIFY = FALSE
                                        )#end mapply
                         )#end with
          }else if (this.vnam %in% "tratio"){
-            emean = with(datum$emean,ifelse(wflxca %!=% 0,transp/wflxca,NA))
+            emean = with(datum$emean,ifelse(wflxca %ne% 0,transp/wflxca,NA))
             szpft = NULL
             patch = with( data = datum$patch
-                        , expr = mapply( FUN      = function(tp,w) ifelse(w%!=%0,tp/w,NA)
+                        , expr = mapply( FUN      = function(tp,w) ifelse(w%ne%0,tp/w,NA)
                                        , tp       = transp
                                        , w        = wflxca
                                        , SIMPLIFY = FALSE
@@ -4115,7 +4115,7 @@ if (plot.ym.patch){
                #     Update range.                                                         #
                #---------------------------------------------------------------------------#
                if (zlog){
-                  ym.patch     = ifelse(ym.patch %>% 0.0,ym.patch,NA)
+                  ym.patch     = ifelse(ym.patch %gt% 0.0,ym.patch,NA)
                   yrange[,p,s] = range(c(yrange[,p,s],ym.patch),finite=TRUE)
                }else if (this.vnam %in% "bowen"){
                   ym.patch     = pmax(bmn,pmin(bmx,ym.patch))
@@ -4560,7 +4560,7 @@ if (plot.zm.patch){
                   zm.patch   = model[[this.vnam]]$zm.age
                }#end if
                if (zlog){
-                  zm.patch       = ifelse(zm.patch %>% 0.0,zm.patch,NA)
+                  zm.patch       = ifelse(zm.patch %gt% 0.0,zm.patch,NA)
                }else if (this.vnam %in% "bowen"){
                   zm.patch       = pmax(bmn,pmin(bmx,zm.patch)) + 0. * zm.patch
                }else if (this.vnam %in% "tratio"){
@@ -5056,7 +5056,7 @@ if (plot.xyz.patch){
                #     Update range.                                                         #
                #---------------------------------------------------------------------------#
                if (zlog){
-                  mm.patch = ifelse(mm.patch %>% 0.0,mm.patch,NA)
+                  mm.patch = ifelse(mm.patch %gt% 0.0,mm.patch,NA)
                }else if (this.vnam %in% "bowen"){
                   mm.patch = pmax(bmn,pmin(bmx,mm.patch)) + 0. * mm.patch
                }else if (this.vnam %in% "tratio"){

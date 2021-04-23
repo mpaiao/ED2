@@ -114,7 +114,7 @@ rshort.bdown.weissnorman <<- function(rad.in,atm.prss,cosz
 
    #------ Make day and night flags. ------------------------------------------------------#
    ntimes = length(cosz)
-   day    = cosz %>% cosz.min
+   day    = cosz %gt% cosz.min
    night  = ! day
    #---------------------------------------------------------------------------------------#
 
@@ -324,7 +324,7 @@ rshort.bdown.clearidx <<- function(rad.in,atm.prss,cosz,apply.bx10.corr){
 
    #------ Make day and night flags. ------------------------------------------------------#
    ntimes = length(cosz)
-   day    = cosz %>% cosz.min
+   day    = cosz %gt% cosz.min
    night  = ! day
    #---------------------------------------------------------------------------------------#
 
@@ -528,7 +528,7 @@ rshort.bdown.sib <<- function(rad.in,atm.prss,cosz,apply.bx10.corr){
 
    #------ Make day and night flags. ------------------------------------------------------#
    ntimes = length(cosz)
-   day    = cosz %>% cosz.min
+   day    = cosz %gt% cosz.min
    night  = ! day
    #---------------------------------------------------------------------------------------#
 

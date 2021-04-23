@@ -610,8 +610,8 @@ for (p in sequence(nsites)){
          #---------------------------------------------------------------------------------#
          #      Eliminate cohorts that are too small for AGB and basal area estimates.     #
          #---------------------------------------------------------------------------------#
-         agbco = ifelse(dbhco %>=% this$dbh.min, agbco, 0.)
-         bsaco = ifelse(dbhco %>=% this$dbh.min, bsaco, 0.)
+         agbco = ifelse(dbhco %ge% this$dbh.min, agbco, 0.)
+         bsaco = ifelse(dbhco %ge% this$dbh.min, bsaco, 0.)
          #---------------------------------------------------------------------------------#
 
 

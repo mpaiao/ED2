@@ -667,10 +667,10 @@ soil.params <<- function( ntext    = NA_integer_
    #---------------------------------------------------------------------------------------#
    #     Make sure everything makes sense.  In case it doesn't, check.                     #
    #---------------------------------------------------------------------------------------#
-   cp.fine = all(mysoil$soilre  %<=% mysoil$soilcp )
-   wp.fine = all(mysoil$soilcp  %<=% mysoil$soilwp )
-   fc.fine = all(mysoil$soilwp  %<=% mysoil$sfldcap)
-   po.fine = all(mysoil$sfldcap %<=% mysoil$slmsts )
+   cp.fine = all(mysoil$soilre  %le% mysoil$soilcp )
+   wp.fine = all(mysoil$soilcp  %le% mysoil$soilwp )
+   fc.fine = all(mysoil$soilwp  %le% mysoil$sfldcap)
+   po.fine = all(mysoil$sfldcap %le% mysoil$slmsts )
    if (! (cp.fine && wp.fine && fc.fine && po.fine) ) browser()
    #---------------------------------------------------------------------------------------#
 
@@ -996,7 +996,7 @@ mpot2smoist <<- function(mpot,mysoil){
    #---------------------------------------------------------------------------------------#
    #----- Saxton and Rawls (2006). --------------------------------------------------------#
    smoist[sr06] = with( mysoil
-                      , ifelse( test = mpot[sr06] %<% slpotfc[sr06]
+                      , ifelse( test = mpot[sr06] %lt% slpotfc[sr06]
                               , yes  = sfldcap[sr06]
                                      * ( slpotfc[sr06] / mpot[sr06]  ) ^ (1. / slbs[sr06] )
                               , no   = sfldcap[sr06]

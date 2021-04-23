@@ -921,6 +921,7 @@ subroutine init_disturb_params
    use consts_coms  , only : erad                      & ! intent(in)
                            , pio180                    & ! intent(in)
                            , twothirds                 & ! intent(in)
+                           , onesixth                  & ! intent(in)
                            , t00                       & ! intent(in)
                            , day_sec                   & ! intent(in)
                            , tiny_num                  & ! intent(in)
@@ -1281,7 +1282,7 @@ subroutine init_disturb_params
    ! is based on a quick fit between surface moisture and VPD-based FDI, and may need to   !
    ! be optimised.                                                                         !
    !---------------------------------------------------------------------------------------!
-   fe_fdivpd_exp = 0.10
+   fe_fdivpd_exp = onesixth
    !---------------------------------------------------------------------------------------!
 
 
@@ -5433,7 +5434,7 @@ subroutine init_pft_mort_params()
    !                               , 1.2135                                                &
    !                               , is_tropical (:)                          )            &
    !                        , is_grass (:)                                                )
-   alpha_fdivpd(:) = 10.0
+   alpha_fdivpd(:) = 5.0
    !---------------------------------------------------------------------------------------!
 
 

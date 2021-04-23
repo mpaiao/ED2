@@ -80,7 +80,7 @@ Ft.ustar <<- function(ustar,cflxca,cflxst,nighttime,delta=0.01,nmin=10){
    while (iterate){
       b   = b + 1
       ttt     = t.test(x=sp.cflxca[[b]],y=sp.cflxst[[b]],alternative="greater")
-      iterate = b < nbins && ttt$p.value %>=% 0.01
+      iterate = b < nbins && ttt$p.value %ge% 0.01
    }#end for
    #---------------------------------------------------------------------------------------#
 
@@ -129,8 +129,8 @@ Ft.ustar <<- function(ustar,cflxca,cflxst,nighttime,delta=0.01,nmin=10){
 
 
       #---- Check whether the p.value is sufficiently large. ------------------------------#
-      success = (  ( p.ft %<=% p.lm && p.lm %>=% 0.10 && p.ft %>=% 0.10 )
-                || ( p.ft %>=% 0.50 && p.lm %>=% 0.50 ) )
+      success = (  ( p.ft %le% p.lm && p.lm %ge% 0.10 && p.ft %ge% 0.10 )
+                || ( p.ft %ge% 0.50 && p.lm %ge% 0.50 ) )
       iterate = ( ! success ) && (b < (nbins - 2))
       cat(" u* = ",ustar.breaks[b],";   p.lm    = ",sprintf("%.2f",p.lm)
                                   ,";   p.ft    = ",sprintf("%.2f",p.ft)

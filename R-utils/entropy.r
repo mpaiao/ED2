@@ -41,7 +41,7 @@ fxentropy.rshort <<- function(rsdnwd,rswnet,rsbeam){
    #----- Find derived radiation properties. ----------------------------------------------#
    rsdiff = 0. * rsdnwd + pmax(0.,rsdnwd - rsbeam)        # Diffuse radiation as residual
    rsupwd = pmax(0.,rsdnwd - rswnet)                      # Upward radiation
-   albedo = 0. * rsdnwd + ifelse( test = rsdnwd %>% 0.    # Albedo
+   albedo = 0. * rsdnwd + ifelse( test = rsdnwd %gt% 0.   # Albedo
                                 , yes  = rsupwd / rsdnwd  #
                                 , no   = 0.1              #
                                 )#end ifelse              #
@@ -56,7 +56,7 @@ fxentropy.rshort <<- function(rsdnwd,rswnet,rsbeam){
 
    #----- Entropy due to diffuse radiation. -----------------------------------------------#
    delta      = rsdiff / pi / radsol
-   rf.rsdiff  = ifelse( test = delta %>% 0.
+   rf.rsdiff  = ifelse( test = delta %gt% 0.
                       , yes  = ( w01.c0 * ( w01.c1 + w01.c2 * delta) * log(delta) + 1. )
                              * w01.rpfac
                       , no   = 0.

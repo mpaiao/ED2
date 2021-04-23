@@ -713,8 +713,8 @@ msize   = plotsize(proje=FALSE,paper=mpaper,extendfc="lon",extfactor=f.ext/2)
 #      Define some utility functions to determine derived patch variables.                 #
 #------------------------------------------------------------------------------------------#
 sum.soil.c.fun = function(fast,slow,struct) fast + slow + struct
-bowen.fun      = function(h,qw) ifelse(test = qw %!=% 0., yes = h/qw, no = NA)
-tratio.fun     = function(tp,w) ifelse(test =  w %!=% 0., yes = tp/w, no = NA)
+bowen.fun      = function(h,qw) ifelse(test = qw %ne% 0., yes = h/qw, no = NA)
+tratio.fun     = function(tp,w) ifelse(test =  w %ne% 0., yes = tp/w, no = NA)
 discard.fun    = function(x) x * NA
 #------------------------------------------------------------------------------------------#
 
@@ -741,7 +741,7 @@ layer.gpp.one.fun = function(dat,top,bot){
    #------ We can't process empty data frames. --------------------------------------------#
    if (nrow(dat) > 0){
       #----- Discard empty layers. --------------------------------------------------------#
-      dat = dat[dat$lai %>% 0,,drop=FALSE]
+      dat = dat[dat$lai %gt% 0,,drop=FALSE]
       #------------------------------------------------------------------------------------#
    }#end if (nrow(dat) > 0)
    #---------------------------------------------------------------------------------------#
@@ -800,7 +800,7 @@ layer.gpp.one.fun = function(dat,top,bot){
    #------ We can't process empty data frames. --------------------------------------------#
    if (nrow(dat) > 0){
       #----- Discard empty layers. --------------------------------------------------------#
-      dat = dat[dat$lai %>% 0,,drop=FALSE]
+      dat = dat[dat$lai %gt% 0,,drop=FALSE]
       #------------------------------------------------------------------------------------#
    }#end if (nrow(dat) > 0)
    #---------------------------------------------------------------------------------------#

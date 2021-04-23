@@ -178,7 +178,7 @@ nregexpr <<- function(pattern,text,...){
    }else{
       #---- Use gregexpr to identifiy the number of occurrences. --------------------------#
       ans = gregexpr(pattern=pattern,text=text,...)[[1]]
-      ans = length(ans[ans %>% 0])
+      ans = length(ans[ans %gt% 0])
       #------------------------------------------------------------------------------------#
    }#end if (length(text) > 1)
    #---------------------------------------------------------------------------------------#

@@ -191,7 +191,7 @@ size2bd <<- function(dbh,hgt,ipft){
 
 
    #----- Select allometric parameters based on the size. ---------------------------------#
-   bdead = ifelse( test = dbh %<% pft$dbh.crit[zpft]
+   bdead = ifelse( test = dbh %lt% pft$dbh.crit[zpft]
                  , yes  = pft$b1Bs.small[zpft] / C2B * size ^ pft$b2Bs.small[zpft]
                  , no   = pft$b1Bs.large[zpft] / C2B * size ^ pft$b2Bs.large[zpft]
                  )#end ifelse
@@ -249,8 +249,8 @@ size2de <<- function(dbh,hgt,ipft,dbh.by=0.1,...){
 
 
    #----- Identify cohorts with size that outside resolvable height range. ----------------#
-   large = (dbh*dbh*hgt) %>=% (pft$dbh.crit[zpft]*pft$dbh.crit[zpft]*pft$hgt.max[zpft])
-   small = (dbh*dbh*hgt) %<=% (pft$dbh.min [zpft]*pft$dbh.min [zpft]*pft$hgt.min[zpft])
+   large = (dbh*dbh*hgt) %ge% (pft$dbh.crit[zpft]*pft$dbh.crit[zpft]*pft$hgt.max[zpft])
+   small = (dbh*dbh*hgt) %le% (pft$dbh.min [zpft]*pft$dbh.min [zpft]*pft$hgt.min[zpft])
    heq   = ifelse( test = large
                  , yes  = pft$hgt.max[zpft]
                  , no   = ifelse(test = small,yes=pft$hgt.min[zpft],no=NA_real_)

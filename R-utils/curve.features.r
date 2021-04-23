@@ -20,9 +20,9 @@ curve.features <<- function( x
                            ){
    #----- Make sure span is odd. ----------------------------------------------------------#
    span = as.integer(span)
-   if ( ! ((span %% 2) %==% 1 && span %>=% 3L)){
+   if ( ! ((span %% 2) %eq% 1 && span %ge% 3L)){
       stop(paste0(" Invalid span (",span,")! It must be an odd number (3 or greater)!"))
-   }#end if ( ! ((span %% 2) %==% 1))
+   }#end if ( ! ((span %% 2) %eq% 1))
    #---------------------------------------------------------------------------------------#
 
 
@@ -41,7 +41,7 @@ curve.features <<- function( x
    #---------------------------------------------------------------------------------------#
    #     Make sure that x can be normalised by the given scale.                            #
    #---------------------------------------------------------------------------------------#
-   if (xscale %>% 0.){
+   if (xscale %gt% 0.){
       x = x / xscale
    }else{
       stop(paste0("Invalid xscale (",xscale,").  It must be positive."))
@@ -57,12 +57,12 @@ curve.features <<- function( x
    im1     = pmax(i-1, 1)
    #----- First derivative. ---------------------------------------------------------------#
    xp      = x[ip1] - x[im1]
-   xp      = ifelse(test=abs(xp) %>=% toler, yes=xp, no = 0.)
+   xp      = ifelse(test=abs(xp) %ge% toler, yes=xp, no = 0.)
    #----- Second derivative. --------------------------------------------------------------#
    xpp     = x[ip1] - 2.*x[i] + x[im1]
    xpp[1]  = xpp[2]
    xpp[nx] = xpp[nx-1] 
-   xpp     = ifelse(test=abs(xpp) %>=% toler2, yes=xpp, no = 0.)
+   xpp     = ifelse(test=abs(xpp) %ge% toler2, yes=xpp, no = 0.)
    #---------------------------------------------------------------------------------------#
 
 
