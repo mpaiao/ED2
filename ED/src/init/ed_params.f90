@@ -921,7 +921,6 @@ subroutine init_disturb_params
    use consts_coms  , only : erad                      & ! intent(in)
                            , pio180                    & ! intent(in)
                            , twothirds                 & ! intent(in)
-                           , onesixth                  & ! intent(in)
                            , t00                       & ! intent(in)
                            , day_sec                   & ! intent(in)
                            , tiny_num                  & ! intent(in)
@@ -1282,7 +1281,7 @@ subroutine init_disturb_params
    ! is based on a quick fit between surface moisture and VPD-based FDI, and may need to   !
    ! be optimised.                                                                         !
    !---------------------------------------------------------------------------------------!
-   fe_fdivpd_exp = onesixth
+   fe_fdivpd_exp = 0.10
    !---------------------------------------------------------------------------------------!
 
 
