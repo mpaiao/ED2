@@ -1009,11 +1009,11 @@ subroutine init_disturb_params
    ! index (T10) to compute fuel moisture.                                                 !
    !                                                                                       !
    ! References:                                                                           !
-   ! 
-   ! Druke  M, Forkel M, von Bloh W, Sakschewski B, Cardoso M, Bustamante M, Kurths J,
-   !    Thonicke K. 2019. Improving the LPJmL4-SPITFIRE vegetation--fire model for South
-   !    America using satellite data. Geosci. Model Dev., 12: 5029-5054.
-   !    doi:10.5194/gmd-12-5029-2019 (D19).
+   !                                                                                       !
+   ! Druke  M, Forkel M, von Bloh W, Sakschewski B, Cardoso M, Bustamante M, Kurths J,     !
+   !    Thonicke K. 2019. Improving the LPJmL4-SPITFIRE vegetation--fire model for South   !
+   !    America using satellite data. Geosci. Model Dev., 12: 5029-5054.                   !
+   !    doi:10.5194/gmd-12-5029-2019 (D19).                                                !
    !                                                                                       !
    ! Thonicke K, Spessa A, Prentice IC, Harrison SP, Dong L, Carmona-Moreno C. 2010. The   !
    !    influence of vegetation, fire spread and fire behaviour on biomass burning and     !
@@ -1148,10 +1148,10 @@ subroutine init_disturb_params
    !    Termination parameters.                                                            !
    !---------------------------------------------------------------------------------------!
    !------ Lower bound for fire intensity              [       W/m] -----------------------!
-   ft_fint_lwr   = 50000.
+   ft_fint_lwr   =  20000.
    !------ Upper bound for fire intensity              [       W/m] -----------------------!
-   ft_fint_upr   = 90000.
-   !------ Exponent for precipitation fuel build up    [       ---] -----------------------!
+   ft_fint_upr   = 100000.
+   !------ Exponent for fire intensity fuel build up   [       ---] -----------------------!
    ft_fint_exp   = 1.5
    !------ Exponent for fragmentation effect           [       ---] -----------------------!
    ft_frag_exp   = 1.81
@@ -1170,7 +1170,7 @@ subroutine init_disturb_params
    !------  Upper bound for FDI effect on termination  [       ---] -----------------------!
    ft_fdi_upr    = 0.50
    !------  Exponent for FDI effect on termination     [       ---] -----------------------!
-   ft_fdi_exp    = 0.43
+   ft_fdi_exp    = 0.25
    !---------------------------------------------------------------------------------------!
 
 
@@ -1281,7 +1281,7 @@ subroutine init_disturb_params
    ! is based on a quick fit between surface moisture and VPD-based FDI, and may need to   !
    ! be optimised.                                                                         !
    !---------------------------------------------------------------------------------------!
-   fe_fdivpd_exp = 0.10
+   fe_fdivpd_exp = 0.100
    !---------------------------------------------------------------------------------------!
 
 
@@ -5428,12 +5428,7 @@ subroutine init_pft_mort_params()
    !    America using satellite data. Geosci. Model Dev., 12: 5029-5054.                   !
    !    doi:10.5194/gmd-12-5029-2019 (D19).                                                !
    !---------------------------------------------------------------------------------------!
-   ! alpha_fdivpd(:) = merge( 1.1299                                                       &
-   !                        , merge( merge( 1.2135, 22.4181, is_savannah(:) )              &
-   !                               , 1.2135                                                &
-   !                               , is_tropical (:)                          )            &
-   !                        , is_grass (:)                                                )
-   alpha_fdivpd(:) = 5.0
+   alpha_fdivpd(:) = 4.0
    !---------------------------------------------------------------------------------------!
 
 

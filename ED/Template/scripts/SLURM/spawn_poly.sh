@@ -1091,6 +1091,35 @@ do
    #---------------------------------------------------------------------------------------#
 
 
+   #---------------------------------------------------------------------------------------#
+   #      Run the small R script to generate specific observation times.                   #
+   #---------------------------------------------------------------------------------------#
+   /bin/rm -f ${here}/${polyname}/gen_obstimes.r
+   /bin/cp -f ${here}/Template/gen_obstimes.r ${here}/${polyname}/gen_obstimes.r
+   obstimes="${here}/${polyname}/gen_obstimes.r"
+   outtimes="${here}/${polyname}/out_obstimes.txt"
+   sed -i~ s@thispoly@${polyname}@g           ${obstimes}
+   sed -i~ s@thisqueue@${queue}@g             ${obstimes}
+   sed -i~ s@pathhere@${here}@g               ${obstimes}
+   sed -i~ s@paththere@${here}@g              ${obstimes}
+   sed -i~ s@thisyeara@${yeara}@g             ${obstimes}
+   sed -i~ s@thismontha@${montha}@g           ${obstimes}
+   sed -i~ s@thisdatea@${datea}@g             ${obstimes}
+   sed -i~ s@thistimea@${timea}@g             ${obstimes}
+   sed -i~ s@thisyearz@${yearz}@g             ${obstimes}
+   sed -i~ s@thismonthz@${monthz}@g           ${obstimes}
+   sed -i~ s@thisdatez@${datez}@g             ${obstimes}
+   sed -i~ s@thistimez@${timez}@g             ${obstimes}
+   sed -i~ s@thislon@${polylon}@g             ${obstimes}
+   sed -i~ s@thislat@${polylat}@g             ${obstimes}
+   R CMD BATCH --no-save --no-restore ${obstimes} ${outtimes}
+   while [[ ! -s ${here}/${polyname}/${polyname}_obstimes.txt ]]
+   do
+      sleep 0.2
+   done
+   #---------------------------------------------------------------------------------------#
+
+
 
    #---------------------------------------------------------------------------------------#
    #    To ensure simulations can be requeued, we no longer set RUNTYPE to INITIAL or      #

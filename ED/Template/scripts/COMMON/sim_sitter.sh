@@ -46,6 +46,7 @@ sitter_memory=0                    # Requested memory (Mb) for run_sitter.sh
 lhisto_queue="myqueue"             # Queue to run last_histo.sh
 lhisto_runtime="mytime"            # Run time request for last_histo.sh
 lhisto_memory=0                    # Requested memory (Mb) for last_histo.sh
+transfer_full=false                # Flag to decide between full and partial transfer
 epost_queue="myqueue"              # Queue to run epost.sh
 epost_runtime="mytime"             # Run time request for epost.sh
 epost_memory=0                     # Requested memory (Mb) for epost.sh
@@ -281,26 +282,27 @@ esac
 #     IMPORTANT: make sure "there" substitutions precede "here", otherwise the script will #
 #                not work as intended.                                                     #
 #------------------------------------------------------------------------------------------#
-sed -i~ s@"here=\"\""@"here=\"${here}\""@g                         ${run_sitter}
-sed -i~ s@"recipient=\"\""@"recipient=\"${email}\""@g              ${run_sitter}
-sed -i~ s@"frqemail=\"\""@"frqemail=${frqemail}"@g                 ${run_sitter}
-sed -i~ s@"delay1st_min=\"\""@"delay1st_min=${delay1st_min}"@g     ${run_sitter}
-sed -i~ s@"wait_minutes=\"\""@"wait_minutes=${wait_minutes}"@g     ${run_sitter}
-sed -i~ s@"frqpost=\"\""@"frqpost=${frqpost}"@g                    ${run_sitter}
-sed -i~ s@"frqtouch=\"\""@"frqtouch=${frqtouch}"@g                 ${run_sitter}
-sed -i~ s@"here=\"\""@"here=\"${here}\""@g                         ${epost}
-sed -i~ s@"global_queue=\"\""@"global_queue=\"${epost_queue}\""@g  ${epost}
-sed -i~ s@"rscript=\"\""@"rscript=\"${rscript}\""@g                ${epost}
-sed -i~ s@"submit=false"@"submit=true"@g                           ${epost}
-sed -i~ s@"reservation=\"\""@"reservation=\"${epost_reserve}\""@g  ${epost}
-sed -i~ s@"sim_memory=0"@"sim_memory=${epost_memory}"@g            ${epost}
-sed -i~ s@"runtime=\"00:00:00\""@"runtime=\"${epost_runtime}\""@g  ${epost}
-sed -i~ s@"overcommit=\"\""@"overcommit=${overcommit}"@g           ${epost}
-sed -i~ s@"there=\"\""@"there=\"${there}\""@g                      ${transfer}
-sed -i~ s@"here=\"\""@"here=\"${here}\""@g                         ${transfer}
-sed -i~ s@"here=\"\""@"here=\"${here}\""@g                         ${last_histo}
-sed -i~ s@"checkhourly=\"\""@"checkhourly=\"${checkhourly}\""@g    ${last_histo}
-sed -i~ s@"checkstatus=\"\""@"checkstatus=\"${checkstatus}\""@g    ${last_histo}
+sed -i~ s@"here=\"\""@"here=\"${here}\""@g                            ${run_sitter}
+sed -i~ s@"recipient=\"\""@"recipient=\"${email}\""@g                 ${run_sitter}
+sed -i~ s@"frqemail=\"\""@"frqemail=${frqemail}"@g                    ${run_sitter}
+sed -i~ s@"delay1st_min=\"\""@"delay1st_min=${delay1st_min}"@g        ${run_sitter}
+sed -i~ s@"wait_minutes=\"\""@"wait_minutes=${wait_minutes}"@g        ${run_sitter}
+sed -i~ s@"frqpost=\"\""@"frqpost=${frqpost}"@g                       ${run_sitter}
+sed -i~ s@"frqtouch=\"\""@"frqtouch=${frqtouch}"@g                    ${run_sitter}
+sed -i~ s@"here=\"\""@"here=\"${here}\""@g                            ${epost}
+sed -i~ s@"global_queue=\"\""@"global_queue=\"${epost_queue}\""@g     ${epost}
+sed -i~ s@"rscript=\"\""@"rscript=\"${rscript}\""@g                   ${epost}
+sed -i~ s@"submit=false"@"submit=true"@g                              ${epost}
+sed -i~ s@"reservation=\"\""@"reservation=\"${epost_reserve}\""@g     ${epost}
+sed -i~ s@"sim_memory=0"@"sim_memory=${epost_memory}"@g               ${epost}
+sed -i~ s@"runtime=\"00:00:00\""@"runtime=\"${epost_runtime}\""@g     ${epost}
+sed -i~ s@"overcommit=\"\""@"overcommit=${overcommit}"@g              ${epost}
+sed -i~ s@"there=\"\""@"there=\"${there}\""@g                         ${transfer}
+sed -i~ s@"here=\"\""@"here=\"${here}\""@g                            ${transfer}
+sed -i~ s@"full_transfer=boolean"@"full_transfer=${transfer_full}"@g  ${transfer}
+sed -i~ s@"here=\"\""@"here=\"${here}\""@g                            ${last_histo}
+sed -i~ s@"checkhourly=\"\""@"checkhourly=\"${checkhourly}\""@g       ${last_histo}
+sed -i~ s@"checkstatus=\"\""@"checkstatus=\"${checkstatus}\""@g       ${last_histo}
 #------------------------------------------------------------------------------------------#
 
 

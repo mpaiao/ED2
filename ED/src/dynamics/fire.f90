@@ -840,7 +840,7 @@ module fire
       real                          :: light_above
       !----- Local parameters. ------------------------------------------------------------!
       character(len=22) , parameter :: firefile = 'firedanger_details.txt'
-      logical           , parameter :: printout = .true.
+      logical           , parameter :: printout = .false.
       !----- Locally saved variables. -----------------------------------------------------!
       logical           , save      :: first_time = .true.
       real              , save      :: wgt_running
@@ -1160,7 +1160,7 @@ module fire
       real              , external  :: bpow01         ! Power funct. for [0-1]    [    ---]
       !----- Local parameters. ------------------------------------------------------------!
       character(len=21) , parameter :: firefile = 'emberfire_details.txt'
-      logical           , parameter :: printout = .true.
+      logical           , parameter :: printout = .false.
       !----- Locally saved variables. -----------------------------------------------------!
       logical           , save      :: first_time = .true. ! First time calling routine
       real              , save      :: ndfirei             ! 1. / ndfire
@@ -1794,7 +1794,7 @@ module fire
       real              , external  :: cbrt           ! Cube root                 [    ---]
       !----- Local parameters. ------------------------------------------------------------!
       character(len=23) , parameter :: firefile = 'firestarter_details.txt'
-      logical           , parameter :: printout = .true.
+      logical           , parameter :: printout = .false.
       !----- Locally saved variables. -----------------------------------------------------!
       logical           , save      :: first_time = .true. ! First time calling   [    T|F]
       real              , save      :: ndfirei             ! 1./ndfire            [     --]

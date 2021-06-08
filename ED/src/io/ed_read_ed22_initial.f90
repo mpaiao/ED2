@@ -918,8 +918,23 @@ subroutine read_ed22_initial_file
          !---------------------------------------------------------------------------------!
          last_ipa(:) = 0
          init_patches: do gpa=1,npatches
-            !----- Set counters and pointers. ---------------------------------------------!
-            isi            =  psite_id(gpa)
+            !------------------------------------------------------------------------------!
+            !    Try setting the site.  If the site had a tiny area, this patch may be     !
+            ! orphaned, in which case we skip it.                                          !
+            !------------------------------------------------------------------------------!
+            if (psite_id(gpa) == undef_integer) then
+               !----- Invalid patch, skip it. ---------------------------------------------!
+               cycle init_patches
+               !---------------------------------------------------------------------------!
+            else
+               !----- Valid patch, assign site. -------------------------------------------!
+               isi =  psite_id(gpa)
+               !---------------------------------------------------------------------------!
+            end if
+            !------------------------------------------------------------------------------!
+
+
+            !----- Set other counters and pointers. ---------------------------------------!
             ipa            =  last_ipa(isi) + 1
             ppatch_id(gpa) =  ipa
             csite          => cpoly%site (isi)
@@ -1014,9 +1029,24 @@ subroutine read_ed22_initial_file
          !---------------------------------------------------------------------------------!
          last_ico(:) = 0
          init_cohorts: do gco=1,ncohorts
-            !----- Set counters and pointers. ---------------------------------------------!
-            isi    =  csite_id (gco)
-            gpa    =  cpatch_id(gco)
+            !------------------------------------------------------------------------------!
+            !    Try setting the site and patch.  If the site or the patch had a tiny      !
+            ! area, this cohort may be orphaned, in which case we skip it.                 !
+            !------------------------------------------------------------------------------!
+            if (csite_id(gco) == undef_integer .or. cpatch_id(gco) == undef_integer) then
+               !----- Invalid cohort, skip it. --------------------------------------------!
+               cycle init_cohorts
+               !---------------------------------------------------------------------------!
+            else
+               !----- Valid cohort, assign site and global patch. -------------------------!
+               isi = csite_id (gco)
+               gpa = cpatch_id(gco)
+               !---------------------------------------------------------------------------!
+            end if
+            !------------------------------------------------------------------------------!
+
+
+            !----- Set other counters and pointers. ---------------------------------------!
             ipa    =  ppatch_id(gpa)
             ico    =  last_ico (gpa) + 1
             csite  => cpoly%site(isi)

@@ -13,6 +13,8 @@ joborder="${here}/joborder.txt"
 #----- Command to be used for rsync. ------------------------------------------------------#
 frsync="rsync -Putq  --links --copy-unsafe-links"
 rrsync="rsync -Prutq --links --copy-unsafe-links"
+#----- Decide between copying everything or just some key files. --------------------------#
+full_transfer=boolean
 #------------------------------------------------------------------------------------------#
 
 
@@ -50,10 +52,11 @@ rrsync="rsync -Prutq --links --copy-unsafe-links"
 #------------------------------------------------------------------------------------------#
 #       First check that the main path and e-mail have been set.  If not, don't run.       #
 #------------------------------------------------------------------------------------------#
-if [ "x${here}" == "x" ] || [ "x${there}" == "x" ]
+if [[ "x${here}" == "x" ]] || [[ "x${there}" == "x" ]] ||
+   [[ "x${full_transfer}" == "xboolean" ]]
 then
    echo " You must set some variables before running the script:"
-   echo " Check variables \"here\" and \"there\"!"
+   echo " Check variables \"here\", \"there\", and \"full_transfer}!"
    exit 99
 fi
 #------------------------------------------------------------------------------------------#
@@ -80,7 +83,7 @@ fi
 #------------------------------------------------------------------------------------------#
 #   Create the output path in case it isn't there.                                         #
 #------------------------------------------------------------------------------------------#
-if [ ! -s ${there} ]
+if [[ ! -s ${there} ]]
 then
    echo "Create backup path: ${there}."
    mkdir -p ${there}
@@ -93,7 +96,7 @@ fi
 #     First, copy the files at the basal directory.                                        #
 #------------------------------------------------------------------------------------------#
 echo " + Copy files from the main directory."
-${frsync} ${here}/* ${there}
+${frsync} ${here}/*          ${there}
 #------------------------------------------------------------------------------------------#
 
 
@@ -122,7 +125,7 @@ let npolys=$(wc -l ${joborder} | awk '{print $1 }')-3
 #     Loop over all polygons.                                                              #
 #------------------------------------------------------------------------------------------#
 ff=0
-while [ ${ff} -lt ${npolys} ]
+while [[ ${ff} -lt ${npolys} ]]
 do
    let ff=${ff}+1
    let line=${ff}+3
@@ -131,13 +134,13 @@ do
    #---------------------------------------------------------------------------------------#
    #    Format count.                                                                      #
    #---------------------------------------------------------------------------------------#
-   if   [ ${npolys} -ge 10   ] && [ ${npolys} -lt 100   ]
+   if   [[ ${npolys} -ge 10   ]] && [[ ${npolys} -lt 100   ]]
    then
       ffout=$(printf '%2.2i' ${ff})
-   elif [ ${npolys} -ge 100  ] && [ ${npolys} -lt 1000  ]
+   elif [[ ${npolys} -ge 100  ]] && [[ ${npolys} -lt 1000  ]]
    then
       ffout=$(printf '%3.3i' ${ff})
-   elif [ ${npolys} -ge 100  ] && [ ${npolys} -lt 10000 ]
+   elif [[ ${npolys} -ge 100  ]] && [[ ${npolys} -lt 10000 ]]
    then
       ffout=$(printf '%4.4i' ${ff})
    else
@@ -280,17 +283,41 @@ do
 
 
    #----- Check whether the directories exist or not, and stop the script if they do. -----#
-   if [ -s ${here}/${polyname} ]
+   if [[ -s ${here}/${polyname} ]]
    then
-      echo -n " + Copy ${polyname} (${ffout})."
+      echo -n " + Copy ${polyname} (${ffout})... "
       
-      #----- Sync this directory. ---------------------------------------------------------#
-      ${rrsync} ${here}/${polyname} ${there}
       #------------------------------------------------------------------------------------#
+      #      Sync this directory.  Decide between full or partial transfer.                #
+      #------------------------------------------------------------------------------------#
+      if ${full_transfer}
+      then
+         #----- Copy the entire directory. ------------------------------------------------#
+         ${rrsync} ${here}/${polyname} ${there}
+         #---------------------------------------------------------------------------------#
+      else
+         #----- Copy the base directory and the R output. ---------------------------------#
+         mkdir -p ${there}/${polyname}
+         mkdir -p ${there}/${polyname}/histo
+         ${frsync} ${here}/${polyname}/*           ${there}/${polyname}
+         ${rrsync} ${here}/${polyname}/rdata_month ${there}/${polyname}
+         #---------------------------------------------------------------------------------#
 
+
+         #----- Copy the first and last history file. -------------------------------------#
+         ahisto="${polyname}-S-${yeara}-${montha}-${datea}-${timea}00-g01.h5"
+         zhisto="${polyname}-S-${yearz}-${monthz}-${datez}-${timez}00-g01.h5"
+         ${frsync} ${here}/${polyname}/histo/${ahisto}  ${there}/${polyname}/histo
+         ${frsync} ${here}/${polyname}/histo/${zhisto}  ${there}/${polyname}/histo
+         #---------------------------------------------------------------------------------#
+      fi
+      #------------------------------------------------------------------------------------#
       echo "Done!"
+
    else
+      #----- Directory is not found. ------------------------------------------------------#
       echo " + Skip ${polyname} (${ffout})."
+      #------------------------------------------------------------------------------------#
    fi
    #---------------------------------------------------------------------------------------#
 done

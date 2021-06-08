@@ -71,6 +71,10 @@ reservation=""                # Reservation
 overcommit=""                 # Ignore maximum task limit for partition? (true/false)
 partial=false                 # Partial submission (false will ignore polya and npartial
                               #    and send all polygons.
+skip_end=true                 # Skip processing in case the R script has already loaded
+                              #    all files through the end of the simulation
+                              #    (true/false).  This is only used for "monthly"-based
+                              #    scripts (those marked with (*) in the table below).
 polya=501                     # First polygon to submit
 npartial=100                  # Maximum number of polygons to include in this bundle
                               #    (actual number will be adjusted for total number of 
@@ -88,19 +92,20 @@ runtime="00:00:00"            # Simulation time in hours.  If zero, then it will
 #------------------------------------------------------------------------------------------#
 #     Which scripts to run.                                                                #
 #                                                                                          #
-#   - read_monthly.r  - This reads the monthly mean files (results can then be used for    #
-#                       plot_monthly.r, plot_yearly.r, and others, but it doesn't plot     #
+#   - read_monthly.r  - (*) This reads the monthly mean files (results can then be used    #
+#                       for plot_monthly.r, plot_yearly.r, and others, but it doesn't plot #
 #                       anything.)                                                         #
-#   - yearly_ascii.r  - This creates three ascii (csv) files with annual averages of       #
+#   - yearly_ascii.r  - (*) This creates three ascii (csv) files with annual averages of   #
 #                       various variables.  It doesn't have all possible variables as it   #
 #                       is intended to simplify the output for learning purposes.          #
-#   - monthly_ascii.r - This creates three ascii (csv) files with annual averages of       #
+#   - monthly_ascii.r - (*) This creates three ascii (csv) files with annual averages of   #
 #                       various variables.  It doesn't have all possible variables as it   #
 #                       is intended to simplify the output for learning purposes.          #
-#   - plot_monthly.r  - This creates several plots based on the monthly mean output.       #
-#   - plot_yearly.r   - This creates plots with year time series.                          #
-#   - plot_ycomp.r    - This creates yearly comparisons based on the monthly mean output.  #
-#   - plot_povray.r   - This creates yearly plots of the polygon using POV-Ray.            #
+#   - plot_monthly.r  - (*) This creates several plots based on the monthly mean output.   #
+#   - plot_yearly.r   - (*) This creates plots with year time series.                      #
+#   - plot_ycomp.r    - (*) This creates yearly comparisons based on the monthly mean      #
+#                       output.                                                            #
+#   - plot_povray.r   - (*) This creates yearly plots of the polygon using POV-Ray.        #
 #   - plot_rk4.r      - This creates plots from the detailed output for Runge-Kutta.       #
 #                       (patch-level only).                                                #
 #   - plot_photo.r    - This creates plots from the detailed output for Farquhar-Leuning.  #
@@ -910,6 +915,21 @@ do
    #---------------------------------------------------------------------------------------#
 
 
+
+   #------ Last month and year for monthly-based scripts. ---------------------------------#
+   if [[ ${monthz} -eq 1 ]]
+   then
+      rm_monthz=12
+      let rm_yearz=${yearz}-1
+   else
+      let rm_monthz=${monthz}-1
+      rm_yearz=${yearz}
+   fi
+   #------ Update the time. ---------------------------------------------------------------#
+   let rm_whenz=12*${rm_yearz}+${rm_monthz}
+   #---------------------------------------------------------------------------------------#
+
+
    #----- Find time and minute. -----------------------------------------------------------#
    houra=$(echo ${timea}  | awk '{print substr($1,1,2)}')
    minua=$(echo ${timea}  | awk '{print substr($1,3,2)}')
@@ -1067,17 +1087,6 @@ do
 
 
 
-   #----- Print a banner. -----------------------------------------------------------------#
-   if [[ ${rscript} == "plot_census.r" ]] && [[ ${subcens} -eq 0 ]]
-   then
-      echo "${ffout} - Skipping submission of ${rscript} for polygon: ${polyname}..."
-   else
-      echo "${ffout} - Copying script ${rscript} to polygon: ${polyname}..."
-   fi
-   #---------------------------------------------------------------------------------------#
-
-
-
    #---------------------------------------------------------------------------------------#
    #     Set up the time and output variables according to the script.                     #
    #---------------------------------------------------------------------------------------#
@@ -1154,6 +1163,53 @@ do
       thismonthz=${monthz}
       thisdatea=${datea}
       #------------------------------------------------------------------------------------#
+
+
+
+      #----- Check whether or not to submit the task. -------------------------------------#
+      if [[ ${rscript} == "plot_census.r" ]] && [[ ${subcens} -eq 0 ]]
+      then
+         #---- No need to submit the job if plot_census.r and place doesn't have census. --#
+         submit_now=false
+         #---------------------------------------------------------------------------------#
+      elif ${skip_end}
+      then
+         status="${here}/${polyname}/rdata_month/status_${polyname}.txt"
+         if [[ -s ${status} ]]
+         then
+            #----- Retrieve current status of the post-processing. ------------------------#
+            st_yearz=$(cat ${status}  | awk '{print $1}')
+            st_monthz=$(cat ${status} | awk '{print $2}')
+            let st_whenz=12*${st_yearz}+${st_monthz}
+            #------------------------------------------------------------------------------#
+
+            #------------------------------------------------------------------------------#
+            #    Compare the processed time with the last time needed for processing.      #
+            #------------------------------------------------------------------------------#
+            if [[ ${st_whenz} -ge ${rm_whenz} ]]
+            then
+               #----- Skip submission because it has reached the end. ---------------------#
+               submit_now=false
+               #---------------------------------------------------------------------------#
+            else
+               #----- Run script as it has not reached the end yet. -----------------------#
+               submit_now=true
+               #---------------------------------------------------------------------------#
+            fi
+            #------------------------------------------------------------------------------#
+
+         else
+            #----- File not find, run the script. -----------------------------------------#
+            submit_now=true
+            #------------------------------------------------------------------------------#
+         fi
+         #---------------------------------------------------------------------------------#
+      else
+         #----- Submit job. ---------------------------------------------------------------#
+         submit_now=true
+         #---------------------------------------------------------------------------------#
+      fi
+      #------------------------------------------------------------------------------------#
       ;;
    plot_eval_ed.r)
       #------------------------------------------------------------------------------------#
@@ -1201,6 +1257,12 @@ do
       thismonthz=12
       thisdatea=${datea}
       #------------------------------------------------------------------------------------#
+
+
+
+      #----- Assume this should be submitted. ---------------------------------------------#
+      submit_now=true
+      #------------------------------------------------------------------------------------#
       ;;
 
    plot_budget.r|plot_rk4.r|plot_rk4pc.r|plot_photo.r|reject_ed.r)
@@ -1227,6 +1289,12 @@ do
       thismonthz=${monthz}
       let thisdatea=${datea}+1
       #------------------------------------------------------------------------------------#
+
+
+
+      #----- Assume this should be submitted. ---------------------------------------------#
+      submit_now=true
+      #------------------------------------------------------------------------------------#
       ;;
 
 
@@ -1252,6 +1320,12 @@ do
       thismonthz=${monthz}
       thisdatea=${datea}
       #------------------------------------------------------------------------------------#
+
+
+
+      #----- Assume this should be submitted. ---------------------------------------------#
+      submit_now=true
+      #------------------------------------------------------------------------------------#
       ;;
    plot_daily.r)
       #------------------------------------------------------------------------------------#
@@ -1274,6 +1348,12 @@ do
       thismontha=${montha}
       thismonthz=${monthz}
       thisdatea=${datea}
+      #------------------------------------------------------------------------------------#
+
+
+
+      #----- Assume this should be submitted. ---------------------------------------------#
+      submit_now=true
       #------------------------------------------------------------------------------------#
       ;;
 
@@ -1298,6 +1378,12 @@ do
       thismontha=${montha}
       thismonthz=${monthz}
       thisdatea=${datea}
+      #------------------------------------------------------------------------------------#
+
+
+
+      #----- Assume this should be submitted. ---------------------------------------------#
+      submit_now=true
       #------------------------------------------------------------------------------------#
       ;;
    esac
@@ -1515,9 +1601,16 @@ do
 
 
 
-   #----- Make sure this is not the census script for a site we don't have census. --------#
-   if [[ ${rscript} != "plot_census.r" ]] || [[ ${subcens} -ne 0 ]]
+   #---------------------------------------------------------------------------------------#
+   #     Decide whether or not to submit task.                                             #
+   #---------------------------------------------------------------------------------------#
+   if ${submit_now}
    then
+      #----- Submit script. ---------------------------------------------------------------#
+      echo "${ffout} - Copying script ${rscript} to polygon: ${polyname}..."
+      #------------------------------------------------------------------------------------#
+
+
       #----- Update the list of scripts to be included in the batch. ----------------------#
       let n_submit=${n_submit}+1
       #------------------------------------------------------------------------------------#
@@ -1537,7 +1630,7 @@ do
          srun="${srun} --output=\${here}/${polyname}/${epoststo}"
          srun="${srun} --error=\${here}/${polyname}/${epostste}"
          echo "${srun} ${epostsh} &" >> ${sbatch}
-         #------------------------------------------------------------------------------------#
+         #---------------------------------------------------------------------------------#
          ;;
       CANNON)
 
@@ -1547,6 +1640,10 @@ do
          #---------------------------------------------------------------------------------#
          ;;
       esac
+      #------------------------------------------------------------------------------------#
+   else
+      #----- Skip submission. -------------------------------------------------------------#
+      echo "${ffout} - Skipping submission of ${rscript} for polygon: ${polyname}..."
       #------------------------------------------------------------------------------------#
    fi
    #---------------------------------------------------------------------------------------#
