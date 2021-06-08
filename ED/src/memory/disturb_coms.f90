@@ -89,8 +89,6 @@ module disturb_coms
    logical :: fe_anth_ignt_only
    !---- Flag: use VPD-based fire danger index for fuel moisture (false = use Nesterov). --!
    logical :: fe_use_fdivpd
-   !---- Exponent power to relate VPD-based FDI with fuel moisture. -----------------------!
-   real    :: fe_fdivpd_exp
    !---------------------------------------------------------------------------------------!
 
 
@@ -325,6 +323,9 @@ module disturb_coms
    real(kind=4) :: fh_pcpg_edi   ! Decay rate for Druke's VPD-based index      [   m2 s/kg]
    real(kind=4) :: fh_pcpg_win   ! Running average window for precipitation*   [       day]
    !* This number must be greater than or equal to 1.
+   !----- Fuel moisture parameters. -------------------------------------------------------!
+   real(kind=4) :: fe_fdivpd_slp ! Slope for the FDI-based fuel moisture       [       ---]
+   real(kind=4) :: fe_fdivpd_exp ! Exponential for the FDI-based fuel moisture [       ---]
    !----- Ignition parameters. ------------------------------------------------------------!
    real(kind=4) :: fi_cg_ignp    ! Cloud-to-ground ignition probability        [       ---]
    real(kind=4) :: fi_lu_ignd    ! Land use ignition density                   [    1/m2/s]

@@ -831,6 +831,7 @@ subroutine init_disturb_params
                            , fe_combusted_struct_c     & ! intent(out)
                            , fe_combusted_fast_n       & ! intent(out)
                            , fe_combusted_struct_n     & ! intent(out)
+                           , fe_fdivpd_slp             & ! intent(out)
                            , fe_fdivpd_exp             & ! intent(out)
                            , fe_use_fdivpd             & ! intent(out)
                            , n_sbins                   & ! intent(out)
@@ -1277,11 +1278,11 @@ subroutine init_disturb_params
 
 
    !---------------------------------------------------------------------------------------!
-   !      Exponential factor for VPD-based FDI to retrieve fuel moisture.  This number     !
-   ! is based on a quick fit between surface moisture and VPD-based FDI, and may need to   !
-   ! be optimised.                                                                         !
+   !      Parameters to convert VPD-based FDI to fuel moisture.  We currently use a simple !
+   ! formulation.                                                                          !
    !---------------------------------------------------------------------------------------!
-   fe_fdivpd_exp = 0.100
+   fe_fdivpd_exp = 4.0
+   fe_fdivpd_slp = fr_Mxdead / (1. - 0.10) ** fe_fdivpd_exp
    !---------------------------------------------------------------------------------------!
 
 

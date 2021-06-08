@@ -47,42 +47,6 @@ clight    <<- 299792458         # Speed of light                               [
 #------------------------------------------------------------------------------------------#
 
 
-#------------------------------------------------------------------------------------------#
-# Molar masses and derived variables                                                       #
-#------------------------------------------------------------------------------------------#
-mmdry       <<- 0.02897        # Mean dry air molar mass                       [    kg/mol]
-mmo2        <<- 0.03199880     # Mean water molar mass                         [    kg/mol]
-mmh2o       <<- 0.01801505     # Mean water molar mass                         [    kg/mol]
-mmco2       <<- 0.0440095      # Mean CO2 molar mass                           [    kg/mol]
-mmdoc       <<- mmdry/mmco2    # mmdry/mmco2                                   [      ----]
-mmcod       <<- mmco2/mmdry    # mmco2/mmdry                                   [      ----]
-mmdry1000   <<- 1000.*mmdry    # Mean dry air molar mass                       [    kg/mol]
-mmcod1em6   <<- mmcod * 1.e-6  # Convert ppm to kgCO2/kgair                    [      ----]
-mmdryi      <<- 1./mmdry       # 1./mmdry                                      [    mol/kg]
-mmco2i      <<- 1./mmco2       # 1./mmco2                                      [    mol/kg]
-mmh2oi      <<- 1./mmh2o       # 1./mmh2o                                      [    mol/kg]
-#------------------------------------------------------------------------------------------#
-
-
-#------------------------------------------------------------------------------------------#
-# Time conversion units                                                                    #
-#------------------------------------------------------------------------------------------#
-yr.day     <<- 365.2425         # # of days in a year                          [    day/yr]
-yr.ftnight <<- 26               # # of fornights in a year                     [ftnight/yr]
-yr.mon     <<- 12               # # of months in a year                        [    mon/yr]
-day.sec    <<- 86400.           # # of seconds in a day                        [     s/day]
-day.sec2   <<- day.sec^2        # # Square of day.sec                          [   s2/day2]
-day.mon    <<- yr.day/yr.mon    # # of days in a month                         [   day/mon]
-day.min    <<- 1440.            # # of minutes in a day                        [   min/day]
-day.hr     <<- 24.              # # of hours in a day                          [    hr/day]
-hr.sec     <<- 3600.            # # of seconds in an hour                      [      s/hr]
-hr.min     <<- 60.              # # of minutes in an hour                      [    min/hr]
-min.sec    <<- 60.              # # of seconds in a minute                     [     s/min]
-yr.sec     <<- yr.day * day.sec # # of seconds in a year                       [      s/yr]
-kg2g       <<- 1000.            # # of grams in a kilogram                     [      g/kg]
-#------------------------------------------------------------------------------------------#
-
-
 
 #------------------------------------------------------------------------------------------#
 # General Earth properties                                                                 #
@@ -111,6 +75,74 @@ p00i      <<- 1. / p00            # 1/p00                                       
 o2.ref    <<- 0.209               # Nominal O2 concentration                    [  mol/mol]
 capri     <<- -23.44 * pio180     # Tropic of Capricornium latitude             [      rad]
 shsummer  <<- -10                 # Day of year of S.Hemisphere summer solstice [      day]
+#------------------------------------------------------------------------------------------#
+
+
+#------------------------------------------------------------------------------------------#
+# Molar masses and derived variables                                                       #
+#------------------------------------------------------------------------------------------#
+mmdry       <<- 0.02897        # Mean dry air molar mass                       [    kg/mol]
+mmo2        <<- 0.03199880     # Mean water molar mass                         [    kg/mol]
+mmh2o       <<- 0.01801505     # Mean water molar mass                         [    kg/mol]
+mmco2       <<- 0.0440095      # Mean CO2 molar mass                           [    kg/mol]
+mmdoc       <<- mmdry/mmco2    # mmdry/mmco2                                   [      ----]
+mmcod       <<- mmco2/mmdry    # mmco2/mmdry                                   [      ----]
+mmdry1000   <<- 1000.*mmdry    # Mean dry air molar mass                       [    kg/mol]
+mmcod1em6   <<- mmcod * 1.e-6  # Convert ppm to kgCO2/kgair                    [      ----]
+mmdryi      <<- 1./mmdry       # 1./mmdry                                      [    mol/kg]
+mmco2i      <<- 1./mmco2       # 1./mmco2                                      [    mol/kg]
+mmh2oi      <<- 1./mmh2o       # 1./mmh2o                                      [    mol/kg]
+#------------------------------------------------------------------------------------------#
+
+
+#------------------------------------------------------------------------------------------#
+# Conversion factors for time units.                                                       #
+#------------------------------------------------------------------------------------------#
+yr.day     <<- 365.2425         # # of days in a year                          [    day/yr]
+yr.ftnight <<- 26               # # of fortnights in a year                    [ftnight/yr]
+yr.mon     <<- 12               # # of months in a year                        [    mon/yr]
+day.sec    <<- 86400.           # # of seconds in a day                        [     s/day]
+day.sec2   <<- day.sec^2        # # Square of day.sec                          [   s2/day2]
+day.mon    <<- yr.day/yr.mon    # # of days in a month                         [   day/mon]
+day.min    <<- 1440.            # # of minutes in a day                        [   min/day]
+day.hr     <<- 24.              # # of hours in a day                          [    hr/day]
+hr.sec     <<- 3600.            # # of seconds in an hour                      [      s/hr]
+hr.min     <<- 60.              # # of minutes in an hour                      [    min/hr]
+min.sec    <<- 60.              # # of seconds in a minute                     [     s/min]
+yr.sec     <<- yr.day * day.sec # # of seconds in a year                       [      s/yr]
+#------------------------------------------------------------------------------------------#
+
+
+
+#------------------------------------------------------------------------------------------#
+# Conversion factors for mass units.                                                       #
+#------------------------------------------------------------------------------------------#
+kg2g       <<- 1000.            # # of grams in a kilogram                     [      g/kg]
+g2kg       <<- 1. / kg2g        # # of kilograms in a gram                     [      kg/g]
+#------------------------------------------------------------------------------------------#
+
+
+
+#------------------------------------------------------------------------------------------#
+# Miscellaneous convertion factors.                                                        #
+#------------------------------------------------------------------------------------------#
+mol.2.umol     <<- 1.e6                 # mol         => umol
+umol.2.mol     <<- 1.e-6                # umol        => mol
+umol.2.kgC     <<- 1.20107e-8           # umol(CO2)   => kg(C)
+Watts.2.Ein    <<- 4.6e-6               # W/m2        => mol/m2/s
+Ein.2.Watts    <<- 1./Watts.2.Ein       # mol/m2/s    => W/m2
+kgC.2.umol     <<- 1. / umol.2.kgC      # kg(C)       => umol(CO2)
+kgom2.2.tonoha <<- 10.                  # kg(C)/m2    => ton(C)/ha
+tonoha.2.kgom2 <<- 0.1                  # ton(C)/ha   => kg(C)/m2
+umols.2.kgCyr  <<- umol.2.kgC * yr.sec  # umol(CO2)/s => kg(C)/yr
+kgCyr.2.umols  <<- 1. / umols.2.kgCyr   # kg(C)/yr    => umol(CO2)/s
+kgCday.2.umols <<- kgC.2.umol / day.sec # kg(C)/day   => umol(CO2)/s
+Torr.2.Pa      <<- prefsea / 760.       # Torr        => Pa
+Pa.2.Torr      <<- 1. / Torr.2.Pa       # Pa          => Torr
+kt.2.mos       <<- 1852 / hr.sec        # knots       => m/s
+mos.2.kt       <<- 1. / kt.2.mos        # m/s         => knots
+frac2pc        <<- 100.                 # fraction    => percent
+pc2frac        <<- 1. / frac2pc         # percent     => fraction
 #------------------------------------------------------------------------------------------#
 
 
@@ -283,26 +315,6 @@ tsupercool.vap <<- cph2oi * ( (cph2o - cice) * t3ple - alvi3 )
 ttripoli  <<- 253.           # "Tripoli-Cotton" temp. (Ttr)                     [        K]
 htripoli  <<- cpdry*ttripoli # Sensible enthalpy at T=Ttr                       [     J/kg]
 htripolii <<- 1./htripoli    # 1./htripoli                                      [     kg/J]
-#------------------------------------------------------------------------------------------#
-
-#------------------------------------------------------------------------------------------#
-# Unit conversion, it must be defined locally even for coupled runs.                       #
-#------------------------------------------------------------------------------------------#
-mol.2.umol     <<- 1.e6                 # mol         => umol
-umol.2.mol     <<- 1.e-6                # umol        => mol
-umol.2.kgC     <<- 1.20107e-8           # umol(CO2)   => kg(C)
-Watts.2.Ein    <<- 4.6e-6               # W/m2        => mol/m2/s
-Ein.2.Watts    <<- 1./Watts.2.Ein       # mol/m2/s    => W/m2
-kgC.2.umol     <<- 1. / umol.2.kgC      # kg(C)       => umol(CO2)
-kgom2.2.tonoha <<- 10.                  # kg(C)/m2    => ton(C)/ha
-tonoha.2.kgom2 <<- 0.1                  # ton(C)/ha   => kg(C)/m2
-umols.2.kgCyr  <<- umol.2.kgC * yr.sec  # umol(CO2)/s => kg(C)/yr
-kgCyr.2.umols  <<- 1. / umols.2.kgCyr   # kg(C)/yr    => umol(CO2)/s
-kgCday.2.umols <<- kgC.2.umol / day.sec # kg(C)/day   => umol(CO2)/s
-Torr.2.Pa      <<- prefsea / 760.       # Torr        => Pa
-Pa.2.Torr      <<- 1. / Torr.2.Pa       # Pa          => Torr
-kt.2.mos       <<- 1852 / hr.sec        # knots       => m/s
-mos.2.kt       <<- 1. / kt.2.mos        # m/s         => knots
 #------------------------------------------------------------------------------------------#
 
 

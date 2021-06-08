@@ -1460,6 +1460,8 @@ recursive subroutine read_ed_xml_config(filename)
         if(texist) fe_combusted_struct_n = sngloff(rval,tiny_offset)
         call getConfigINT  ('fe_anth_ignt_only','disturbance',i,ival,texist)
         if(texist) fe_anth_ignt_only = ival == 1
+        call getConfigREAL  ('fe_fdivpd_slp','disturbance',i,rval,texist)
+        if(texist) fe_fdivpd_slp = sngloff(rval,tiny_offset)
         call getConfigREAL  ('fe_fdivpd_exp','disturbance',i,rval,texist)
         if(texist) fe_fdivpd_exp = sngloff(rval,tiny_offset)
         call getConfigINT  ('fe_use_fdivpd','disturbance',i,ival,texist)
@@ -2571,6 +2573,7 @@ subroutine write_ed_xml_config
      call putConfigREAL("fe_combusted_struct_c" ,fe_combusted_struct_c )
      call putConfigREAL("fe_combusted_fast_n"   ,fe_combusted_fast_n   )
      call putConfigREAL("fe_combusted_struct_n" ,fe_combusted_struct_n )
+     call putConfigREAL("fe_fdivpd_slp"         ,fe_fdivpd_slp         )
      call putConfigREAL("fe_fdivpd_exp"         ,fe_fdivpd_exp         )
      if (fe_anth_ignt_only) then
         ival = 1

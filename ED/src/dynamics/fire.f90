@@ -1088,6 +1088,7 @@ module fire
                                , fuel_height_max   & ! intent(in)
                                , fe_anth_ignt_only & ! intent(in)
                                , fe_fdivpd_exp     & ! intent(in)
+                               , fe_fdivpd_slp     & ! intent(in)
                                , fe_use_fdivpd     & ! intent(in)
                                , fh_f0001          & ! intent(in)
                                , fh_f0010          & ! intent(in)
@@ -1388,7 +1389,8 @@ module fire
                   !------------------------------------------------------------------------!
                   !       Use the fire danger index to estimate fuel moisture.             !
                   !------------------------------------------------------------------------!
-                  moist_bfuel_pat = max(0.,min(1.,1. - bpow01(fdivpd_pat,fe_fdivpd_exp)))
+                  moist_bfuel_pat = fe_fdivpd_slp * bpow01(1. - fdivpd_pat,fe_fdivpd_exp)
+                  moist_bfuel_pat = max(0.,min(1.,moist_bfuel_pat))
                   !------------------------------------------------------------------------!
                else
                   !------------------------------------------------------------------------!
@@ -1613,6 +1615,7 @@ module fire
                                , current_time           & ! intent(in)
                                , ndfire                 ! ! intent(in)
       use disturb_coms  , only : fe_fdivpd_exp          & ! intent(in)
+                               , fe_fdivpd_slp          & ! intent(in)
                                , fe_use_fdivpd          & ! intent(in)
                                , fh_f0001               & ! intent(in)
                                , fh_f0010               & ! intent(in)
@@ -2218,7 +2221,9 @@ module fire
                      !---------------------------------------------------------------------!
                      !       Use the fire danger index to estimate fuel moisture.          !
                      !---------------------------------------------------------------------!
-                     moist_bfuel_pat = max(0.,min(1.,1. - bpow01(fdivpd_pat,fe_fdivpd_exp)))
+                     moist_bfuel_pat = fe_fdivpd_slp                                       &
+                                     * bpow01(1. - fdivpd_pat,fe_fdivpd_exp)
+                     moist_bfuel_pat = max(0.,min(1.,moist_bfuel_pat))
                      fdi_pat         = fdivpd_pat
                      !---------------------------------------------------------------------!
                   else

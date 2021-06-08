@@ -21,7 +21,7 @@ BASE=$(ED_ROOT)/build/
 # be able to compile without HDF5 but it will not run.                                     #
 #------------------------------------------------------------------------------------------#
 ZLIB_PATH=/usr/local/Cellar/zlib/1.2.11
-HDF5_PATH=/usr/local
+HDF5_PATH=/usr/local/Cellar/hdf5/1.12.0_4
 HDF5_INCS=-I$(HDF5_PATH)/include
 HDF5C_INCS=$(HDF5_INCS)
 HDF5_LIBS=-L$(ZLIB_PATH)/lib -lz -L$(HDF5_PATH)/lib -lhdf5_fortran -lhdf5 -lhdf5_hl
