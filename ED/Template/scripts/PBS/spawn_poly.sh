@@ -1975,7 +1975,7 @@ do
             #------------------------------------------------------------------------------#
             ;;
          5)
-            #----- isizepft controls actual (0) or intact (1) initialisation. -------------#
+            #----- isizepft controls actual or majestic initialisation. -------------------#
             case ${isizepft} in
             0)
                #----- Actual sampling. ----------------------------------------------------#
@@ -1983,13 +1983,18 @@ do
                #---------------------------------------------------------------------------#
                ;;
             1)
-               #----- Intact sampling. ----------------------------------------------------#
-               thissfilin="${ebainit}/eba_intact_default."
+               #----- Majestic sampling. --------------------------------------------------#
+               thissfilin="${ebainit}/eba_majestic_default."
                #---------------------------------------------------------------------------#
                ;;
             2)
                #----- Actual sampling + land use (pasture/cropland/plantation). -----------#
-               thissfilin="${ebainit}/eba_landuse_default."
+               thissfilin="${ebainit}/eba_luactual_default."
+               #---------------------------------------------------------------------------#
+               ;;
+            3)
+               #----- Majestic sampling + land use (pasture/cropland/plantation). ---------#
+               thissfilin="${ebainit}/eba_lumajestic_default."
                #---------------------------------------------------------------------------#
                ;;
             *)

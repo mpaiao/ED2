@@ -68,6 +68,7 @@ read.q.files <<- function( datum
    lu     = datum$lu
    qmean  = datum$qmean
    qmsqu  = datum$qmsqu
+   site   = datum$site
    patch  = datum$patch
    qpatch = datum$qpatch
    cohort = datum$cohort
@@ -106,15 +107,18 @@ read.q.files <<- function( datum
       h5file.bz2   = paste(datum$input[m],"bz2",sep=".")
       h5file.gz    = paste(datum$input[m],"gz" ,sep=".")
       if (file.exists(h5file)){
+         dummy     = touch(h5file)
          mymont    = hdf5load(file=h5file,load=FALSE,verbosity=0,tidy=TRUE)
 
       }else if(file.exists(h5file.bz2)){
+         dummy     = touch(h5file.bz2)
          temp.file = file.path(tempdir(),basename(h5file))
          dummy     = bunzip2(filename=h5file.bz2,destname=temp.file,remove=FALSE)
          mymont    = hdf5load(file=temp.file,load=FALSE,verbosity=0,tidy=TRUE)
          dummy     = file.remove(temp.file)
 
       }else if(file.exists(h5file.gz)){
+         dummy     = touch(h5file.gz)
          temp.file = file.path(tempdir(),basename(h5file))
          dummy     = gunzip(filename=h5file.gz,destname=temp.file,remove=FALSE)
          mymont    = hdf5load(file=temp.file,load=FALSE,verbosity=0,tidy=TRUE)
@@ -377,6 +381,7 @@ read.q.files <<- function( datum
 
 
       #---- Read in the site-level area. --------------------------------------------------#
+      isi          = sequence(mymont$NSITES.GLOBAL)
       areasi       = mymont$AREA.SI
       nsites       = mymont$PYSI.N
       npatches     = mymont$SIPA.N
@@ -390,6 +395,7 @@ read.q.files <<- function( datum
       ntextpa     = rep(x=ntextsi,times=npatches)
       areapa      = mymont$AREA * rep(areasi,times=npatches)
       areapa      = areapa / sum(areapa)
+      isipa       = rep(isi,times=npatches)
       ipa         = sequence(mymont$NPATCHES.GLOBAL)
       lupa        = mymont$DIST.TYPE
       agepa       = mymont$AGE
@@ -689,7 +695,7 @@ read.q.files <<- function( datum
                           )#end smpot.now
          emean$paw  [m] = emean$paw  [m] + paw.now  [ka] * areapa[p]
          emean$smpot[m] = emean$smpot[m] + smpot.now[ka] * areapa[p]
-      }#end for (isi in sequence(nsites))
+      }#end for (p in sequence(nsites))
       #------------------------------------------------------------------------------------#
 
 
@@ -963,7 +969,10 @@ read.q.files <<- function( datum
       #     Get the total number of cohorts.                                               #
       #------------------------------------------------------------------------------------#
       ncohorts    = mymont$PACO.N
-      ipaconow    = rep(sequence(mymont$NPATCHES.GLOBAL),times=mymont$PACO.N)
+      isiconow    = rep( x = isipa  , times = mymont$PACO.N)
+      lslconow    = rep( x = lslpa  , times = mymont$PACO.N)
+      ntextconow  = rep( x = ntextpa, times = mymont$PACO.N)
+      ipaconow    = rep( x = ipa    , times = mymont$PACO.N)
       q.ipaconow  = matrix( data  = ipaconow
                           , nrow  = mymont$NCOHORTS.GLOBAL
                           , ncol  = mymont$NDCYC
@@ -1760,6 +1769,9 @@ read.q.files <<- function( datum
 
       }else{
          #----- Make everything NA. -------------------------------------------------------#
+         isiconow            = NA_integer_
+         lslconow            = NA_integer_
+         ntextconow          = NA_integer_
          ipaconow            = NA_integer_
          icoconow            = NA_integer_
          areaconow           = NA_real_
@@ -1911,6 +1923,9 @@ read.q.files <<- function( datum
       #------------------------------------------------------------------------------------#
       plab = paste0("y",sprintf("%4.4i",thisyear),"m",sprintf("%2.2i",thismonth))
       #----- Bind the current patches. ----------------------------------------------------#
+      patch$isi          [[plab]] =   isipa
+      patch$lsl          [[plab]] =   lslpa
+      patch$ntext        [[plab]] =   ntextpa
       patch$ipa          [[plab]] =   ipa
       patch$age          [[plab]] =   agepa
       patch$area         [[plab]] =   areapa
@@ -2147,6 +2162,7 @@ read.q.files <<- function( datum
                                    , INDEX = ipaconow
                                    , FUN   = sum
                                    )#end tapply
+         
          leaf.energy.pa    = tapply( X     = mymont$MMEAN.LEAF.ENERGY.CO    * showconow
                                    , INDEX = ipaconow
                                    , FUN   = sum
@@ -2249,12 +2265,42 @@ read.q.files <<- function( datum
 
 
          #----- Find the variables that must be rendered extensive. -----------------------#
-         agb.pa        = tapply(X=agbconow*nplantconow,INDEX=ipaconow,FUN=sum,na.rm=TRUE)
-         ba.pa         = tapply(X=baconow *nplantconow,INDEX=ipaconow,FUN=sum,na.rm=TRUE)
-         gpp.pa        = tapply(X=gppconow*nplantconow,INDEX=ipaconow,FUN=sum,na.rm=TRUE)
-         npp.pa        = tapply(X=nppconow*nplantconow,INDEX=ipaconow,FUN=sum,na.rm=TRUE)
-         cba.pa        = tapply(X=cbaconow*nplantconow,INDEX=ipaconow,FUN=sum,na.rm=TRUE)
-         plant.resp.pa = tapply( X     = plant.respconow*nplantconow
+         agb.pa        = tapply( X     = agbconow        * nplantconow * showconow
+                               , INDEX = ipaconow
+                               , FUN   = sum
+                               , na.rm = TRUE
+                               )#end tapply
+         agvolume.pa   = tapply( X     = agvolumeconow   * nplantconow * showconow
+                               , INDEX = ipaconow
+                               , FUN   = sum
+                               , na.rm = TRUE
+                               )#end tapply
+         bleaf.pa      = tapply( X     = bleafconow      * nplantconow * showconow
+                               , INDEX = ipaconow
+                               , FUN   = sum
+                               , na.rm = TRUE
+                               )#end tapply
+         ba.pa         = tapply( X     = baconow         * nplantconow * showconow
+                               , INDEX = ipaconow
+                               , FUN   = sum
+                               , na.rm = TRUE
+                               )#end tapply
+         gpp.pa        = tapply( X     = gppconow        * nplantconow * showconow
+                               , INDEX = ipaconow
+                               , FUN   = sum
+                               , na.rm = TRUE
+                               )#end tapply
+         npp.pa        = tapply( X     = nppconow        * nplantconow * showconow
+                               , INDEX = ipaconow
+                               , FUN   = sum
+                               , na.rm = TRUE
+                               )#end tapply
+         cba.pa        = tapply( X     = cbaconow        * nplantconow * showconow
+                               , INDEX = ipaconow
+                               , FUN   = sum
+                               , na.rm = TRUE
+                               )#end tapply
+         plant.resp.pa = tapply( X     = plant.respconow * nplantconow * showconow
                                , INDEX = ipaconow
                                , FUN   = sum
                                , na.rm = TRUE
@@ -2489,6 +2535,7 @@ read.q.files <<- function( datum
          patch$agb           [[plab]][idx     ] = agb.pa
          patch$ba            [[plab]][idx     ] = ba.pa
          patch$nplant        [[plab]][idx     ] = nplant.pa
+         patch$bleaf         [[plab]][idx     ] = bleaf.pa
          patch$can.depth     [[plab]][idx     ] = can.depth.pa
          patch$can.area      [[plab]][idx     ] = can.area.pa
          patch$veg.height    [[plab]][idx     ] = veg.height.pa
@@ -2548,14 +2595,14 @@ read.q.files <<- function( datum
          #---------------------------------------------------------------------------------#
          #---------------------------------------------------------------------------------#
          #---------------------------------------------------------------------------------#
-         for (ipa in sequence(mymont$NPATCHES.GLOBAL)){
+         for (jpa in sequence(mymont$NPATCHES.GLOBAL)){
 
             #------------------------------------------------------------------------------#
             #    For mortality and growth, we keep deleting the tiny cohorts because they  #
             # skew the rates quite significantly and they are rarely included in forest    #
             # inventory surveys.                                                           #
             #------------------------------------------------------------------------------#
-            psel = (ipaconow == ipa) & (dbhconow >= census.dbh.min)
+            psel = (ipaconow == jpa) & (dbhconow >= census.dbh.min)
             if (any(psel)){
                #----- Growth rates are weighted by population. ----------------------------#
                dbh.growth = - 100. * log( weighted.mean( x = exp(-growthconow    [psel])
@@ -2576,10 +2623,10 @@ read.q.files <<- function( datum
                acc.growth = sum( nplantconow[psel]
                                * agbconow[psel] * (1.-exp(-agb.growthconow[psel]))
                                )#end sum
-               patch$growth     [[plab]][ipa] = dbh.growth
-               patch$agb.growth [[plab]][ipa] = agb.growth
-               patch$acc.growth [[plab]][ipa] = acc.growth
-               patch$bsa.growth [[plab]][ipa] = bsa.growth
+               patch$growth     [[plab]][jpa] = dbh.growth
+               patch$agb.growth [[plab]][jpa] = agb.growth
+               patch$acc.growth [[plab]][jpa] = acc.growth
+               patch$bsa.growth [[plab]][jpa] = bsa.growth
                #---------------------------------------------------------------------------#
 
 
@@ -2594,11 +2641,11 @@ read.q.files <<- function( datum
                hyd.previous  = sum( nplantconow[psel] * exp(hydmortconow    [psel]))
                di.previous   = sum( nplantconow[psel] * exp(dimortconow     [psel]))
                fl.previous   = sum( nplantconow[psel] * exp(fire.lethalconow[psel]))
-               patch$mort       [[plab]][ipa] = log(previous     / survivor)
-               patch$ncbmort    [[plab]][ipa] = log(ncb.previous / survivor)
-               patch$hydmort    [[plab]][ipa] = log(hyd.previous / survivor)
-               patch$dimort     [[plab]][ipa] = log(di.previous  / survivor)
-               patch$fire.lethal[[plab]][ipa] = log(fl.previous  / survivor)
+               patch$mort       [[plab]][jpa] = log(previous     / survivor)
+               patch$ncbmort    [[plab]][jpa] = log(ncb.previous / survivor)
+               patch$hydmort    [[plab]][jpa] = log(hyd.previous / survivor)
+               patch$dimort     [[plab]][jpa] = log(di.previous  / survivor)
+               patch$fire.lethal[[plab]][jpa] = log(fl.previous  / survivor)
                #---------------------------------------------------------------------------#
 
 
@@ -2620,10 +2667,10 @@ read.q.files <<- function( datum
                di.previous                    = sum( nplantconow[psel] * agbcolmon[psel]
                                                    * exp(dimortconow              [psel])
                                                    )#end sum
-               patch$agb.mort   [[plab]][ipa] = log( previous     / survivor )
-               patch$agb.ncbmort[[plab]][ipa] = log( ncb.previous / survivor )
-               patch$agb.hydmort[[plab]][ipa] = log( hyd.previous / survivor )
-               patch$agb.dimort [[plab]][ipa] = log( di.previous  / survivor )
+               patch$agb.mort   [[plab]][jpa] = log( previous     / survivor )
+               patch$agb.ncbmort[[plab]][jpa] = log( ncb.previous / survivor )
+               patch$agb.hydmort[[plab]][jpa] = log( hyd.previous / survivor )
+               patch$agb.dimort [[plab]][jpa] = log( di.previous  / survivor )
                #---------------------------------------------------------------------------#
 
 
@@ -2645,10 +2692,10 @@ read.q.files <<- function( datum
                di.previous                    = sum( nplantconow[psel] * agbcolmon[psel]
                                                    * exp( dimortconow [psel] / 12.)
                                                    )#end sum
-               patch$acc.mort   [[plab]][ipa] = 12. * (previous     - survivor)
-               patch$acc.ncbmort[[plab]][ipa] = 12. * (ncb.previous - survivor)
-               patch$acc.hydmort[[plab]][ipa] = 12. * (hyd.previous - survivor)
-               patch$acc.dimort [[plab]][ipa] = 12. * (di.previous  - survivor)
+               patch$acc.mort   [[plab]][jpa] = 12. * (previous     - survivor)
+               patch$acc.ncbmort[[plab]][jpa] = 12. * (ncb.previous - survivor)
+               patch$acc.hydmort[[plab]][jpa] = 12. * (hyd.previous - survivor)
+               patch$acc.dimort [[plab]][jpa] = 12. * (di.previous  - survivor)
                #---------------------------------------------------------------------------#
 
 
@@ -2670,10 +2717,10 @@ read.q.files <<- function( datum
                di.previous                    = sum( nplantconow[psel] * bacolmon[psel]
                                                    * exp(dimortconow             [psel])
                                                    )#end sum
-               patch$bsa.mort   [[plab]][ipa] = log( previous     / survivor )
-               patch$bsa.ncbmort[[plab]][ipa] = log( ncb.previous / survivor )
-               patch$bsa.hydmort[[plab]][ipa] = log( hyd.previous / survivor )
-               patch$bsa.dimort [[plab]][ipa] = log( di.previous  / survivor )
+               patch$bsa.mort   [[plab]][jpa] = log( previous     / survivor )
+               patch$bsa.ncbmort[[plab]][jpa] = log( ncb.previous / survivor )
+               patch$bsa.hydmort[[plab]][jpa] = log( hyd.previous / survivor )
+               patch$bsa.dimort [[plab]][jpa] = log( di.previous  / survivor )
                #---------------------------------------------------------------------------#
             }#end if
             #------------------------------------------------------------------------------#
@@ -2684,7 +2731,7 @@ read.q.files <<- function( datum
             #    Recruitment: we must determine whether the plant grew into the new        #
             # category or not.                                                             #
             #------------------------------------------------------------------------------#
-            psel.pop = (ipaconow == ipa)      & (dbhconow      >= census.dbh.min)
+            psel.pop = (ipaconow == jpa)      & (dbhconow      >= census.dbh.min)
             psel.est = psel.pop               & (dbhconow.1ago >= census.dbh.min)
             psel.elm = psel.pop               & (dbhconow.lmon >= census.dbh.min)
             if (any(psel.pop) & any(psel.est)){
@@ -2692,32 +2739,32 @@ read.q.files <<- function( datum
                #----- Recruitment rate in terms of individuals. ---------------------------#
                population                  = sum(nplantconow[psel.pop])
                established                 = sum(nplantconow[psel.est])
-               patch$recr[[plab]][ipa]     = log(population / established)
+               patch$recr[[plab]][jpa]     = log(population / established)
                #---------------------------------------------------------------------------#
 
 
                #----- Recruitment rate in terms of above-ground biomass. ------------------#
                population                  = sum(nplantconow[psel.pop]*agbconow[psel.pop])
                established                 = sum(nplantconow[psel.est]*agbconow[psel.est])
-               patch$agb.recr[[plab]][ipa] = log(population / established)
+               patch$agb.recr[[plab]][jpa] = log(population / established)
                #---------------------------------------------------------------------------#
 
 
                #----- Recruitment rate in terms of above-ground biomass. ------------------#
                population                  = sum(nplantconow[psel.pop]*agbconow[psel.pop])
                established                 = sum(nplantconow[psel.elm]*agbconow[psel.elm])
-               patch$acc.recr[[plab]][ipa] = 12. * (population - established)
+               patch$acc.recr[[plab]][jpa] = 12. * (population - established)
                #---------------------------------------------------------------------------#
 
 
                #----- Recruitment rate in terms of basal area. ----------------------------#
                population                  = sum(nplantconow[psel.pop]*baconow [psel.pop])
                established                 = sum(nplantconow[psel.est]*baconow [psel.est])
-               patch$bsa.recr[[plab]][ipa] = log(population / established)
+               patch$bsa.recr[[plab]][jpa] = log(population / established)
                #---------------------------------------------------------------------------#
             }#end if
             #------------------------------------------------------------------------------#
-         }#end for (p in sequence(mymont$NPATCHES.GLOBAL))
+         }#end for (jpa in sequence(mymont$NPATCHES.GLOBAL))
          #---------------------------------------------------------------------------------#
          #---------------------------------------------------------------------------------#
          #---------------------------------------------------------------------------------#
@@ -3063,6 +3110,340 @@ read.q.files <<- function( datum
 
 
 
+
+      #====================================================================================#
+      #====================================================================================#
+      #====================================================================================#
+      #====================================================================================#
+      #      Find the site-level variables.                                                #
+      #------------------------------------------------------------------------------------#
+      #---- Time-invariant variables (we keep time to make post-post-processing easier). --#
+      site$isi  [m,] = isi
+      site$lsl  [m,] = lslsi
+      site$ntext[m,] = ntextsi
+      site$area [m,] = areasi
+      #---- Variables that can be copied directly from the output. ------------------------#
+      site$fire.density   [m,] = mymont$MMEAN.FIRE.DENSITY.SI     * 1.e6
+      site$fire.extinction[m,] = 100. * (1. - exp(-mymont$MMEAN.FIRE.EXTINCTION.SI))
+      site$fire.intensity [m,] = mymont$MMEAN.FIRE.INTENSITY.SI   * 1.e3
+      site$fire.tlethal   [m,] = mymont$MMEAN.FIRE.TLETHAL.SI / min.sec
+      site$fire.spread    [m,] = mymont$MMEAN.FIRE.SPREAD.SI  * min.sec
+      site$burnt.area     [m,] = mymont$BURNT.AREA * 100.
+      site$ignition.rate  [m,] = mymont$MMEAN.IGNITION.RATE.SI * 1.e6*mondays*day.sec
+      site$fire.f.bherb   [m,] = mymont$MMEAN.FIRE.F.BHERB.SI  * 100.
+      site$fire.f.bwoody  [m,] = mymont$MMEAN.FIRE.F.BWOODY.SI * 100.
+      site$fire.f.fgc     [m,] = mymont$MMEAN.FIRE.F.FGC.SI    * 100.
+      site$fire.f.stgc    [m,] = mymont$MMEAN.FIRE.F.STGC.SI   * 100.
+      #----- Variables that should be scaled by area (most of them). ----------------------#
+      site$lai             [m,] = weighted.mean( x     = patch$lai             [[plab]]
+                                               , w     = areapa
+                                               , na.rm = TRUE
+                                               )#end weighted.mean
+      site$wai             [m,] = weighted.mean( x     = patch$wai             [[plab]]
+                                               , w     = areapa
+                                               , na.rm = TRUE
+                                               )#end weighted.mean
+      site$agb             [m,] = weighted.mean( x     = patch$agb             [[plab]]
+                                               , w     = areapa
+                                               , na.rm = TRUE
+                                               )#end weighted.mean
+      site$ba              [m,] = weighted.mean( x     = patch$ba              [[plab]]
+                                               , w     = areapa
+                                               , na.rm = TRUE
+                                               )#end weighted.mean
+      site$nplant          [m,] = weighted.mean( x     = patch$nplant          [[plab]]
+                                               , w     = areapa
+                                               , na.rm = TRUE
+                                               )#end weighted.mean
+      site$fast.grnd.c     [m,] = weighted.mean( x     = patch$fast.grnd.c     [[plab]]
+                                               , w     = areapa
+                                               , na.rm = TRUE
+                                               )#end weighted.mean
+      site$fast.soil.c     [m,] = weighted.mean( x     = patch$fast.soil.c     [[plab]]
+                                               , w     = areapa
+                                               , na.rm = TRUE
+                                               )#end weighted.mean
+      site$struct.grnd.c   [m,] = weighted.mean( x     = patch$struct.grnd.c   [[plab]]
+                                               , w     = areapa
+                                               , na.rm = TRUE
+                                               )#end weighted.mean
+      site$struct.soil.c   [m,] = weighted.mean( x     = patch$struct.soil.c   [[plab]]
+                                               , w     = areapa
+                                               , na.rm = TRUE
+                                               )#end weighted.mean
+      site$microbe.soil.c  [m,] = weighted.mean( x     = patch$microbe.soil.c  [[plab]]
+                                               , w     = areapa
+                                               , na.rm = TRUE
+                                               )#end weighted.mean
+      site$slow.soil.c     [m,] = weighted.mean( x     = patch$slow.soil.c     [[plab]]
+                                               , w     = areapa
+                                               , na.rm = TRUE
+                                               )#end weighted.mean
+      site$passive.soil.c  [m,] = weighted.mean( x     = patch$passive.soil.c  [[plab]]
+                                               , w     = areapa
+                                               , na.rm = TRUE
+                                               )#end weighted.mean
+      site$nep             [m,] = weighted.mean( x     = patch$nep             [[plab]]
+                                               , w     = areapa
+                                               , na.rm = TRUE
+                                               )#end weighted.mean
+      site$het.resp        [m,] = weighted.mean( x     = patch$het.resp        [[plab]]
+                                               , w     = areapa
+                                               , na.rm = TRUE
+                                               )#end weighted.mean
+      site$soil.resp       [m,] = weighted.mean( x     = patch$soil.resp       [[plab]]
+                                               , w     = areapa
+                                               , na.rm = TRUE
+                                               )#end weighted.mean
+      site$cflxca          [m,] = weighted.mean( x     = patch$cflxca          [[plab]]
+                                               , w     = areapa
+                                               , na.rm = TRUE
+                                               )#end weighted.mean
+      site$cflxst          [m,] = weighted.mean( x     = patch$cflxst          [[plab]]
+                                               , w     = areapa
+                                               , na.rm = TRUE
+                                               )#end weighted.mean
+      site$nee             [m,] = weighted.mean( x     = patch$nee             [[plab]]
+                                               , w     = areapa
+                                               , na.rm = TRUE
+                                               )#end weighted.mean
+      site$hflxca          [m,] = weighted.mean( x     = patch$hflxca          [[plab]]
+                                               , w     = areapa
+                                               , na.rm = TRUE
+                                               )#end weighted.mean
+      site$hflxgc          [m,] = weighted.mean( x     = patch$hflxgc          [[plab]]
+                                               , w     = areapa
+                                               , na.rm = TRUE
+                                               )#end weighted.mean
+      site$qwflxca         [m,] = weighted.mean( x     = patch$qwflxca         [[plab]]
+                                               , w     = areapa
+                                               , na.rm = TRUE
+                                               )#end weighted.mean
+      site$wflxca          [m,] = weighted.mean( x     = patch$wflxca          [[plab]]
+                                               , w     = areapa
+                                               , na.rm = TRUE
+                                               )#end weighted.mean
+      site$wflxgc          [m,] = weighted.mean( x     = patch$wflxgc          [[plab]]
+                                               , w     = areapa
+                                               , na.rm = TRUE
+                                               )#end weighted.mean
+      site$ustar           [m,] = weighted.mean( x     = patch$ustar           [[plab]]
+                                               , w     = areapa
+                                               , na.rm = TRUE
+                                               )#end weighted.mean
+      site$rshortup        [m,] = weighted.mean( x     = patch$rshortup        [[plab]]
+                                               , w     = areapa
+                                               , na.rm = TRUE
+                                               )#end weighted.mean
+      site$rlongup         [m,] = weighted.mean( x     = patch$rlongup         [[plab]]
+                                               , w     = areapa
+                                               , na.rm = TRUE
+                                               )#end weighted.mean
+      site$parup           [m,] = weighted.mean( x     = patch$parup           [[plab]]
+                                               , w     = areapa
+                                               , na.rm = TRUE
+                                               )#end weighted.mean
+      site$rshort.gnd      [m,] = weighted.mean( x     = patch$rshort.gnd      [[plab]]
+                                               , w     = areapa
+                                               , na.rm = TRUE
+                                               )#end weighted.mean
+      site$par.gnd         [m,] = weighted.mean( x     = patch$par.gnd         [[plab]]
+                                               , w     = areapa
+                                               , na.rm = TRUE
+                                               )#end weighted.mean
+      site$rnet            [m,] = weighted.mean( x     = patch$rnet            [[plab]]
+                                               , w     = areapa
+                                               , na.rm = TRUE
+                                               )#end weighted.mean
+      site$can.depth       [m,] = weighted.mean( x     = patch$can.depth       [[plab]]
+                                               , w     = areapa
+                                               , na.rm = TRUE
+                                               )#end weighted.mean
+      site$can.area        [m,] = weighted.mean( x     = patch$can.area        [[plab]]
+                                               , w     = areapa
+                                               , na.rm = TRUE
+                                               )#end weighted.mean
+      site$veg.height      [m,] = weighted.mean( x     = patch$veg.height      [[plab]]
+                                               , w     = areapa
+                                               , na.rm = TRUE
+                                               )#end weighted.mean
+      site$sm.stress       [m,] = weighted.mean( x     = patch$sm.stress       [[plab]]
+                                               , w     = areapa
+                                               , na.rm = TRUE
+                                               )#end weighted.mean
+      site$gpp             [m,] = weighted.mean( x     = patch$gpp             [[plab]]
+                                               , w     = areapa
+                                               , na.rm = TRUE
+                                               )#end weighted.mean
+      site$npp             [m,] = weighted.mean( x     = patch$npp             [[plab]]
+                                               , w     = areapa
+                                               , na.rm = TRUE
+                                               )#end weighted.mean
+      site$plant.resp      [m,] = weighted.mean( x     = patch$plant.resp      [[plab]]
+                                               , w     = areapa
+                                               , na.rm = TRUE
+                                               )#end weighted.mean
+      site$cba             [m,] = weighted.mean( x     = patch$cba             [[plab]]
+                                               , w     = areapa
+                                               , na.rm = TRUE
+                                               )#end weighted.mean
+      site$reco            [m,] = weighted.mean( x     = patch$reco            [[plab]]
+                                               , w     = areapa
+                                               , na.rm = TRUE
+                                               )#end weighted.mean
+      site$hflxlc          [m,] = weighted.mean( x     = patch$hflxlc          [[plab]]
+                                               , w     = areapa
+                                               , na.rm = TRUE
+                                               )#end weighted.mean
+      site$hflxwc          [m,] = weighted.mean( x     = patch$hflxwc          [[plab]]
+                                               , w     = areapa
+                                               , na.rm = TRUE
+                                               )#end weighted.mean
+      site$wflxlc          [m,] = weighted.mean( x     = patch$wflxlc          [[plab]]
+                                               , w     = areapa
+                                               , na.rm = TRUE
+                                               )#end weighted.mean
+      site$wflxwc          [m,] = weighted.mean( x     = patch$wflxwc          [[plab]]
+                                               , w     = areapa
+                                               , na.rm = TRUE
+                                               )#end weighted.mean
+      site$transp          [m,] = weighted.mean( x     = patch$transp          [[plab]]
+                                               , w     = areapa
+                                               , na.rm = TRUE
+                                               )#end weighted.mean
+      site$gnd.temp        [m,] = weighted.mean( x     = patch$gnd.temp        [[plab]]
+                                               , w     = areapa
+                                               , na.rm = TRUE
+                                               )#end weighted.mean
+      site$gnd.shv         [m,] = weighted.mean( x     = patch$gnd.shv         [[plab]]
+                                               , w     = areapa
+                                               , na.rm = TRUE
+                                               )#end weighted.mean
+      site$soil.temp.top   [m,] = weighted.mean( x     = patch$soil.temp.top   [[plab]]
+                                               , w     = areapa
+                                               , na.rm = TRUE
+                                               )#end weighted.mean
+      site$soil.water.top  [m,] = weighted.mean( x     = patch$soil.water.top  [[plab]]
+                                               , w     = areapa
+                                               , na.rm = TRUE
+                                               )#end weighted.mean
+      site$soil.water.bot  [m,] = weighted.mean( x     = patch$soil.water.bot  [[plab]]
+                                               , w     = areapa
+                                               , na.rm = TRUE
+                                               )#end weighted.mean
+      site$soil.wetness.top[m,] = weighted.mean( x     = patch$soil.wetness.top[[plab]]
+                                               , w     = areapa
+                                               , na.rm = TRUE
+                                               )#end weighted.mean
+      site$soil.wetness.bot[m,] = weighted.mean( x     = patch$soil.wetness.bot[[plab]]
+                                               , w     = areapa
+                                               , na.rm = TRUE
+                                               )#end weighted.mean
+      site$leaf.water      [m,] = weighted.mean( x     = patch$leaf.water      [[plab]]
+                                               , w     = areapa
+                                               , na.rm = TRUE
+                                               )#end weighted.mean
+      site$leaf.water.im2  [m,] = weighted.mean( x     = patch$leaf.water.im2  [[plab]]
+                                               , w     = areapa
+                                               , na.rm = TRUE
+                                               )#end weighted.mean
+      #----- Quantities that should be weighted by leaf area. -----------------------------#
+      laiareapa    = patch$lai[[plab]] * areapa
+      if ( sum(laiareapa) > tiny.num ){
+         site$vm0          [m,] = weighted.mean( x     = patch$vm0          [[plab]]
+                                               , w     = laiareapa
+                                               , na.rm = TRUE
+                                               )#end weighted.mean
+         site$leaf.temp    [m,] = weighted.mean( x     = patch$leaf.temp    [[plab]]
+                                               , w     = laiareapa
+                                               , na.rm = TRUE
+                                               )#end weighted.mean
+         site$leaf.vpd     [m,] = weighted.mean( x     = patch$leaf.vpd     [[plab]]
+                                               , w     = laiareapa
+                                               , na.rm = TRUE
+                                               )#end weighted.mean
+         site$leaf.gpp     [m,] = weighted.mean( x     = patch$leaf.gpp     [[plab]]
+                                               , w     = laiareapa
+                                               , na.rm = TRUE
+                                               )#end weighted.mean
+         site$leaf.gsw     [m,] = weighted.mean( x     = patch$leaf.gsw     [[plab]]
+                                               , w     = laiareapa
+                                               , na.rm = TRUE
+                                               )#end weighted.mean
+         site$leaf.par     [m,] = weighted.mean( x     = patch$leaf.par     [[plab]]
+                                               , w     = laiareapa
+                                               , na.rm = TRUE
+                                               )#end weighted.mean
+         site$leaf.par.beam[m,] = weighted.mean( x     = patch$leaf.par.beam[[plab]]
+                                               , w     = laiareapa
+                                               , na.rm = TRUE
+                                               )#end weighted.mean
+         site$leaf.par.diff[m,] = weighted.mean( x     = patch$leaf.par.diff[[plab]]
+                                               , w     = laiareapa
+                                               , na.rm = TRUE
+                                               )#end weighted.mean
+      }else{
+         site$vm0          [m,] = NA_real_
+         site$leaf.temp    [m,] = NA_real_
+         site$leaf.vpd     [m,] = NA_real_
+         site$leaf.gpp     [m,] = NA_real_
+         site$leaf.gsw     [m,] = NA_real_
+         site$leaf.par     [m,] = NA_real_
+         site$leaf.par.beam[m,] = NA_real_
+         site$leaf.par.diff[m,] = NA_real_
+      }#end if ( sum(laiareapa) > tiny.num)
+      #---- Wood density is scaled by basal area. -----------------------------------------#
+      basareapa    = patch$ba[[plab]] * areapa
+      if ( sum(basareapa) > tiny.num ){
+         site$wood.dens    [m,] = weighted.mean( x     = patch$wood.dens    [[plab]]
+                                               , w     = basareapa
+                                               , na.rm = TRUE
+                                               )#end weighted.mean
+      }else{
+         site$wood.dens    [m,] = NA_real_
+      }#end if (sum(basareapa) > tiny.num)
+      #---- SLA and leaf life span use leaf biomass as weighting factor. ------------------#
+      bleafareapa = patch$bleaf[[plab]] * areapa
+      if ( sum(bleafareapa) > tiny.num ){
+         
+         ltor.si                = weighted.mean( x     = ltor.pa
+                                               , w     = bleafareapa
+                                               , na.rm = TRUE
+                                               )#end weighted.mean
+         site$sla          [m,] = weighted.mean( x     = patch$sla[[plab]]
+                                               , w     = bleafareapa
+                                               , na.rm = TRUE
+                                               )#end weighted.mean
+         site$llspan       [m,] = ifelse( test = ltor.si %gt% 0.
+                                        , yes  = 1. / ltor.si
+                                        , no   = NA_real_
+                                        )#end ifelse
+      }else{
+         site$llspan       [m,] = NA_real_
+         site$sla          [m,] = NA_real_
+      }#end if ( sum(bleafareapa) > tiny.num )
+      #---- Leaf water potential.  Use aboveground volume as weighting factor. ------------#
+      agvolumeareapa = agvolume.pa * areapa
+      if ( sum(agvolumeareapa) > tiny.num ){
+         site$dmin.leaf.psi[m,] = weighted.mean( x     = patch$dmin.leaf.psi[[plab]]
+                                               , w     = agvolumeareapa
+                                               , na.rm = TRUE
+                                               )#end weighted.mean
+         site$dmax.leaf.psi[m,] = weighted.mean( x      = patch$dmax.leaf.psi[[plab]]
+                                               , w     = agvolumeareapa
+                                               , na.rm = TRUE
+                                               )#end weighted.mean
+      }else{
+         site$dmin.leaf.psi[m,] = NA_real_
+         site$dmax.leaf.psi[m,] = NA_real_
+      }#end if ( sum(agvolumeareapa) > tiny.num )
+      #------------------------------------------------------------------------------------#
+
+
+      #====================================================================================#
+      #====================================================================================#
+      #====================================================================================#
+      #====================================================================================#
 
 
 
@@ -4232,6 +4613,9 @@ read.q.files <<- function( datum
          clab = paste( "y",sprintf("%4.4i",thisyear )
                      , "m",sprintf("%2.2i",thismonth),sep="")
          #----- Binding the current cohorts. ----------------------------------------------#
+         cohort$isi          [[clab]] = isiconow
+         cohort$lsl          [[clab]] = lslconow
+         cohort$ntext        [[clab]] = ntextconow
          cohort$ipa          [[clab]] = ipaconow
          cohort$ico          [[clab]] = icoconow
          cohort$area         [[clab]] = areaconow
@@ -4351,6 +4735,7 @@ read.q.files <<- function( datum
    datum$lu     = lu
    datum$qmean  = qmean
    datum$qmsqu  = qmsqu
+   datum$site   = site
    datum$patch  = patch
    datum$qpatch = qpatch
    datum$cohort = cohort

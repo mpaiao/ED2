@@ -139,10 +139,16 @@ kgCyr.2.umols  <<- 1. / umols.2.kgCyr   # kg(C)/yr    => umol(CO2)/s
 kgCday.2.umols <<- kgC.2.umol / day.sec # kg(C)/day   => umol(CO2)/s
 Torr.2.Pa      <<- prefsea / 760.       # Torr        => Pa
 Pa.2.Torr      <<- 1. / Torr.2.Pa       # Pa          => Torr
+hPa.2.Pa       <<- 100.                 # hPa         => Pa
+Pa.2.hPa       <<- 1. / hPa.2.Pa        # Pa          => hPa
 kt.2.mos       <<- 1852 / hr.sec        # knots       => m/s
 mos.2.kt       <<- 1. / kt.2.mos        # m/s         => knots
 frac2pc        <<- 100.                 # fraction    => percent
 pc2frac        <<- 1. / frac2pc         # percent     => fraction
+ha.2.m2        <<- 10000.               # hectare     => m2
+m2.2.ha        <<- 1./ha.2.m2           # m2          => hectare
+m2.2.cm2       <<- 10000.               # cm2         => m2
+cm2.2.m2       <<- 1./m2.2.cm2          # m2          => cm2
 #------------------------------------------------------------------------------------------#
 
 
@@ -228,6 +234,18 @@ wdnsi    <<- 1./wdns    # Inverse of liquid water density                       
 cliq     <<- 4.186e3    # Liquid water specific heat (Cl)                       [   J/kg/K]
 cliqi    <<- 1./cliq    # Inverse of water heat capacity                        [   kg K/J]
 #------------------------------------------------------------------------------------------#
+
+
+
+#------------------------------------------------------------------------------------------#
+#    Soil matric potential unit conversion.                                                #
+#------------------------------------------------------------------------------------------#
+m.2.mpa  <<- grav * wdns * 1.e-6 # Matric potential convesion                   [    mPa/m]
+mpa.2.m  <<- 1. / m.2.mpa        # Matric potential convesion                   [    m/mPa]
+mm.2.mpa <<- grav * wdns * 1.e-9 # Matric potential convesion                   [    mPa/m]
+mpa.2.mm <<- 1. / mm.2.mpa       # Matric potential convesion                   [    m/mPa]
+#------------------------------------------------------------------------------------------#
+
 
 
 
@@ -373,8 +391,14 @@ almost.one  <<- 1.-almost.zero
 #------------------------------------------------------------------------------------------#
 #     Default NA for chron objects.                                                        #
 #------------------------------------------------------------------------------------------#
-NA_dates_   <<- chron(dates=NA)
-NA_times_   <<- chron(times=NA)
-NA_chron_   <<- chron(dates=NA,times=NA)
+if ("chron" %in% rownames(installed.packages())){
+   NA_dates_   <<- chron::chron(dates=NA)
+   NA_times_   <<- chron::chron(times=NA)
+   NA_chron_   <<- chron::chron(dates=NA,times=NA)
+}#end if ("chron" %in% rownames(installed.packages()))
+#------------------------------------------------------------------------------------------#
+
+
+#---- Default NA for logical objects. -----------------------------------------------------#
 NA_logical_ <<- as.logical(NA)
 #------------------------------------------------------------------------------------------#
