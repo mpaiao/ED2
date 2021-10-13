@@ -1609,11 +1609,15 @@ $ED_NL
    !                       occur, don't set this value to zero! Instead, set IANTH_DISTURB !
    !                       to zero.                                                        !
    !                                                                                       !
-   ! The following variables are used when IANTH_DISTURB is 1 or 2.                        !
+   !    The following variables are used when IANTH_DISTURB is 1 or 2.  In case            !
+   ! IANTH_DISTURB is 1, the values below will be used only for those PFTs not found in    !
+   ! the instructions file (LU_DATABASE).  In case IANTH_DISTURB is 2, the values below    !
+   ! are used for all non-grass PFTs.                                                      !
    !                                                                                       !
    ! SL_SKID_REL_AREA    -- area damaged by skid trails (relative to felled area).         !
-   ! SL_SKID_S_GTHARV    -- survivorship of trees with DBH > MINDBH in skid trails.        !
-   ! SL_SKID_S_LTHARV    -- survivorship of trees with DBH < MINDBH in skid trails.        !
+   ! SL_SKID_DBH_THRESH  -- DBH threshold for damage caused in skid trails.                !
+   ! SL_SKID_S_GTHARV    -- survivorship of trees with DBH > DBH_THRESH in skid trails.    !
+   ! SL_SKID_S_LTHARV    -- survivorship of trees with DBH < DBH_THRESH in skid trails.    !
    ! SL_FELLING_S_LTHARV -- survivorship of trees with DBH < MINDBH in felling gaps.       !
    !                                                                                       !
    ! Cropland variables, used when IANTH_DISTURB is 1 or 2.                                !
@@ -1624,7 +1628,6 @@ $ED_NL
    !---------------------------------------------------------------------------------------!
    NL%IANTH_DISTURB       = 0
    NL%SL_SCALE            = 1
-   NL%SL_SCALE            = 0
    NL%SL_YR_FIRST         = 1992
    NL%SL_NYRS             = 50
    NL%SL_PFT              = 2,3,4
@@ -1632,6 +1635,7 @@ $ED_NL
    NL%SL_MINDBH_HARVEST   = 50.,50.,50.
    NL%SL_BIOMASS_HARVEST  = 0
    NL%SL_SKID_REL_AREA    = 1
+   NL%SL_SKID_DBH_THRESH  = 30.
    NL%SL_SKID_S_GTHARV    = 1
    NL%SL_SKID_S_LTHARV    = 0.6
    NL%SL_FELLING_S_LTHARV = 0.35
