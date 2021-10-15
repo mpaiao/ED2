@@ -1892,7 +1892,7 @@ do
                echo " IATA:     ${polyiata}"
                echo " ISIZEPFT: ${isizepft}"
                echo " INITMODE: ${initmode}"
-               echo "This IATA cannot be initiealised with these ISIZEPFT and INITMODE!"
+               echo "This IATA cannot be initialised with these ISIZEPFT and INITMODE!"
                exit 57
                ;;
             esac
