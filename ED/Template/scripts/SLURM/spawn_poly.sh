@@ -38,7 +38,7 @@ shefhead='SHEF_NCEP_DRIVER_DS314'
 metmaindef="${d_path}/ed2_data"
 packdatasrc="${d_path}/to_scratch"
 #----- Path with land use scenarios. ------------------------------------------------------#
-lumain="${d_path}/ed2_data/land_use"
+lumain="${d_path}/ed2_data/lcluc_scenarios"
 #----- Path with other input data bases (soil texture, DGD, land mask, etc). --------------#
 inpmain="${d_path}/ed2_data"
 #----- Should the met driver be copied to local scratch disks? ----------------------------#
@@ -1773,6 +1773,12 @@ do
          ludatabase="${lumain}/glu-3.3.1+sa2.bau/glu-3.3.1+sa2.bau-"
          ;;
       esac
+      ;;
+   sa2-ril)
+      ludatabase="${lumain}/SimAmazonia2/ril/sa2_ril_"
+      ;;
+   sa2-cvl)
+      ludatabase="${lumain}/SimAmazonia2/cvl/sa2_cvl_"
       ;;
    lurcp26)
       ludatabase="${lumain}/luh-1.1+rcp26_image/luh-1.1+rcp26_image-"

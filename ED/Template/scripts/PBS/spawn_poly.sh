@@ -43,7 +43,7 @@ shefhead='SHEF_NCEP_DRIVER_DS314'
 metmaindef="${fs0}/Data/ed2_data"
 packdatasrc="${fs0}/Data/2scratch"
 #----- Path with land use scenarios. ------------------------------------------------------#
-lumain="${fs0}/Data/lu_scenarios"
+lumain="${fs0}/Data/ed2_data/lcluc_scenarios"
 #----- Path with other input data bases (soil texture, DGD, land mask, etc). --------------#
 inpmain="${fs0}/Data/ed2_data"
 #----- If submit is "n", we create paths but skip submission. -----------------------------#
@@ -1253,6 +1253,12 @@ do
          ludatabase="${lumain}/glu-3.3.1+sa2.bau/glu-3.3.1+sa2.bau-"
          ;;
       esac
+      ;;
+   sa2-ril)
+      ludatabase="${lumain}/SimAmazonia2/ril/sa2_ril_"
+      ;;
+   sa2-cvl)
+      ludatabase="${lumain}/SimAmazonia2/cvl/sa2_cvl_"
       ;;
    lurcp26)
       ludatabase="${lumain}/luh-1.1+rcp26_image/luh-1.1+rcp26_image-"
