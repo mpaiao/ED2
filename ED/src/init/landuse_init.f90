@@ -417,7 +417,7 @@ module landuse_init
                      ! back compatibility).                                                !
                      !---------------------------------------------------------------------!
                      select case (trim(vkey))
-                     case ('N_PFT_HARVEST','N.PFT.HARVEST')
+                     case ('HARVEST_PFT','HARVEST.PFT')
                         !---- PFTs to read. -----------------------------------------------!
                         read (cdum, fmt=*) (harvest_pft(h)  ,h=1,nharvest)
                         !------------------------------------------------------------------!
