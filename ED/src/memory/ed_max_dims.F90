@@ -46,18 +46,15 @@ module ed_max_dims
    !   ED_NVTYP - Number of vegetation classes (used only for land/water mask).            !
    !---------------------------------------------------------------------------------------!
 #if defined(COUPLED)
-   integer, parameter :: maxgrds  = brams_maxgrds
-   integer, parameter :: nxpmax   = brams_nxpmax 
-   integer, parameter :: nypmax   = brams_nypmax 
-   integer, parameter :: nzpmax   = brams_nzpmax 
-   integer, parameter :: nzgmax   = brams_nzgmax 
-   integer, parameter :: maxdim   = brams_maxdim 
-   integer, parameter :: maxdimp  = brams_maxdimp
-   integer, parameter :: nxyzpm   = brams_nxyzpm 
-   integer, parameter :: maxmach  = brams_maxmach
-   integer, parameter :: ed_nstyp = brams_nstyp
-   integer, parameter :: ed_nscol = brams_nscol
-   integer, parameter :: ed_nvtyp = brams_nvtyp+brams_nvtyp_teb
+   integer, parameter :: maxgrds = brams_maxgrds
+   integer, parameter :: nxpmax  = brams_nxpmax 
+   integer, parameter :: nypmax  = brams_nypmax 
+   integer, parameter :: nzpmax  = brams_nzpmax 
+   integer, parameter :: nzgmax  = brams_nzgmax 
+   integer, parameter :: maxdim  = brams_maxdim 
+   integer, parameter :: maxdimp = brams_maxdimp
+   integer, parameter :: nxyzpm  = brams_nxyzpm 
+   integer, parameter :: maxmach = brams_maxmach
 #elif defined(MAC_OS_X)
    ! Restrict maximum size to avoid stack memory issues
    integer, parameter :: maxgrds  = 3
@@ -69,9 +66,6 @@ module ed_max_dims
    integer, parameter :: maxdimp  = maxdim + 2
    integer, parameter :: nxyzpm   = nzpmax * nxpmax * nypmax
    integer, parameter :: maxmach  = 20
-   integer, parameter :: ed_nstyp = 17             ! total # of soil textural classes
-   integer, parameter :: ed_nscol = 21             ! total # of soil colour classes
-   integer, parameter :: ed_nvtyp = 21
 #else
    integer, parameter :: maxgrds = 10
    integer, parameter :: nxpmax  = 666
@@ -86,6 +80,9 @@ module ed_max_dims
    integer, parameter :: ed_nscol = 21             ! total # of soil colour classes
    integer, parameter :: ed_nvtyp = 21
 #endif
+   integer, parameter :: ed_nstyp = 17             ! total # of soil textural classes
+   integer, parameter :: ed_nscol = 21             ! total # of soil colour classes
+   integer, parameter :: ed_nvtyp = 21
    !---------------------------------------------------------------------------------------!
 
 
