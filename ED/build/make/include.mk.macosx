@@ -51,9 +51,9 @@ USE_INTERF=1
 #################################### COMPILER SETTINGS #####################################
 CMACH=MAC_OS_X
 FC_TYPE=GNU
-F_COMP=gfortran
-C_COMP=gcc
-LOADER=gfortran
+F_COMP=/usr/local/bin/gfortran-11
+C_COMP=/usr/local/bin/gcc-11
+LOADER=/usr/local/bin/gfortran-11
 LIBS=
 MOD_EXT=mod
 ############################################################################################
@@ -95,11 +95,9 @@ ifeq ($(KIND_COMP),A)
    #---------------------------------------------------------------------------------------#
 endif
 ifeq ($(KIND_COMP),E)
-   F_OPTS= -O3 -ffree-line-length-none -frecursive -mmacosx-version-min=10.12 -fopenmp     \
-           -fbacktrace -static
+   F_OPTS= -O3 -ffree-line-length-none -frecursive -fopenmp -fbacktrace -static
    C_OPTS= -O3 -DLITTLE  -g  -static
-   LOADER_OPTS= -O3 -ffree-line-length-none -frecursive -mmacosx-version-min=10.12         \
-                -fbacktrace -fopenmp
+   LOADER_OPTS= -O3 -ffree-line-length-none -frecursive -fbacktrace -fopenmp
    #---------------------------------------------------------------------------------------#
 endif
 #------------------------------------------------------------------------------------------#

@@ -664,6 +664,7 @@ subroutine ed_load_work_from_history()
    real            , external    :: dist_gc
    !---------------------------------------------------------------------------------------!
 
+   write (unit=*,fmt='(a)') ' Welcome to ed_load_work_from_history!'
    
 
    !---------------------------------------------------------------------------------------!
@@ -909,7 +910,7 @@ subroutine ed_load_work_from_history()
    end do gridloop
 
    !----- Close the HDF environment. ------------------------------------------------------!
-   call h5close_f(hdferr)
+   call h5close_f(hdferr) 
 
    write (unit=*,fmt='(a)') '-------------------------------------------------------------'
    write (unit=*,fmt='(a)') ' '
