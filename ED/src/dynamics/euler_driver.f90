@@ -26,7 +26,8 @@ module euler_driver
       use stem_resp_driv         , only : stem_respiration           ! ! function
       use photosyn_driv          , only : canopy_photosynthesis      ! ! function
       use update_derived_utils   , only : update_patch_derived_props ! ! subroutine
-      use rk4_integ_utils        , only : copy_met_2_rk4site         ! ! subroutine
+      use rk4_integ_utils        , only : update_today_met_summ      & ! subroutine
+                                        , copy_met_2_rk4site         ! ! subroutine
       use rk4_misc               , only : sanity_check_veg_energy    ! ! sub-routine
       use rk4_copy_patch         , only : copy_rk4patch_init         ! ! sub-routine
       use plant_hydro            , only : plant_hydro_driver         ! ! subroutine
@@ -100,6 +101,14 @@ module euler_driver
             cpoly%avg_monthly_pcpg(imon,isi) = cpoly%avg_monthly_pcpg(imon,isi)            &
                                              + cmet%pcpg * dtlsm
             !------------------------------------------------------------------------------!
+
+
+            !------------------------------------------------------------------------------!
+            !     Update met driver summary variables.                                     !
+            !------------------------------------------------------------------------------!
+            call update_today_met_summ(cpoly,isi)
+            !------------------------------------------------------------------------------!
+
 
             !------------------------------------------------------------------------------!
             !    Copy the meteorological variables to the rk4site structure.               !
@@ -487,6 +496,7 @@ module euler_driver
                                 , print_sanity_check        ! ! sub-routine
       use rk4_misc       , only : update_diagnostic_vars    & ! sub-routine
                                 , update_density_vars       & ! sub-routine
+                                , update_rmean_vars         & ! sub-routine
                                 , adjust_veg_properties     & ! sub-routine
                                 , adjust_topsoil_properties & ! sub-routine
                                 , adjust_sfcw_properties    & ! sub-routine
@@ -671,6 +681,8 @@ module euler_driver
                call update_diagnostic_vars(ytemp, csite,ipa,ibuff)
                !----- iv.  Update density variables. --------------------------------------!
                call update_density_vars(ytemp,initp)
+               !----- v. Update time-step averages. ---------------------------------------!
+               call update_rmean_vars(ytemp,h,csite,ipa,ibuff)
                !---------------------------------------------------------------------------!
 
                !---------------------------------------------------------------------------!

@@ -178,6 +178,7 @@ module ed_type_init
       !------ State variables for new mortality -------------------------------------------!
       cpatch%plc_monthly     (1:13,ico) = 0.
       cpatch%ddbh_monthly    (1:13,ico) = 0.
+      cpatch%fire_lethal_rate(1:13,ico) = 0.
       !------------------------------------------------------------------------------------!
 
 
@@ -395,6 +396,7 @@ module ed_type_init
       cpatch%lint_shv              (ico) = 0.
       cpatch%lint_co2_open         (ico) = 0.
       cpatch%lint_co2_closed       (ico) = 0.
+      cpatch%fire_lethal_prob      (ico) = 0.
       !------------------------------------------------------------------------------------!
 
 
@@ -685,6 +687,7 @@ module ed_type_init
          cpatch%mmean_leaf_drop           (ico) = 0.0
          cpatch%mmean_root_drop           (ico) = 0.0
          cpatch%mmean_cb                  (ico) = 0.0
+         cpatch%mmean_fire_lethal_rate    (ico) = 0.0
          cpatch%mmean_nppleaf             (ico) = 0.0
          cpatch%mmean_nppfroot            (ico) = 0.0
          cpatch%mmean_nppsapwood          (ico) = 0.0
@@ -844,7 +847,8 @@ module ed_type_init
                                 , ied_init_mode        & ! intent(in)
                                 , integration_scheme   & ! intent(in)
                                 , dtlsm                & ! intent(in)
-                                , dteuler              ! ! intent(in)
+                                , dteuler              & ! intent(in)
+                                , ndfire               ! ! intent(in)
       implicit none
       !----- Arguments. -------------------------------------------------------------------!
       type(sitetype)   , target     :: csite
@@ -965,6 +969,20 @@ module ed_type_init
       !------------------------------------------------------------------------------------!
 
 
+      !------------------------------------------------------------------------------------!
+      !    Variables used by the new fire model.                                           !
+      !------------------------------------------------------------------------------------!
+      csite%tdfire_can_temp        (1:ndfire,ipaa:ipaz) = 0.0
+      csite%tdfire_can_rhv         (1:ndfire,ipaa:ipaz) = 0.0
+      csite%tdfire_can_vpdef       (1:ndfire,ipaa:ipaz) = 0.0
+      csite%tdfire_sfc_wetness     (1:ndfire,ipaa:ipaz) = 0.0
+      csite%tdfire_sfc_mstpot      (1:ndfire,ipaa:ipaz) = 0.0
+      csite%tdfire_can_vels        (1:ndfire,ipaa:ipaz) = 0.0
+      csite%tdfire_can_tdew        (1:ndfire,ipaa:ipaz) = 0.0
+      csite%tdfire_fdi_vpd         (1:ndfire,ipaa:ipaz) = 0.0
+      !------------------------------------------------------------------------------------!
+
+
       !------ Miscellaneous variables. ----------------------------------------------------!
       csite%repro                   (1:n_pft,ipaa:ipaz) = 0.0
       csite%avg_daily_temp                  (ipaa:ipaz) = 0.0
@@ -1059,6 +1077,7 @@ module ed_type_init
       csite%total_plant_nitrogen_uptake     (ipaa:ipaz) = 0.0
       csite%mineralized_N_loss              (ipaa:ipaz) = 0.0
       csite%mineralized_N_input             (ipaa:ipaz) = 0.0
+      csite%nesterov_index                  (ipaa:ipaz) = 0.0
       csite%tstar                           (ipaa:ipaz) = 0.0
       csite%qstar                           (ipaa:ipaz) = 0.0
       csite%cstar                           (ipaa:ipaz) = 0.0
@@ -1501,6 +1520,7 @@ module ed_type_init
       use ed_state_vars , only : polygontype        ! ! intent(in)
       use ed_max_dims   , only : n_pft              & ! intent(in)
                                , n_dbh              ! ! intent(in)
+      use grid_coms     , only : nzg                    ! ! intent(in)
       use pft_coms      , only : pasture_stock      & ! intent(in)
                                , agri_stock         & ! intent(in)
                                , plantation_stock   & ! intent(in)
@@ -1522,11 +1542,24 @@ module ed_type_init
                                , writing_eorq       & ! intent(in)
                                , writing_dcyc       & ! intent(in)
                                , economics_scheme   ! ! intent(in)
+      use consts_coms   , only : wdns                   & ! intent(in)
+                               , huge_num               ! ! intent(in)
+      use disturb_coms  , only : include_fire           & ! intent(in)
+                               , fire_dryness_threshold & ! intent(in)
+                               , k_fire_first           & ! intent(in)
+                               , fire_smoist_depth      & ! intent(in)
+                               , fh_pcpg_edi            ! ! intent(in)
+      use soil_coms     , only : soil                   & ! intent(in)
+                               , slz                    ! ! intent(in)
       implicit none
       !----- Arguments. -------------------------------------------------------------------!
       type(polygontype), target     :: cpoly
       !----- Local variables. -------------------------------------------------------------!
       integer                       :: ipft
+      integer                       :: k
+      integer                       :: isi
+      integer                       :: nsoil
+      real                          :: fm_dslz
       !----- External functions. ----------------------------------------------------------!
       integer          , external   :: julday
       !------------------------------------------------------------------------------------!
@@ -1679,6 +1712,31 @@ module ed_type_init
 
 
       !------------------------------------------------------------------------------------!
+      !      Initialise running average of precipitation.  To avoid fires right at the     !
+      ! beginning of the simulation, we initialise the rainfall with a large               !
+      ! precipitation, proportional to the decay rate.                                     !
+      !------------------------------------------------------------------------------------!
+      cpoly%avg_running_pcpg(:) = 3. / abs(fh_pcpg_edi)
+      !------------------------------------------------------------------------------------!
+
+
+      !------------------------------------------------------------------------------------!
+      !      Initialise daily meteorological summaries.                                    !
+      !------------------------------------------------------------------------------------!
+      cpoly%tdfire_pcpg     (:,:) = 0.
+      cpoly%tdfire_atm_temp (:,:) = 0.
+      cpoly%tdfire_atm_vpdef(:,:) = 0.
+      cpoly%tdfire_atm_tdew (:,:) = 0.
+      !------------------------------------------------------------------------------------!
+
+
+      !----- Initialise fire variables. ---------------------------------------------------!
+      cpoly%today_fire_density   (:) = 0.
+      cpoly%today_fire_extinction(:) = 0.
+      !------------------------------------------------------------------------------------!
+
+
+      !------------------------------------------------------------------------------------!
       !      Initialise monthly rainfall with some arbitrary but high number.  This will   !
       ! probably prevent fires to happen at the first year, but all data will be replaced  !
       ! by actual rainfall after 12 months.  In the future we may initialise with climato- !
@@ -1702,10 +1760,66 @@ module ed_type_init
       cpoly%secondary_harvest_target         (:) = 0.0
       cpoly%primary_harvest_memory           (:) = 0.0
       cpoly%secondary_harvest_memory         (:) = 0.0
+      cpoly%fire_density                     (:) = 0.0
+      cpoly%fire_extinction                  (:) = 0.0
+      cpoly%fire_intensity                   (:) = 0.0
+      cpoly%fire_tlethal                     (:) = 0.0
+      cpoly%fire_spread                      (:) = 0.0
+      cpoly%burnt_area                       (:) = 0.0
       cpoly%ignition_rate                    (:) = 0.0
+      cpoly%fire_f_bherb                     (:) = 0.0
+      cpoly%fire_f_bwoody                    (:) = 0.0
+      cpoly%fire_f_fgc                       (:) = 0.0
+      cpoly%fire_f_stgc                      (:) = 0.0
+      cpoly%avg_burnt_area                 (:,:) = 0.0
+      cpoly%avg_fire_intensity             (:,:) = 0.0
+      cpoly%avg_fire_f_bherb               (:,:) = 0.0
+      cpoly%avg_fire_f_bwoody              (:,:) = 0.0
+      cpoly%avg_fire_f_fgc                 (:,:) = 0.0
+      cpoly%avg_fire_f_stgc                (:,:) = 0.0
       cpoly%lambda_fire                    (:,:) = 0.0
       cpoly%disturbance_memory           (:,:,:) = 0.0
       cpoly%disturbance_rates            (:,:,:) = 0.0
+      !------------------------------------------------------------------------------------!
+
+
+      !----- Initialise water mass threshold. ---------------------------------------------!
+      do isi=1,cpoly%nsites
+         !------ Calculate fire water mass threshold based on the fire model. -------------!
+         select case (include_fire)
+         case (0)
+            !----- Fires are suprressed. Set threshold to zero. ---------------------------!
+            cpoly%fire_wmass_threshold(isi) = 0.0
+            !------------------------------------------------------------------------------!
+         case (1)
+            !------------------------------------------------------------------------------!
+            !     The fire threshold is equivalent to the dryness factor, converted to     !
+            ! kg/m2.  This will be compared to the full column, so if the soil is too deep !
+            ! then fires would be nearly impossible.                                       !
+            !------------------------------------------------------------------------------!
+            cpoly%fire_wmass_threshold(isi) = fire_dryness_threshold * wdns
+            !------------------------------------------------------------------------------!
+         case (2,3)
+            !------------------------------------------------------------------------------!
+            !     Find the minimum amount of water in kg/m2 that the soil must have to     !
+            ! avoid fires, using the soil properties and the soil moisture fraction        !
+            ! threshold.                                                                   !
+            !------------------------------------------------------------------------------!
+            cpoly%fire_wmass_threshold(isi) = 0.
+            do k = k_fire_first, nzg
+               nsoil                           = cpoly%ntext_soil(k,isi)
+               fm_dslz                         = slz(k+1) - max(fire_smoist_depth,slz(k))
+               cpoly%fire_wmass_threshold(isi) = cpoly%fire_wmass_threshold(isi)           &
+                                               + soil(nsoil)%soilfr * fm_dslz * wdns
+            end do
+            !------------------------------------------------------------------------------!
+         case default
+            !----- Other approaches that may not depend on thresholds. --------------------!
+            cpoly%fire_wmass_threshold(isi) = 0.0
+            !------------------------------------------------------------------------------!
+         end select
+         !---------------------------------------------------------------------------------!
+      end do
       !------------------------------------------------------------------------------------!
 
 
@@ -1756,6 +1870,8 @@ module ed_type_init
          cpoly%dmean_pcpg                  (:) = 0.0
          cpoly%dmean_qpcpg                 (:) = 0.0
          cpoly%dmean_dpcpg                 (:) = 0.0
+         cpoly%dmean_fire_density          (:) = 0.0
+         cpoly%dmean_fire_extinction       (:) = 0.0
       end if
       !------------------------------------------------------------------------------------!
 
@@ -1780,6 +1896,17 @@ module ed_type_init
          cpoly%mmean_pcpg                  (:) = 0.0
          cpoly%mmean_qpcpg                 (:) = 0.0
          cpoly%mmean_dpcpg                 (:) = 0.0
+         cpoly%mmean_burnt_area            (:) = 0.0
+         cpoly%mmean_fire_density          (:) = 0.0
+         cpoly%mmean_fire_extinction       (:) = 0.0
+         cpoly%mmean_fire_intensity        (:) = 0.0
+         cpoly%mmean_fire_tlethal          (:) = 0.0
+         cpoly%mmean_fire_spread           (:) = 0.0
+         cpoly%mmean_ignition_rate         (:) = 0.0
+         cpoly%mmean_fire_f_bherb          (:) = 0.0
+         cpoly%mmean_fire_f_bwoody         (:) = 0.0
+         cpoly%mmean_fire_f_fgc            (:) = 0.0
+         cpoly%mmean_fire_f_stgc           (:) = 0.0
       end if
       !------------------------------------------------------------------------------------!
 
@@ -2310,6 +2437,8 @@ module ed_type_init
             cgrid%dmean_smoist_gg          (:,ipy) = 0.0
             cgrid%dmean_transloss          (:,ipy) = 0.0
             cgrid%dmean_sensible_gg        (:,ipy) = 0.0
+            cgrid%dmean_fire_density         (ipy) = 0.0
+            cgrid%dmean_fire_extinction      (ipy) = 0.0
          end if
          !---------------------------------------------------------------------------------!
 
@@ -2520,6 +2649,17 @@ module ed_type_init
             cgrid%mmean_pcpg                 (ipy) = 0.0
             cgrid%mmean_qpcpg                (ipy) = 0.0
             cgrid%mmean_dpcpg                (ipy) = 0.0
+            cgrid%mmean_burnt_area           (ipy) = 0.0
+            cgrid%mmean_fire_density         (ipy) = 0.0
+            cgrid%mmean_fire_extinction      (ipy) = 0.0
+            cgrid%mmean_fire_intensity       (ipy) = 0.0
+            cgrid%mmean_fire_tlethal         (ipy) = 0.0
+            cgrid%mmean_fire_spread          (ipy) = 0.0
+            cgrid%mmean_ignition_rate        (ipy) = 0.0
+            cgrid%mmean_fire_f_bherb         (ipy) = 0.0
+            cgrid%mmean_fire_f_bwoody        (ipy) = 0.0
+            cgrid%mmean_fire_f_fgc           (ipy) = 0.0
+            cgrid%mmean_fire_f_stgc          (ipy) = 0.0
             cgrid%mmsqu_gpp                  (ipy) = 0.0
             cgrid%mmsqu_npp                  (ipy) = 0.0
             cgrid%mmsqu_plresp               (ipy) = 0.0

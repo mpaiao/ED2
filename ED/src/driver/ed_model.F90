@@ -79,6 +79,8 @@ subroutine ed_model()
    use ed_met_driver       , only : read_met_drivers            & ! sub-routine
                                   , update_met_drivers          ! ! sub-routine
    use euler_driver        , only : euler_timestep              ! ! sub-routine
+   use fire                , only : reset_monthly_fire          & ! sub-routine
+                                  , reset_yearly_fire           ! ! sub-routine
    use heun_driver         , only : heun_timestep               ! ! sub-routine
    use hybrid_driver       , only : hybrid_timestep             ! ! sub-routine
    use lsm_hyd             , only : updateHydroParms            & ! sub-routine
@@ -256,13 +258,32 @@ subroutine ed_model()
          call ed_init_viable(edgrid_g(ifm))
       end do
    case ('HISTORY')
-      new_day         = current_time%time < dtlsm
+      new_day   = current_time%time < dtlsm
+      new_month = current_time%date == 1  .and. new_day
+      new_year  = current_time%month == month_yrstep .and. new_month
       do ifm=1,ngrids
          call flag_stable_cohorts(edgrid_g(ifm),.true.)
-         call ed_init_viable(edgrid_g(ifm))      
+         call ed_init_viable(edgrid_g(ifm))
+         !----- Reset litter pools if it is a new day. ------------------------------------!
          if (new_day) then
             call zero_litter_inputs(edgrid_g(ifm))
          end if
+         !---------------------------------------------------------------------------------!
+
+
+
+         !---------------------------------------------------------------------------------!
+         !     Reset fire variables.                                                       !
+         !---------------------------------------------------------------------------------!
+         !----- Reset monthly fire variables if this is a new month. ----------------------!
+         if (new_month) then
+            call reset_monthly_fire(edgrid_g(ifm))
+         end if
+         !----- Reset yearly fire variables if this is a new year. ------------------------!
+         if (new_year) then
+            call reset_yearly_fire(edgrid_g(ifm))
+         end if
+         !---------------------------------------------------------------------------------!
       end do
    end select
    !---------------------------------------------------------------------------------------!
@@ -588,6 +609,24 @@ subroutine ed_model()
             call zero_litter_inputs(edgrid_g(ifm))
          end do
       end if
+      !------------------------------------------------------------------------------------!
+
+
+
+      !------------------------------------------------------------------------------------!
+      !     Reset fire variables.                                                          !
+      !------------------------------------------------------------------------------------!
+      do ifm=1,ngrids
+         !------ New month, reset variables used for monthly integration. -----------------!
+         if (new_month) then
+               call reset_monthly_fire(edgrid_g(ifm))
+         end if
+         !------ New year, reset variables used for disturbance rate. ---------------------!
+         if (new_year) then
+               call reset_yearly_fire(edgrid_g(ifm))
+         end if
+         !---------------------------------------------------------------------------------!
+      end do
       !------------------------------------------------------------------------------------!
 
 

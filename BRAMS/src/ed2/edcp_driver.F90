@@ -47,6 +47,8 @@ subroutine ed_coup_driver()
    use budget_utils         , only : ed_init_budget        ! ! sub-routine
    use ed_type_init         , only : ed_init_viable        ! ! sub-routine
    use soil_respiration     , only : zero_litter_inputs    ! ! sub-routine
+   use fire                 , only : reset_monthly_fire    & ! sub-routine
+                                   , reset_yearly_fire     ! ! sub-routine
 
    implicit none
    !----- Local variables. ----------------------------------------------------------------!
@@ -64,6 +66,8 @@ subroutine ed_coup_driver()
    integer                     :: ierr
    integer                     :: igr
    integer                     :: ping 
+   logical                     :: new_month
+   logical                     :: new_year
    real                        :: wtime1
    real                        :: wtime2
    real                        :: wtime_start     ! wall time
@@ -350,13 +354,32 @@ subroutine ed_coup_driver()
          call ed_init_viable(edgrid_g(ifm))
       end do
    case ('HISTORY')
-      new_day         = current_time%time < dtlsm
+      new_day   = current_time%time < dtlsm
+      new_month = current_time%date == 1  .and. new_day
+      new_year  = current_time%month == month_yrstep .and. new_month
       do ifm=1,ngrids
          call flag_stable_cohorts(edgrid_g(ifm),.true.)
-         call ed_init_viable(edgrid_g(ifm))      
+         call ed_init_viable(edgrid_g(ifm))
+         !----- Reset litter pools if it is a new day. ------------------------------------!
          if (new_day) then
             call zero_litter_inputs(edgrid_g(ifm))
          end if
+         !---------------------------------------------------------------------------------!
+
+
+
+         !---------------------------------------------------------------------------------!
+         !     Reset fire variables.                                                       !
+         !---------------------------------------------------------------------------------!
+         !----- Reset monthly fire variables if this is a new month. ----------------------!
+         if (new_month) then
+            call reset_monthly_fire(edgrid_g(ifm))
+         end if
+         !----- Reset yearly fire variables if this is a new year. ------------------------!
+         if (new_year) then
+            call reset_yearly_fire(edgrid_g(ifm))
+         end if
+         !---------------------------------------------------------------------------------!
       end do
    end select
    !---------------------------------------------------------------------------------------!
@@ -447,23 +470,26 @@ end subroutine ed_coup_driver
 ! variables.  FRQSUM should never exceed one day to avoid build up and overflows.          !
 !------------------------------------------------------------------------------------------!
 subroutine find_frqsum()
-   use ed_misc_coms, only : unitfast        & ! intent(in)
-                          , unitstate       & ! intent(in)
-                          , isoutput        & ! intent(in)
-                          , itoutput        & ! intent(in)
-                          , iooutput        & ! intent(in)
-                          , ifoutput        & ! intent(in)
-                          , imoutput        & ! intent(in)
-                          , idoutput        & ! intent(in)
-                          , iqoutput        & ! intent(in)
-                          , frqstate        & ! intent(in)
-                          , frqfast         & ! intent(in)
-                          , frqsum          & ! intent(out)
-                          , frqsumi         & ! intent(out)
-                          , dtlsm_o_frqsum  & ! intent(out)
-                          , radfrq_o_frqsum ! ! intent(out)
-   use consts_coms , only : day_sec         ! ! intent(in)
-   use io_params   , only : ioutput         ! ! intent(in)
+   use ed_misc_coms, only : unitfast          & ! intent(in)
+                          , unitstate         & ! intent(in)
+                          , isoutput          & ! intent(in)
+                          , itoutput          & ! intent(in)
+                          , iooutput          & ! intent(in)
+                          , ifoutput          & ! intent(in)
+                          , imoutput          & ! intent(in)
+                          , idoutput          & ! intent(in)
+                          , iqoutput          & ! intent(in)
+                          , frqstate          & ! intent(in)
+                          , frqfast           & ! intent(in)
+                          , frqsum            & ! intent(out)
+                          , frqsumi           & ! intent(out)
+                          , dtlsm_o_frqsum    & ! intent(out)
+                          , radfrq_o_frqsum   & ! intent(out)
+                          , dtlsm_o_day_sec   & ! intent(out)
+                          , dtlsm_o_firefrq   & ! intent(out)
+                          , firefrq_o_day_sec ! ! intent(out)
+   use consts_coms , only : day_sec           ! ! intent(in)
+   use io_params   , only : ioutput           ! ! intent(in)
    implicit none
    !----- Local variables. ----------------------------------------------------------------!
    logical :: fast_output
@@ -555,23 +581,36 @@ subroutine find_frqsum()
 
 
    !---------------------------------------------------------------------------------------!
-   !     Find some useful conversion factors.                                              !
-   ! 1. FRQSUMI         -- inverse of the elapsed time between two analyses (or one day).  !
-   !                       This should be used by variables that are fluxes and are solved !
-   !                       by RK4, they are holding the integral over the past frqsum      !
-   !                       seconds.                                                        !
-   ! 2. DTLSM_O_FRQSUM  -- inverse of the number of the main time steps (DTLSM) since      !
-   !                       previous analysis.  Only photosynthesis- and decomposition-     !
-   !                       related variables, or STATE VARIABLES should use this factor.   !
-   !                       Do not use this for energy and water fluxes, CO2 eddy flux, and !
-   !                       CO2 storage.                                                    !
-   ! 3. RADFRQ_O_FRQSUM -- inverse of the number of radiation time steps since the         !
-   !                       previous analysis.  Only radiation-related variables should use !
-   !                       this factor.                                                    !
+   !     Some useful conversion factors.                                                   !
+   ! 1. DTLSMI            -- inverse of the RK4 time step.  These are useful for averaging !
+   !                         data during one RK4 time step.                                !
+   ! 2. FRQSUMI           -- inverse of the elapsed time between two analyses (or one      !
+   !                         day).  This should be used by variables that are fluxes and   !
+   !                         are solved by RK4, they are holding the integral over the     !
+   !                         past frqsum seconds.                                          !
+   ! 3. DTLSM_O_FRQSUM    -- inverse of the number of the main time steps (DTLSM) since    !
+   !                         previous analysis.  Only photosynthesis- and decomposition-   !
+   !                         related variables, or STATE VARIABLES should use this factor. !
+   !                         Do not use this for energy and water fluxes, CO2 eddy flux,   !
+   !                         and CO2 storage.                                              !
+   ! 4. RADFRQ_O_FRQSUM   -- inverse of the number of radiation time steps since the       !
+   !                         previous analysis.  Only radiation-related variables should   !
+   !                         use this factor.                                              !
+   ! 5. DTLSM_O_DAY_SEC   -- inverse of the number of main time steps within a day.  These !
+   !                         are used for the new fire model.                              !
+   ! 6. DTLSM_O_FIREFRQ   -- number of RK4 time steps in a fire time step.  These are      !
+   !                         useful for integrating variables for the fire model.          !
+   ! 7. FIREFRQ_O_DAY_SEC -- inverse of the number of main time steps within a day.        !
+   !                         These are used for integrating the new fire model.            !
    !---------------------------------------------------------------------------------------!
-   frqsumi         = 1.0    / frqsum
-   dtlsm_o_frqsum  = dtlsm  * frqsumi
-   radfrq_o_frqsum = radfrq * frqsumi
+   dtlsmi            = 1.0    / dtlsm
+   dtlsmi8           = dble(dtlsmi)
+   frqsumi           = 1.0    / frqsum
+   dtlsm_o_frqsum    = dtlsm  * frqsumi
+   radfrq_o_frqsum   = radfrq * frqsumi
+   dtlsm_o_day_sec   = dtlsm  / day_sec
+   dtlsm_o_firefrq   = dtlsm  / firefrq
+   firefrq_o_day_sec = firefrq / day_sec
    !---------------------------------------------------------------------------------------!
 
    return

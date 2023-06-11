@@ -29,7 +29,8 @@ module heun_driver
       use stem_resp_driv         , only : stem_respiration           ! ! function
       use photosyn_driv          , only : canopy_photosynthesis      ! ! function
       use update_derived_utils   , only : update_patch_derived_props ! ! subroutine
-      use rk4_integ_utils        , only : copy_met_2_rk4site         ! ! subroutine
+      use rk4_integ_utils        , only : update_today_met_summ      & ! subroutine
+                                        , copy_met_2_rk4site         ! ! subroutine
       use rk4_misc               , only : sanity_check_veg_energy    ! ! sub-routine
       use rk4_copy_patch         , only : copy_rk4patch_init         ! ! sub-routine
       use plant_hydro            , only : plant_hydro_driver         ! ! subroutine
@@ -101,6 +102,14 @@ module heun_driver
             cpoly%avg_monthly_pcpg(imon,isi) = cpoly%avg_monthly_pcpg(imon,isi)            &
                                              + cmet%pcpg * dtlsm
             !------------------------------------------------------------------------------!
+
+
+            !------------------------------------------------------------------------------!
+            !     Update met driver summary variables.                                     !
+            !------------------------------------------------------------------------------!
+            call update_today_met_summ(cpoly,isi)
+            !------------------------------------------------------------------------------!
+
 
             !------------------------------------------------------------------------------!
             !    Copy the meteorological variables to the rk4site structure.               !
@@ -479,6 +488,7 @@ module heun_driver
                                 , adjust_sfcw_properties    & ! sub-routine
                                 , update_diagnostic_vars    & ! sub-routine
                                 , update_density_vars       & ! sub-routine
+                                , update_rmean_vars         & ! sub-routine
                                 , print_rk4_state           ! ! sub-routine
       use ed_misc_coms   , only : fast_diagnostics          & ! intent(in)
                                 , dtlsm                     ! ! intent(in)
@@ -718,6 +728,8 @@ module heun_driver
                !----- v.  Update the density variables. -----------------------------------!
                call update_density_vars(integration_buff(ibuff)%ytemp                      &
                                        ,integration_buff(ibuff)%y     )
+               !----- vi. Update time-step averages. --------------------------------------!
+               call update_rmean_vars(integration_buff(ibuff)%ytemp,h,csite,ipa,ibuff)
                !---------------------------------------------------------------------------!
 
 

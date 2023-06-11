@@ -439,6 +439,7 @@ subroutine ed_opspec_times
                            , itimez           & ! intent(in)
                            , dtlsm            & ! intent(in)
                            , radfrq           & ! intent(in)
+                           , firefrq          & ! intent(in)
                            , month_yrstep     & ! intent(in)
                            , ifoutput         & ! intent(in)
                            , isoutput         & ! intent(in)
@@ -1095,6 +1096,35 @@ subroutine ed_opspec_times
       write(reason,fmt='(a,1x,f8.2,1x,a,1x,f8.2,a)')  &
           'DTLSM must be a divisor of RADFRQ. Your DTLSM is set to',dtlsm, &
           'and your RADFRQ is set to',radfrq,'...'
+      call opspec_fatal(reason,'opspec_times')  
+      ifaterr=ifaterr+1
+   end if
+   !---------------------------------------------------------------------------------------!
+
+
+
+
+
+   !----- DTLSM must be an integer divisor of FIREFRQ so integrals make sense. ------------!
+   if (mod(firefrq,dtlsm) /= 0.0) then
+      write(reason,fmt='(a,1x,f8.2,1x,a,1x,f8.2,a)')  &
+          'DTLSM must be a divisor of FIREFRQ. Your DTLSM is set to',dtlsm, &
+          'and your FIREFRQ is set to',firefrq,'...'
+      call opspec_fatal(reason,'opspec_times')  
+      ifaterr=ifaterr+1
+   end if
+   !---------------------------------------------------------------------------------------!
+
+
+
+   !---------------------------------------------------------------------------------------!
+   !    Also make sure that the fire time step is a divisor of one day (the new fire model !
+   ! is always called daily, and this ensures the number of bins for sub-daily average is  !
+   ! an integer.                                                                           !
+   !---------------------------------------------------------------------------------------!
+   if (mod(day_sec,firefrq) /= 0.0) then
+      write(reason,fmt='(a,1x,f8.2,1x,a,1x,es14.7)')  &
+          'FIREFRQ must be a divisor of ',day_sec,' sec. Yours is set to ',firefrq
       call opspec_fatal(reason,'opspec_times')  
       ifaterr=ifaterr+1
    end if
@@ -2241,13 +2271,13 @@ end do
       ifaterr = ifaterr +1
    end if
 
-   if (include_fire < 0 .or. include_fire > 3) then
-      write (reason,fmt='(a,1x,i4,a)')                                                     &
-                    'Invalid INCLUDE_FIRE, it must be between 0 and 3. Yours is set to'    &
-                    ,include_fire,'...'
-      call opspec_fatal(reason,'opspec_misc')
-      ifaterr = ifaterr +1
-   else if (include_fire /= 0) then
+   select case (include_fire)
+   case (0)
+      !----- Fire is off, no further checks needed. ---------------------------------------!
+      continue
+      !------------------------------------------------------------------------------------!
+   case (1,2)
+      !------ Check fire parameter and sm_fire. -------------------------------------------!
       if (fire_parameter < 0.0 .or. fire_parameter > 100.) then
          write (reason,fmt='(a,1x,es12.5,a)')                                              &
                'Invalid FIRE_PARAMETER, it must be between 0 and 100.. Yours is set to'    &
@@ -2264,7 +2294,30 @@ end do
          call opspec_fatal(reason,'opspec_misc')
          ifaterr = ifaterr +1
       end if
-   end if
+      !------------------------------------------------------------------------------------!
+   case (3)
+      !------ EMBERFIRE.  Check fire parameter only. --------------------------------------!
+      if (fire_parameter < 0.0 .or. fire_parameter > 100.) then
+         write (reason,fmt='(a,1x,es12.5,a)')                                              &
+               'Invalid FIRE_PARAMETER, it must be between 0 and 100.. Yours is set to'    &
+             , fire_parameter,'...'
+         call opspec_fatal(reason,'opspec_misc')
+         ifaterr = ifaterr +1
+      end if
+      !------------------------------------------------------------------------------------!
+   case (4)
+      !------ FIRESTARTER.  No additional checks needed in the namelist. ------------------!
+      continue
+      !------------------------------------------------------------------------------------!
+   case default
+      !----- Invalid INLCUDE_FIRE. --------------------------------------------------------!
+      write (reason,fmt='(a,1x,i4,a)')                                                     &
+                    'Invalid INCLUDE_FIRE, it must be between 0 and 4. Yours is set to'    &
+                    ,include_fire,'...'
+      call opspec_fatal(reason,'opspec_misc')
+      ifaterr = ifaterr +1
+      !------------------------------------------------------------------------------------!
+   end select
 
    if (ianth_disturb < 0 .or. ianth_disturb > 2) then
       write (reason,fmt='(a,1x,i4,a)')                                                     &

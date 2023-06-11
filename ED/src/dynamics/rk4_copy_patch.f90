@@ -598,6 +598,19 @@ module rk4_copy_patch
       end if
       !------------------------------------------------------------------------------------!
 
+
+      !----- Time step averages of state vars, always start with zero. --------------------!
+      targetp%rmean_can_temp    = 0.d0
+      targetp%rmean_can_tdew    = 0.d0
+      targetp%rmean_can_rhv     = 0.d0
+      targetp%rmean_can_vpdef   = 0.d0
+      targetp%rmean_can_ekin    = 0.d0
+      targetp%rmean_gnd_water   = 0.d0
+      targetp%rmean_gnd_mstpot  = 0.d0
+      targetp%rmean_gnd_wetness = 0.d0
+      !------------------------------------------------------------------------------------!
+
+
       !----- Water deficit, always start with zero. ---------------------------------------!
       targetp%water_deficit = 0.d0
       !------------------------------------------------------------------------------------!
@@ -725,6 +738,16 @@ module rk4_copy_patch
       targetp%msc_rh           = sourcep%msc_rh
       targetp%ssc_rh           = sourcep%ssc_rh
       targetp%psc_rh           = sourcep%psc_rh
+
+
+      targetp%rmean_can_temp    = sourcep%rmean_can_temp
+      targetp%rmean_can_tdew    = sourcep%rmean_can_tdew
+      targetp%rmean_can_rhv     = sourcep%rmean_can_rhv
+      targetp%rmean_can_vpdef   = sourcep%rmean_can_vpdef
+      targetp%rmean_can_ekin    = sourcep%rmean_can_ekin
+      targetp%rmean_gnd_water   = sourcep%rmean_gnd_water
+      targetp%rmean_gnd_mstpot  = sourcep%rmean_gnd_mstpot
+      targetp%rmean_gnd_wetness = sourcep%rmean_gnd_wetness
 
       targetp%water_deficit    = sourcep%water_deficit
 
@@ -950,10 +973,14 @@ module rk4_copy_patch
                                       , t3ple                & ! intent(in)
                                       , t3ple8               & ! intent(in)
                                       , wdns8                ! ! intent(in)
-      use ed_misc_coms         , only : fast_diagnostics     & ! intent(in)
+      use ed_misc_coms         , only : current_time         & ! intent(in)
+                                      , fast_diagnostics     & ! intent(in)
                                       , writing_long         & ! intent(in)
+                                      , ndfire               & ! intent(in)
                                       , dtlsm                & ! intent(in)
-                                      , dtlsm_o_frqsum       ! ! intent(in)
+                                      , firefrq              & ! intent(in)
+                                      , dtlsm_o_frqsum       & ! intent(in)
+                                      , dtlsm_o_firefrq      ! ! intent(in)
       use soil_coms            , only : soil8                & ! intent(in)
                                       , dslz8                & ! intent(in)
                                       , slz8                 & ! intent(in)
@@ -965,13 +992,13 @@ module rk4_copy_patch
                                       , vpdefil              & ! subroutine
                                       , uextcm2tl            & ! subroutine
                                       , cmtl2uext            & ! subroutine
-                                      , qslif                ! ! function
+                                      , qslif                & ! function
+                                      , eslif                & ! function
+                                      , tslif                ! ! function
       use phenology_coms       , only : spot_phen            ! ! intent(in)
       use physiology_coms      , only : plant_hydro_scheme   & ! intent(in)
                                       , gbh_2_gbw            ! ! intent(in)
       use allometry            , only : h2crownbh            ! ! function
-      use disturb_coms         , only : include_fire         & ! intent(in)
-                                      , k_fire_first         ! ! intent(in)
       use plant_hydro          , only : twe2twi              & ! subroutine
                                       , tw2rwc               ! ! subroutine
       use rk4_misc             , only : print_rk4patch       ! ! subroutine
@@ -996,16 +1023,15 @@ module rk4_copy_patch
       !----- Local variables --------------------------------------------------------------!
       type(patchtype)   , pointer     :: cpatch
       integer                         :: ico
+      integer                         :: ifr
       integer                         :: ipft
       integer                         :: k
-      integer                         :: ka
       integer                         :: kroot
       integer                         :: ksn
       integer                         :: kclosest
       integer                         :: nsoil
       real(kind=8)                    :: tmp_energy
       real(kind=8)                    :: available_water
-      real(kind=8)                    :: gnd_water
       real(kind=8)                    :: psiplusz
       real(kind=8)                    :: mcheight
       real(kind=4)                    :: step_waterdef
@@ -1024,6 +1050,14 @@ module rk4_copy_patch
 
       !----- Alias for temporary surface water layers. ------------------------------------!
       ksn = initp%nlev_sfcwater
+      !------------------------------------------------------------------------------------!
+
+
+      !------------------------------------------------------------------------------------!
+      !      Alias for bin for variables needed by the new fire models.   This will ensure !
+      ! that midnight goes to the last bin.                                                !
+      !------------------------------------------------------------------------------------!
+      ifr = 1 + modulo(ceiling(current_time%time/firefrq) - 1,ndfire)
       !------------------------------------------------------------------------------------!
 
 
@@ -1196,7 +1230,8 @@ module rk4_copy_patch
       !     The following is not a pure diagnostic, it is used for phenology and mortality !
       ! functions, preserve this variable and its dependencies in all contexts.            !
       !------------------------------------------------------------------------------------!
-      csite%avg_daily_temp(ipa) = csite%avg_daily_temp(ipa) + csite%can_temp(ipa)
+      csite%avg_daily_temp(ipa) = csite%avg_daily_temp(ipa)                                &
+                                + sngloff(initp%rmean_can_temp,tiny_offset)
       !------------------------------------------------------------------------------------!
 
 
@@ -1212,27 +1247,44 @@ module rk4_copy_patch
 
       !------------------------------------------------------------------------------------!
       !     This variable is the monthly mean ground water that will be used to control    !
-      ! fire disturbance.                                                                  !
+      ! fire disturbance (except for the new fire module, see below).                      !
       !------------------------------------------------------------------------------------!
-      gnd_water = 0.d0
-      !----- Add temporary surface water. -------------------------------------------------!
-      do k=1,ksn
-         gnd_water = gnd_water + initp%sfcwater_mass(k)
-      end do
-      !----- Find the bottommost layer to consider. ---------------------------------------!
-      select case(include_fire)
-      case (1)
-         ka = rk4site%lsl
-      case default
-         ka = k_fire_first
-      end select
-      !----- Add soil moisture. -----------------------------------------------------------!
-      do k=ka,nzg
-         gnd_water = gnd_water + initp%soil_water(k) * dslz8(k) * wdns8
-      end do
-      !----- Add to the monthly mean. -----------------------------------------------------!
       csite%avg_monthly_gndwater(ipa) = csite%avg_monthly_gndwater(ipa)                    &
-                                      + sngloff(gnd_water,tiny_offset)
+                                      + sngloff(initp%rmean_gnd_water,tiny_offset)
+      !------------------------------------------------------------------------------------!
+
+
+
+      !------------------------------------------------------------------------------------!
+      !       Update variables used for the new fire model.                                !
+      !------------------------------------------------------------------------------------!
+      !----- Sub-daily CAS temperature average. -------------------------------------------!
+      csite%tdfire_can_temp   (ifr,ipa) = csite%tdfire_can_temp   (ifr,ipa)                &
+                                        + sngloff(initp%rmean_can_temp   ,tiny_offset)     &
+                                        * dtlsm_o_firefrq
+      !----- Sub-daily CAS relative humidity average. -------------------------------------!
+      csite%tdfire_can_rhv    (ifr,ipa) = csite%tdfire_can_rhv    (ifr,ipa)                &
+                                        + sngloff(initp%rmean_can_rhv    ,tiny_offset)     &
+                                        * dtlsm_o_firefrq
+      !----- Daily average canopy air space dewpoint temperature. -------------------------!
+      csite%tdfire_can_tdew   (ifr,ipa) = csite%tdfire_can_tdew   (ifr,ipa)                &
+                                        + sngloff(initp%rmean_can_tdew   ,tiny_offset)     &
+                                        * dtlsm_o_firefrq
+      !----- Daily average canopy air space vapour pressure deficit. ----------------------!
+      csite%tdfire_can_vpdef  (ifr,ipa) = csite%tdfire_can_vpdef  (ifr,ipa)                &
+                                        + sngloff(initp%rmean_can_vpdef  ,tiny_offset)     &
+                                        * dtlsm_o_firefrq
+      !----- Average wind speed.  Integrate kinetic energy to get average wind. -----------!
+      csite%tdfire_can_vels   (ifr,ipa) = csite%tdfire_can_vels   (ifr,ipa)                &
+                                        + sngloff(initp%rmean_can_ekin   ,tiny_offset)     &
+                                        * dtlsm_o_firefrq
+      !----- Average relative soil moisture and soil matric potential. --------------------!
+      csite%tdfire_sfc_wetness(ifr,ipa) = csite%tdfire_sfc_wetness(ifr,ipa)                &
+                                        + sngloff(initp%rmean_gnd_wetness,tiny_offset)     &
+                                        * dtlsm_o_firefrq
+      csite%tdfire_sfc_mstpot (ifr,ipa) = csite%tdfire_sfc_mstpot (ifr,ipa)                &
+                                        + sngloff(initp%rmean_gnd_mstpot ,tiny_offset)     &
+                                        * dtlsm_o_firefrq
       !------------------------------------------------------------------------------------!
 
 

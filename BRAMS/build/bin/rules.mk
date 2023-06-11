@@ -1624,15 +1624,15 @@ fatal_error.o : $(ED_UTILS)/fatal_error.F90
 	$(FPP_COMMAND) $(<F:.F90=.F90)
 	rm -f $(<F:.F90=.F90)
 
-fire_ed10.o : $(ED_DYNAMICS)/fire_ed10.f90
-	cp -f $< $(<F:.f90=.f90)
+fire.o : $(ED_DYNAMICS)/fire.f90
+	/bin/rm -f $(<F:.f90=.f90)
+	/bin/cp -f $< $(<F:.f90=.f90)
 	$(F90_COMMAND) $(<F:.f90=.f90)
-	rm -f $(<F:.f90=.f90)
 
-fire_ed22.o : $(ED_DYNAMICS)/fire_ed22.f90
-	cp -f $< $(<F:.f90=.f90)
+fire_init.o : $(ED_INIT)/fire_init.f90
+	/bin/rm -f $(<F:.f90=.f90)
+	/bin/cp -f $< $(<F:.f90=.f90)
 	$(F90_COMMAND) $(<F:.f90=.f90)
-	rm -f $(<F:.f90=.f90)
 
 forestry.o : $(ED_DYNAMICS)/forestry.f90
 	cp -f $< $(<F:.f90=.f90)

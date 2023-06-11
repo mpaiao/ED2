@@ -711,9 +711,10 @@ module disturbance
                                                     ,cb_mass_np,cb_molar_np,cb_water_np    &
                                                     ,cb_co2_np)
                            call insert_survivors(csite,onsp+new_lu,ipa,new_lu,area_fac     &
-                                                ,mindbh_harvest)
+                                                ,mindbh_harvest,cpoly%burnt_area(isi))
                            call accum_dist_harv_litt(cpoly,isi,1,onsp+new_lu,ipa,new_lu    &
-                                                    ,area_fac,mindbh_harvest)
+                                                    ,area_fac,mindbh_harvest               &
+                                                    ,cpoly%burnt_area(isi))
                            !---------------------------------------------------------------!
                         case (1)
                            !---------------------------------------------------------------!
@@ -742,9 +743,10 @@ module disturbance
                                                        ,cb_mass_np,cb_molar_np,cb_water_np &
                                                        ,cb_co2_np)
                               call insert_survivors(csite,npa,ipa,new_lu,area_fac          &
-                                                   ,mindbh_harvest)
+                                                   ,mindbh_harvest,cpoly%burnt_area(isi))
                               call accum_dist_harv_litt(cpoly,isi,1,npa,ipa,new_lu         &
-                                                       ,area_fac,mindbh_harvest)
+                                                       ,area_fac,mindbh_harvest            &
+                                                       ,cpoly%burnt_area(isi))
                               !------------------------------------------------------------!
                            case default
                               !------------------------------------------------------------!
@@ -796,9 +798,11 @@ module disturbance
                                                              ,cb_mass_np,cb_molar_np       &
                                                              ,cb_water_np,cb_co2_np)
                                     call insert_survivors(csite,npa,ipa,new_lu,area_fac    &
-                                                         ,mindbh_harvest)
+                                                         ,mindbh_harvest                   &
+                                                         ,cpoly%burnt_area(isi))
                                     call accum_dist_harv_litt(cpoly,isi,1,npa,ipa,new_lu   &
-                                                             ,area_fac,mindbh_harvest)
+                                                             ,area_fac,mindbh_harvest      &
+                                                             ,cpoly%burnt_area(isi))
                                  end if
                                  !---------------------------------------------------------!
                               end do
@@ -988,7 +992,8 @@ module disturbance
             !------------------------------------------------------------------------------!
             old_lu_l4th: do ipa=1,onsp
                pat_area_loss = act_area_loss(ipa,:)
-               call disturbance_mortality(csite,ipa,pat_area_loss,mindbh_harvest)
+               call disturbance_mortality(csite,ipa,pat_area_loss,mindbh_harvest           &
+                                         ,cpoly%burnt_area(isi))
                csite%area(ipa) = csite%area(ipa) - sum(pat_area_loss)
             end do old_lu_l4th
             !------------------------------------------------------------------------------!
@@ -1386,9 +1391,28 @@ module disturbance
             !------------------------------------------------------------------------------!
             select case (include_fire)
             case (0)
+               !------ No fire disturbance rate. ------------------------------------------!
                fire_disturbance_rate = 0.0
+               !---------------------------------------------------------------------------!
             case default
-               fire_disturbance_rate = sum(cpoly%lambda_fire(1:12,isi)) / 12.0
+               !---------------------------------------------------------------------------!
+               !      Add monthly fire disturbance rates [1/mo] to get the annual          !
+               ! disturbance rate [1/yr].                                                  !
+               !---------------------------------------------------------------------------!
+               if (any(cpoly%lambda_fire(1:12,isi) == lnexp_max)) then
+                  !------------------------------------------------------------------------!
+                  !      At least one month had "infinity" disturbance rate. Set average   !
+                  ! lnexp_max, which is effectively infinity.                              !
+                  !------------------------------------------------------------------------!
+                  fire_disturbance_rate = lnexp_max
+                  !------------------------------------------------------------------------!
+               else
+                  !----- Find the average disturbance rate. -------------------------------!
+                  fire_disturbance_rate = sum(cpoly%lambda_fire(1:12,isi))
+                  fire_disturbance_rate = max(0.,min(lnexp_max,fire_disturbance_rate))
+                  !------------------------------------------------------------------------!
+               end if
+               !---------------------------------------------------------------------------!
             end select
             !------------------------------------------------------------------------------!
 
@@ -1794,7 +1818,8 @@ module disturbance
                               , patchtype    ! ! structure
       use ed_max_dims  , only : n_pft        ! ! intent(in)
       use grid_coms    , only : nzg          ! ! intent(in)
-      use ed_misc_coms , only : writing_long & ! intent(in)
+      use ed_misc_coms , only : ndfire       & ! intent(in)
+                              , writing_long & ! intent(in)
                               , writing_eorq & ! intent(in)
                               , writing_dcyc ! ! intent(in)
       use therm_lib    , only : tq2enthalpy  & ! function
@@ -2123,6 +2148,36 @@ module disturbance
       csite%ebudget_residual        (np) = csite%ebudget_residual        (np)              &
                                          + csite%ebudget_residual        (cp)              &
                                          * area_fac
+      !------------------------------------------------------------------------------------!
+
+
+
+      !------------------------------------------------------------------------------------!
+      !      Ancillary fire variables, multiple times a day.                               !
+      !------------------------------------------------------------------------------------!
+      do k=1,ndfire
+         csite%tdfire_can_temp    (k,np) = csite%tdfire_can_temp    (k,np)                 &
+                                         + csite%tdfire_can_temp    (k,cp)                 &
+                                         * area_fac
+         csite%tdfire_can_rhv     (k,np) = csite%tdfire_can_rhv     (k,np)                 &
+                                         + csite%tdfire_can_rhv     (k,cp)                 &
+                                         * area_fac
+         csite%tdfire_can_tdew    (k,np) = csite%tdfire_can_tdew    (k,np)                 &
+                                         + csite%tdfire_can_tdew    (k,cp)                 &
+                                         * area_fac
+         csite%tdfire_can_vpdef   (k,np) = csite%tdfire_can_vpdef   (k,np)                 &
+                                         + csite%tdfire_can_vpdef   (k,cp)                 &
+                                         * area_fac
+         csite%tdfire_can_vels    (k,np) = csite%tdfire_can_vels    (k,np)                 &
+                                         + csite%tdfire_can_vels    (k,cp)                 &
+                                         * area_fac
+         csite%tdfire_sfc_wetness (k,np) = csite%tdfire_sfc_wetness (k,np)                 &
+                                         + csite%tdfire_sfc_wetness (k,np)                 &
+                                         * area_fac
+         csite%tdfire_sfc_mstpot  (k,np) = csite%tdfire_sfc_wetness (k,np)                 &
+                                         + csite%tdfire_sfc_mstpot  (k,cp)                 &
+                                         * area_fac
+      end do
       !------------------------------------------------------------------------------------!
 
 
@@ -3331,7 +3386,7 @@ module disturbance
    !     This subroutine will populate the disturbed patch with the cohorts that were      !
    ! disturbed but did not go extinct.                                                     !
    !---------------------------------------------------------------------------------------!
-   subroutine insert_survivors(csite,np,cp,new_lu,area_fac,mindbh_harvest)
+   subroutine insert_survivors(csite,np,cp,new_lu,area_fac,mindbh_harvest,burnt_area)
       use ed_state_vars       , only : sitetype                      & ! structure
                                      , patchtype                     ! ! structure
       use ed_max_dims         , only : n_pft                         ! ! intent(in)
@@ -3345,6 +3400,7 @@ module disturbance
       integer                         , intent(in)    :: np
       integer                         , intent(in)    :: cp
       real          , dimension(n_pft), intent(in)    :: mindbh_harvest
+      real                            , intent(in)    :: burnt_area
       real                            , intent(in)    :: area_fac
       !----- Local variables. -------------------------------------------------------------!
       type(patchtype)                 , pointer       :: cpatch
@@ -3379,7 +3435,7 @@ module disturbance
          survivalloop: do ico = 1,cpatch%ncohorts
             ipft              = cpatch%pft(ico)
             survival_fac(ico) = survivorship(new_lu,csite%dist_type(cp),mindbh_harvest     &
-                                            ,cpatch,ico) * area_fac
+                                            ,burnt_area,cpatch,ico) * area_fac
             n_survivors       = cpatch%nplant(ico) * survival_fac(ico)
 
             !----- If something survived, make a new cohort. ------------------------------!
@@ -3463,17 +3519,17 @@ module disturbance
    ! place.                                                                                !
    !---------------------------------------------------------------------------------------!
    subroutine accum_dist_harv_litt(cpoly,isi,census_flag,np,cp,new_lu,area_fac             &
-                                  ,mindbh_harvest)
+                                  ,mindbh_harvest,burnt_area)
       use ed_state_vars, only : sitetype              & ! structure
                               , patchtype             & ! structure
                               , polygontype           ! ! structure
       use disturb_coms , only : include_fire          & ! intent(in)
                               , cl_fleaf_harvest      & ! intent(in)
                               , cl_fstorage_harvest   & ! intent(in)
-                              , f_combusted_fast_c    & ! intent(in)
-                              , f_combusted_struct_c  & ! intent(in)
-                              , f_combusted_fast_n    & ! intent(in)
-                              , f_combusted_struct_n  ! ! intent(in)
+                              , fe_combusted_fast_c   & ! intent(in)
+                              , fe_combusted_struct_c & ! intent(in)
+                              , fe_combusted_fast_n   & ! intent(in)
+                              , fe_combusted_struct_n ! ! intent(in)
       use ed_max_dims  , only : n_pft                 ! ! intent(in)
       use pft_coms     , only : c2n_storage           & ! intent(in)
                               , c2n_leaf              & ! intent(in)
@@ -3482,6 +3538,8 @@ module disturbance
                               , agf_bs                & ! intent(in)
                               , f_labile_leaf         & ! intent(in)
                               , f_labile_stem         ! ! intent(in)
+      use consts_coms  , only : onetwelfth            & ! intent(in)
+                              , tiny_num              ! ! intent(in)
       use mortality    , only : survivorship          ! ! function
 
       implicit none
@@ -3492,6 +3550,7 @@ module disturbance
       integer                            , intent(in) :: np
       integer                            , intent(in) :: cp
       real             , dimension(n_pft), intent(in) :: mindbh_harvest
+      real                               , intent(in) :: burnt_area
       integer                            , intent(in) :: new_lu
       real                               , intent(in) :: area_fac
       !----- Local variables. -------------------------------------------------------------!
@@ -3501,6 +3560,11 @@ module disturbance
       integer                                         :: ico
       integer                                         :: ipft
       integer                                         :: bdbh
+      real           , dimension(12)                  :: avg_burnt_area
+      real           , dimension(12)                  :: avg_fire_f_bherb
+      real           , dimension(12)                  :: avg_fire_f_bwoody
+      real           , dimension(12)                  :: avg_fire_f_fgc
+      real           , dimension(12)                  :: avg_fire_f_stgc
       real                                            :: a_bfast_before
       real                                            :: a_bstruct_before
       real                                            :: a_bstorage_before
@@ -3538,6 +3602,14 @@ module disturbance
       real                                            :: a_lignin_combusted
       real                                            :: a_fast_combusted_n
       real                                            :: a_struct_combusted_n
+      real                                            :: avg_fcomb_bherb_c
+      real                                            :: avg_fcomb_bwoody_c
+      real                                            :: avg_fcomb_fast_c
+      real                                            :: avg_fcomb_struct_c
+      real                                            :: avg_fcomb_bherb_n
+      real                                            :: avg_fcomb_bwoody_n
+      real                                            :: avg_fcomb_fast_n
+      real                                            :: avg_fcomb_struct_n
       !------------------------------------------------------------------------------------!
 
 
@@ -3567,6 +3639,109 @@ module disturbance
       !------------------------------------------------------------------------------------!
 
 
+
+      !------------------------------------------------------------------------------------!
+      !       Find the local combustion factors for site.   All fire-related 12-month      !
+      ! averages have been defined for all fire models, so it is safe to use the same      !
+      ! formulation as FIRESTARTER, where the combustion factor is not constant.           !
+      !------------------------------------------------------------------------------------!
+      select case (include_fire)
+      case (0)
+         !------ No fires. No combustion. -------------------------------------------------!
+         avg_fcomb_bherb_c  = 0.
+         avg_fcomb_bwoody_c = 0.
+         avg_fcomb_fast_c   = 0.
+         avg_fcomb_struct_c = 0.
+         avg_fcomb_fast_n   = 0.
+         avg_fcomb_struct_n = 0.
+         !---------------------------------------------------------------------------------!
+      case default
+
+         !---------------------------------------------------------------------------------!
+         !       Set some local variables to help averaging.                               !
+         !---------------------------------------------------------------------------------!
+         avg_burnt_area    = cpoly%avg_burnt_area   (:,isi)
+         avg_fire_f_bherb  = cpoly%avg_fire_f_bherb (:,isi)
+         avg_fire_f_bwoody = cpoly%avg_fire_f_bwoody(:,isi)
+         avg_fire_f_fgc    = cpoly%avg_fire_f_fgc   (:,isi)
+         avg_fire_f_stgc   = cpoly%avg_fire_f_stgc  (:,isi)
+         !---------------------------------------------------------------------------------!
+
+
+         !---------------------------------------------------------------------------------!
+         !     Combustion is calculated only when there is at least one month with fire.   !
+         !---------------------------------------------------------------------------------!
+         if (any(cpoly%avg_burnt_area(:,isi) > tiny_num)) then
+            !------ Average combustion, weighted by burnt area. ---------------------------!
+            avg_fcomb_bherb_c  = sum( avg_fire_f_bherb  * avg_burnt_area )                 &
+                               / sum( avg_burnt_area )
+            avg_fcomb_bwoody_c = sum( avg_fire_f_bwoody * avg_burnt_area )                 &
+                               / sum( avg_burnt_area )
+            avg_fcomb_fast_c   = sum( avg_fire_f_fgc    * avg_burnt_area )                 &
+                               / sum( avg_burnt_area )
+            avg_fcomb_struct_c = sum( avg_fire_f_stgc   * avg_burnt_area )                 &
+                               / sum( avg_burnt_area )
+            !------------------------------------------------------------------------------!
+
+
+            !----- Make sure combustion is bounded. ---------------------------------------!
+            avg_fcomb_bherb_c  = max(0.,min(1.,avg_fcomb_bherb_c ))
+            avg_fcomb_bwoody_c = max(0.,min(1.,avg_fcomb_bwoody_c))
+            avg_fcomb_fast_c   = max(0.,min(1.,avg_fcomb_fast_c  ))
+            avg_fcomb_struct_c = max(0.,min(1.,avg_fcomb_struct_c))
+            !------------------------------------------------------------------------------!
+         else
+            !----- Fire-free year, no combustion. -----------------------------------------!
+            avg_fcomb_bherb_c  = 0.
+            avg_fcomb_bwoody_c = 0.
+            avg_fcomb_fast_c   = 0.
+            avg_fcomb_struct_c = 0.
+            !------------------------------------------------------------------------------!
+         end if
+         !---------------------------------------------------------------------------------!
+
+
+         !---------------------------------------------------------------------------------!
+         !     For nitrogen, use the default ratio.  This requires fe_combusted_fast_c     !
+         ! and fe_combusted_struct_c to be non-zero.  In case they are zero, assume the    !
+         ! same factors for nitrogen.                                                      !
+         !---------------------------------------------------------------------------------!
+         !----- Fast fuels. ---------------------------------------------------------------!
+         if (fe_combusted_fast_c > tiny_num) then
+            !----- Use default parameters to scale N combustion. --------------------------!
+            avg_fcomb_bherb_n  = avg_fcomb_bherb_c                                         &
+                               * fe_combusted_fast_n   / fe_combusted_fast_c
+            avg_fcomb_fast_n   = avg_fcomb_fast_c                                          &
+                               * fe_combusted_fast_n   / fe_combusted_fast_c
+            !------------------------------------------------------------------------------!
+         else
+            !----- Default parameters are zero.  Assume equivalent N:C combustion. --------!
+            avg_fcomb_bherb_n  = avg_fcomb_bherb_c
+            avg_fcomb_fast_n   = avg_fcomb_fast_c
+            !------------------------------------------------------------------------------!
+         end if
+         !----- Structural fuels. ---------------------------------------------------------!
+         if (fe_combusted_struct_c > tiny_num) then
+            !----- Use default parameters to scale N combustion. --------------------------!
+            avg_fcomb_bwoody_n = avg_fcomb_bwoody_c                                        &
+                               * fe_combusted_struct_n / fe_combusted_struct_c
+            avg_fcomb_struct_n = avg_fcomb_struct_c                                        &
+                               * fe_combusted_struct_n / fe_combusted_struct_c
+            !------------------------------------------------------------------------------!
+         else
+            !----- Default parameters are zero.  Assume equivalent N:C combustion. --------!
+            avg_fcomb_bwoody_n = avg_fcomb_bwoody_c
+            avg_fcomb_struct_n = avg_fcomb_struct_c
+            !------------------------------------------------------------------------------!
+         end if
+         !---------------------------------------------------------------------------------!
+      end select
+      !------------------------------------------------------------------------------------!
+
+
+      !------------------------------------------------------------------------------------!
+      !    Loop through cohorts to allocate biomass to pools.                              !
+      !------------------------------------------------------------------------------------!
       do ico = 1,cpatch%ncohorts
          ipft = cpatch%pft(ico)
          bdbh = max(0,min( int(cpatch%dbh(ico) * 0.1), 10)) + 1
@@ -3627,12 +3802,12 @@ module disturbance
                                + f_labile_stem(ipft)                                       &
                                * ( cpatch%bsapwooda(ico)                                   &
                                  + cpatch%bbarka   (ico) + cpatch%bdeada (ico)) )          &
-                               * f_combusted_fast_c
+                               * avg_fcomb_bherb_c
             a_bstruct_remove = ( (1.0-f_labile_leaf(ipft)) * cpatch%bleaf(ico)             &
                                + (1.0-f_labile_stem(ipft))                                 &
                                * ( cpatch%bsapwooda(ico)                                   &
                                  + cpatch%bbarka   (ico) + cpatch%bdeada (ico)) )          &
-                               * f_combusted_struct_c
+                               * avg_fcomb_bwoody_c
             a_bstorage_remove  = agf_bs(ipft) * cpatch%bstorage(ico)
             a_bcrop_harvest    = 0.0
             a_blogging_harvest = 0.0
@@ -3701,7 +3876,8 @@ module disturbance
 
 
          !----- Find survivorship. --------------------------------------------------------!
-         survival_fac  = survivorship(new_lu,csite%dist_type(cp),mindbh_harvest,cpatch,ico)
+         survival_fac  = survivorship(new_lu,csite%dist_type(cp),mindbh_harvest            &
+                                     ,burnt_area,cpatch,ico)
          !---------------------------------------------------------------------------------!
 
 
@@ -3757,22 +3933,22 @@ module disturbance
          select case (new_lu)
          case (4)
             !----- Add labile component. --------------------------------------------------!
-            if (f_combusted_fast_c > 0.0) then
+            if (avg_fcomb_bherb_c > 0.0) then
                a_fast_litter_n = a_fast_litter_n                                           &
                                + (1. - survival_fac) * cpatch%nplant(ico)                  &
                                * ( a_bfast_remain    / c2n_leaf(ipft)                      &
                                  + a_bstorage_remain / c2n_storage        )                &
-                               * f_combusted_fast_n / f_combusted_fast_c
+                               * avg_fcomb_bherb_n / avg_fcomb_bherb_c
             end if
             !------------------------------------------------------------------------------!
 
 
             !----- Add lignified component. -----------------------------------------------!
-            if (f_combusted_struct_c > 0.0) then
+            if (avg_fcomb_bwoody_c > 0.0) then
                a_struct_litter_n = a_struct_litter_n                                       &
                                  + (1. - survival_fac) * cpatch%nplant(ico)                &
                                  * a_bstruct_remain     / c2n_stem(ipft)                   &
-                                 * f_combusted_struct_n / f_combusted_struct_c
+                                 * avg_fcomb_bwoody_n / avg_fcomb_bwoody_c
             end if
             !------------------------------------------------------------------------------!
          case default
@@ -3806,25 +3982,31 @@ module disturbance
 
       !------------------------------------------------------------------------------------!
       !    Check whether to remove carbon from the pools as combusted fuels.  This is only !
-      ! done if this is a burnt patch and if we are using the new fire scheme.  For the    !
-      ! time being, we fix a fraction of fast and structural soil carbon that is above     !
-      ! ground.  In the future we may split the soil pools into above- and below-ground    !
-      ! to make estimates consistent with the contribution of individuals that do not      !
-      ! follow the standard tropical allometric parameters.                                !
+      ! done if this is a burnt patch.  For the time being, we may burn a fraction of fast !
+      ! and structural soil carbon that is above ground.  In the future we may also allow  !
+      ! fires to burn below-ground carbon (e.g., peat fires).                              !
       !------------------------------------------------------------------------------------!
-      if (new_lu == 4 .and. include_fire == 3) then
-         a_fast_combusted     = f_combusted_fast_c   * csite%fast_grnd_C      (np)
-         a_fast_combusted_n   = f_combusted_fast_n   * csite%fast_grnd_N      (np)
-         a_struct_combusted   = f_combusted_struct_c * csite%structural_grnd_C(np)
-         a_lignin_combusted   = f_combusted_struct_c * csite%structural_grnd_L(np)
-         a_struct_combusted_n = f_combusted_struct_n * csite%structural_grnd_N(np)
-      else
+      select case (new_lu)
+      case (4)
+         !---------------------------------------------------------------------------------!
+         !      Burnt patch, remove combusted fraction of litter (fast and structural      !
+         ! above-ground necromass.                                                         !
+         !---------------------------------------------------------------------------------!
+         a_fast_combusted     = avg_fcomb_fast_c   * csite%fast_grnd_C      (np)
+         a_fast_combusted_n   = avg_fcomb_fast_n   * csite%fast_grnd_N      (np)
+         a_struct_combusted   = avg_fcomb_struct_c * csite%structural_grnd_C(np)
+         a_lignin_combusted   = avg_fcomb_struct_c * csite%structural_grnd_L(np)
+         a_struct_combusted_n = avg_fcomb_struct_n * csite%structural_grnd_N(np)
+         !---------------------------------------------------------------------------------!
+      case default
+         !------ Not a burnt patch, combustion did not happen. ----------------------------!
          a_fast_combusted     = 0.0
          a_struct_combusted   = 0.0
          a_lignin_combusted   = 0.0
          a_fast_combusted_n   = 0.0
          a_struct_combusted_n = 0.0
-      end if
+         !---------------------------------------------------------------------------------!
+      end select
       !------------------------------------------------------------------------------------!
 
 

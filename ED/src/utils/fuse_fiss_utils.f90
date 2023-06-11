@@ -2264,6 +2264,53 @@ module fuse_fiss_utils
 
 
 
+
+
+
+      !------------------------------------------------------------------------------------!
+      !    Fuse lethality rates.  We use the same definition as mortality rate (although   !
+      ! lethality is defined as mortality given that a fire occurred, as opposed to true   !
+      ! mortality, which would include areas that did not burn).  By definition, mortality !
+      ! rate M for is given by:                                                            !
+      !                                                                                    !
+      !                                    ln(A) - ln(N)                                   !
+      !                               m = ---------------                                  !
+      !                                          dt                                        !
+      !                                                                                    !
+      ! where A is the population that was previously alive, and N is the population that  !
+      ! survived the mortality.  The cohorts represent a group of individuals with the     !
+      ! same size and PFT, so they don't mix new recruits and old plants. Therefore, we    !
+      ! can assume that N is actually nplant.  We don't know A, if the mortality rate is   !
+      ! assumed constant during the interval dt, A = N * exp(m dt).                        !
+      !                                                                                    !
+      ! For fusion we don't really care about dt, so any number will do as long as it is   !
+      ! the same for both cohorts.  With these assumptions, the mortality rate for the     !
+      ! fused cohort mf is:                                                                !
+      !                                                                                    !
+      !  mf   =  ln (Ad+Ar) - ln(Nd+Nr) = ln[Nd*exp(md) + Nr*exp(mr)] - ln[Nd+Nr]          !
+      !                                                                                    !
+      !             / Nd*exp(md) + Nr*exp(mr) \                                            !
+      !  mf   =  ln |-------------------------|                                            !
+      !             \        Nd + Nr          /                                            !
+      !------------------------------------------------------------------------------------!
+      do imon=1,12
+         exp_mort_donc = exp(max(lnexp_min,min(lnexp_max                                   &
+                                              ,cpatch%fire_lethal_rate(imon,donc))))
+         exp_mort_recc = exp(max(lnexp_min,min(lnexp_max                                   &
+                                              ,cpatch%fire_lethal_rate(imon,recc))))
+         cpatch%fire_lethal_rate(imon,recc) = log( exp_mort_recc * rnplant                 &
+                                                 + exp_mort_donc * dnplant )
+      end do
+      !------ Fire mortality probability should be scaled by nplant directly. -------------!
+      cpatch%fire_lethal_rate(13,recc) = cpatch%fire_lethal_rate(13,donc) * dnplant        &
+                                       + cpatch%fire_lethal_rate(13,recc) * rnplant
+      cpatch%fire_lethal_prob   (recc) = cpatch%fire_lethal_prob   (donc) * dnplant        &
+                                       + cpatch%fire_lethal_prob   (recc) * rnplant
+      !------------------------------------------------------------------------------------!
+
+
+
+
       !------------------------------------------------------------------------------------!
       !     Relative carbon balance is also averaged between the cohorts, to avoid wild    !
       ! oscillations in mortality when cohorts are fused.  This is the original method     !
@@ -4000,6 +4047,13 @@ module fuse_fiss_utils
             cpatch%mmean_mort_rate(imty,recc) = log( exp_mort_recc * rnplant               &
                                                    + exp_mort_donc * dnplant )
          end do
+         !------ Fire lethality rate. -----------------------------------------------------!
+         exp_mort_donc = exp(max(lnexp_min,min(lnexp_max                                   &
+                                              ,cpatch%mmean_fire_lethal_rate(donc))))
+         exp_mort_recc = exp(max(lnexp_min,min(lnexp_max                                   &
+                                              ,cpatch%mmean_fire_lethal_rate(recc))))
+         cpatch%mmean_fire_lethal_rate(recc) = log( exp_mort_recc * rnplant                &
+                                                  + exp_mort_donc * dnplant )
          !------------------------------------------------------------------------------------!
       end if
       !------------------------------------------------------------------------------------!
@@ -6824,6 +6878,7 @@ module fuse_fiss_utils
                                      , writing_eorq                  & ! intent(in)
                                      , writing_dcyc                  & ! intent(in)
                                      , ndcycle                       & ! intent(in)
+                                     , ndfire                        & ! intent(in)
                                      , frqsum                        & ! intent(in)
                                      , frqsumi                       ! ! intent(in)
       use consts_coms         , only : wdns                          & ! intent(in)
@@ -7001,6 +7056,9 @@ module fuse_fiss_utils
       csite%mineralized_soil_N(recp) = csite%mineralized_soil_N(donp) * dawgt              &
                                      + csite%mineralized_soil_N(recp) * rawgt
 
+      csite%nesterov_index(recp)     = csite%nesterov_index    (donp) * dawgt              &
+                                     + csite%nesterov_index    (recp) * rawgt
+
       csite%sum_dgd(recp)            = csite%sum_dgd(donp)            * dawgt              &
                                      + csite%sum_dgd(recp)            * rawgt
 
@@ -7027,6 +7085,31 @@ module fuse_fiss_utils
 
       csite%cstar (recp)             = csite%cstar (donp)             * dawgt              &
                                      + csite%cstar (recp)             * rawgt
+      !------------------------------------------------------------------------------------!
+
+
+
+      !------------------------------------------------------------------------------------!
+      !      Fire-related sub-daily averages.  Merge all the sub-daily means.              !
+      !------------------------------------------------------------------------------------!
+      do t=1,ndfire
+         csite%tdfire_can_temp   (t,recp)   = csite%tdfire_can_temp   (t,donp) * dawgt     &
+                                            + csite%tdfire_can_temp   (t,recp) * rawgt
+         csite%tdfire_can_rhv    (t,recp)   = csite%tdfire_can_rhv    (t,donp) * dawgt     &
+                                            + csite%tdfire_can_rhv    (t,recp) * rawgt
+         csite%tdfire_can_vpdef  (t,recp)   = csite%tdfire_can_vpdef  (t,donp) * dawgt     &
+                                            + csite%tdfire_can_vpdef  (t,recp) * rawgt
+         csite%tdfire_sfc_wetness(t,recp)   = csite%tdfire_sfc_wetness(t,donp) * dawgt     &
+                                            + csite%tdfire_sfc_wetness(t,recp) * rawgt
+         csite%tdfire_sfc_mstpot (t,recp)   = csite%tdfire_sfc_mstpot (t,donp) * dawgt     &
+                                            + csite%tdfire_sfc_mstpot (t,recp) * rawgt
+         csite%tdfire_can_vels   (t,recp)   = csite%tdfire_can_vels   (t,donp) * dawgt     &
+                                            + csite%tdfire_can_vels   (t,recp) * rawgt
+         csite%tdfire_can_tdew   (t,recp)   = csite%tdfire_can_tdew   (t,donp) * dawgt     &
+                                            + csite%tdfire_can_tdew   (t,recp) * rawgt
+         csite%tdfire_fdi_vpd    (t,recp)   = csite%tdfire_fdi_vpd    (t,donp) * dawgt     &
+                                            + csite%tdfire_fdi_vpd    (t,recp) * rawgt
+      end do
       !------------------------------------------------------------------------------------!
 
 

@@ -118,6 +118,8 @@ subroutine read_ednl(iunit,filename)
                                    , lu_database                           & ! intent(out)
                                    , plantation_file                       & ! intent(out)
                                    , lu_rescale_file                       & ! intent(out)
+                                   , sei_database                          & ! intent(out)
+                                   , flash_database                        & ! intent(out)
                                    , treefall_disturbance_rate             & ! intent(out)
                                    , time2canopy                           & ! intent(out)
                                    , sm_fire                               & ! intent(out)
@@ -146,6 +148,7 @@ subroutine read_ednl(iunit,filename)
                                    , unitfast                              & ! intent(out)
                                    , unitstate                             & ! intent(out)
                                    , ndcycle                               & ! intent(out)
+                                   , ndfire                                & ! intent(out)
                                    , ied_init_mode                         & ! intent(out)
                                    , current_time                          & ! intent(out)
                                    , thsums_database                       & ! intent(out)
@@ -155,6 +158,7 @@ subroutine read_ednl(iunit,filename)
                                    , integration_scheme                    & ! intent(out)
                                    , ffilout                               & ! intent(out)
                                    , dtlsm                                 & ! intent(out)
+                                   , firefrq                               & ! intent(out)
                                    , month_yrstep                          & ! intent(out)
                                    , iprintpolys                           & ! intent(out)
                                    , printvars                             & ! intent(out)
@@ -283,20 +287,21 @@ subroutine read_ednl(iunit,filename)
    logical                      :: fexists
    logical                      :: op
    !----- Namelist. -----------------------------------------------------------------------!
-   namelist /ED2_INFO/  dtlsm,month_yrstep,co2_offset,ifoutput,idoutput,imoutput,iqoutput  &
-                       ,iyoutput,itoutput,iooutput,isoutput,iadd_site_means                &
+   namelist /ED2_INFO/  dtlsm,firefrq,month_yrstep,co2_offset,ifoutput,idoutput,imoutput   &
+                       ,iqoutput,iyoutput,itoutput,iooutput,isoutput,iadd_site_means       &
                        ,iadd_patch_means,iadd_cohort_means,attach_metadata,outfast         &
                        ,outstate,ffilout,sfilout,ied_init_mode,edres,sfilin,islcolflg      &
                        ,slsoc,slph,slcec,sldbd,veg_database,soil_database,slcol_database   &
-                       ,lu_database,plantation_file,lu_rescale_file,thsums_database        &
-                       ,obstime_db,soilstate_db,soildepth_db,isoilstateinit,isoildepthflg  &
-                       ,soil_hydro_scheme,ivegt_dynamics,ibigleaf,integration_scheme       &
-                       ,nsub_euler,rk4_tolerance,ibranch_thermo,iphysiol,iallom            &
-                       ,economics_scheme,igrass,iphen_scheme,radint,radslp,repro_scheme    &
-                       ,lapse_scheme,crown_mod,icanrad,ihrzrad,ltrans_vis,ltrans_nir       &
-                       ,lreflect_vis,lreflect_nir,orient_tree,orient_grass,clump_tree      &
-                       ,clump_grass,decomp_scheme,h2o_plant_lim,plant_hydro_scheme         &
-                       ,istomata_scheme,istruct_growth_scheme,istem_respiration_scheme     &
+                       ,lu_database,plantation_file,lu_rescale_file,sei_database           &
+                       ,flash_database,thsums_database,obstime_db,soilstate_db             &
+                       ,soildepth_db,isoilstateinit,isoildepthflg,soil_hydro_scheme        &
+                       ,ivegt_dynamics,ibigleaf,integration_scheme,nsub_euler              &
+                       ,rk4_tolerance,ibranch_thermo,iphysiol,iallom,economics_scheme      &
+                       ,igrass,iphen_scheme,radint,radslp,repro_scheme,lapse_scheme        &
+                       ,crown_mod,icanrad,ihrzrad,ltrans_vis,ltrans_nir,lreflect_vis       &
+                       ,lreflect_nir,orient_tree,orient_grass,clump_tree,clump_grass       &
+                       ,decomp_scheme,h2o_plant_lim,plant_hydro_scheme,istomata_scheme     &
+                       ,istruct_growth_scheme,istem_respiration_scheme                     &
                        ,trait_plasticity_scheme,iddmort_scheme,cbr_scheme,ddmort_const     &
                        ,carbon_mortality_scheme,hydraulic_mortality_scheme,vmfact_c3       &
                        ,vmfact_c4,mphoto_trc3,mphoto_tec3,mphoto_c4,bphoto_blc3            &
@@ -321,6 +326,8 @@ subroutine read_ednl(iunit,filename)
    lu_database     (:) = undef_path
    plantation_file (:) = undef_path
    lu_rescale_file (:) = undef_path
+   sei_database    (:) = undef_path
+   flash_database  (:) = undef_path
 
    sfilin          (:) = undef_path
    !---------------------------------------------------------------------------------------!
@@ -340,6 +347,7 @@ subroutine read_ednl(iunit,filename)
       write (unit=*,fmt='(a)')        '--------------------------------------------------'
       write (unit=*,fmt='(a)')        ''
       write (unit=*,fmt=*) ' dtlsm                     =',dtlsm
+      write (unit=*,fmt=*) ' firefrq                   =',firefrq
       write (unit=*,fmt=*) ' month_yrstep              =',month_yrstep
       write (unit=*,fmt=*) ' co2_offset                =',co2_offset
       write (unit=*,fmt=*) ' ifoutput                  =',ifoutput
@@ -379,6 +387,10 @@ subroutine read_ednl(iunit,filename)
                                                           ,i=1,size(plantation_file))
       write (unit=*,fmt=*) ' lu_rescale_file           =',(trim(lu_rescale_file(i))//';'   &
                                                           ,i=1,size(lu_rescale_file))
+      write (unit=*,fmt=*) ' sei_database              =',(trim(sei_database(i))//';'      &
+                                                          ,i=1,size(sei_database))
+      write (unit=*,fmt=*) ' flash_database            =',(trim(flash_database(i))//';'    &
+                                                          ,i=1,size(flash_database))
       write (unit=*,fmt=*) ' thsums_database           =',trim(thsums_database)
       write (unit=*,fmt=*) ' soilstate_db              =',trim(soilstate_db)
       write (unit=*,fmt=*) ' soildepth_db              =',trim(soildepth_db)
@@ -580,6 +592,18 @@ subroutine read_ednl(iunit,filename)
    !---------------------------------------------------------------------------------------!
 
 
+   !---------------------------------------------------------------------------------------!
+   !     The following variable will be used to allocate the mean diurnal cycle for the    !
+   ! FIRESTARTER model.                                                                    !
+   !---------------------------------------------------------------------------------------!
+   if (firefrq == 0.) then
+      ndfire = 1
+   else
+      ndfire = max(1,int(day_sec / firefrq))
+   end if
+   !---------------------------------------------------------------------------------------!
+
+
 
    !---------------------------------------------------------------------------------------!
    !      Set current time to initial time here.  If this is a history run, reset current  !
@@ -636,6 +660,8 @@ subroutine read_ednl(iunit,filename)
    call copy_path_from_grid_1(ngrids,'lu_database'    ,lu_database    )
    call copy_path_from_grid_1(ngrids,'plantation_file',plantation_file)
    call copy_path_from_grid_1(ngrids,'lu_rescale_file',lu_rescale_file)
+   call copy_path_from_grid_1(ngrids,'sei_database'   ,sei_database   )
+   call copy_path_from_grid_1(ngrids,'flash_database' ,flash_database )
 
    call copy_path_from_grid_1(ngrids,'sfilin'         ,sfilin         )
    !---------------------------------------------------------------------------------------!

@@ -34,6 +34,18 @@ module ed_init
             cgrid%lat (ipy) = work_v(ifm)%glat   (ipy)
             cgrid%xatm(ipy) = work_v(ifm)%xid    (ipy)
             cgrid%yatm(ipy) = work_v(ifm)%yid    (ipy)
+
+
+
+            !------------------------------------------------------------------------------!
+            !     Set the fraction of the land that can sustain natural vegetation (i.e.,  !
+            ! fraction of the total area after excluding oceans, inland water, glaciers,   !
+            ! and urban areas).  Note that the fraction of land that can sustain natural   !
+            ! vegetation INCLUDES deserts and bare soil.  This is only used for the        !
+            ! FIRESTARTER model (INCLUDE_FIRE=4).                                          !
+            !------------------------------------------------------------------------------!
+            cgrid%landfrac(ipy) = work_v(ifm)%landfrac(ipy)
+            !------------------------------------------------------------------------------!
          end do polyloop
          !---------------------------------------------------------------------------------!
       end do gridloop
@@ -307,6 +319,7 @@ module ed_init
       use grid_coms         , only : ngrids                         ! ! intent(in)
       use ed_state_vars     , only : edgrid_g                       ! ! structure
       use landuse_init      , only : read_landuse_matrix            ! ! sub-routine
+      use fire_init         , only : read_fire_ignition             ! ! sub-routine
       use ed_nbg_init       , only : near_bare_ground_init          & ! sub-routine
                                    , near_bare_ground_big_leaf_init ! ! sub-routine
       use ed_bigleaf_init  , only : sas_to_bigleaf                 ! ! sub-routine
@@ -502,6 +515,29 @@ module ed_init
 #endif
       !------------------------------------------------------------------------------------!
 
+
+
+      !------------------------------------------------------------------------------------!
+      ! STEP 6: Initialize fire ignition.                                                  !
+      !------------------------------------------------------------------------------------!
+#if defined(RAMS_MPI)
+      if (mynum /= 1) then
+         call MPI_Recv(ping,1,MPI_INTEGER,recvnum,104,MPI_COMM_WORLD,MPI_STATUS_IGNORE,ierr)
+      end if
+#endif
+
+      write(unit=*,fmt='(a,i3.3)')                                                         &
+         ' + Initializing fire ignition forcing. Node: ',mynum
+
+      call read_fire_ignition()
+
+#if defined(RAMS_MPI)
+      if (mynum < nnodetot ) then
+         call MPI_Send(ping,1,MPI_INTEGER,sendnum,104,MPI_COMM_WORLD,ierr)
+      end if
+#endif
+      !------------------------------------------------------------------------------------!
+
       if (mynum == 1) then
          do igr=1,ngrids
             call ed_newgrid(igr)
@@ -560,6 +596,9 @@ module ed_init
                              , rk4min_sfcw_mass  & ! intent(out)
                              , rk4min_virt_water ! ! intent(out)
       use ed_misc_coms, only : dtlsm             ! ! intent(in)
+      use disturb_coms, only : include_fire      & ! intent(in)
+                             , fire_smoist_depth & ! intent(in)
+                             , k_fire_first      ! ! intent(out)
       implicit none
       !----- Local variables --------------------------------------------------------------!
       integer                :: k
@@ -676,6 +715,25 @@ module ed_init
       !----- Assigning some soil grid-dependent RK4 variables -----------------------------!
       rk4min_sfcw_mass  = rk4min_sfcw_moist * wdns   * dslz(nzg)
       rk4min_virt_water = rk4min_virt_moist * wdns   * dslz(nzg)
+      !------------------------------------------------------------------------------------!
+
+
+
+      !------------------------------------------------------------------------------------!
+      !     Determine the top layer to consider for fires in case include_fire (ignored if !
+      ! include_fire is 0 or 1.                                                            !
+      !------------------------------------------------------------------------------------!
+      select case (include_fire)
+      case (0,1)
+         !----- Fire either won't happen, or it will use the total soil (ED-1 legacy). ----!
+         k_fire_first = 1
+         !---------------------------------------------------------------------------------!
+      case default
+         !----- Select the first layer whose bottom is deeper than the fire depth. --------!
+         k_fire_first = maxloc(slz(1:nzg),dim=1,mask=slz(1:nzg) <= fire_smoist_depth)
+         !---------------------------------------------------------------------------------!
+      end select
+      !------------------------------------------------------------------------------------!
 
       return
    end subroutine sfcdata_ed

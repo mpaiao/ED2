@@ -466,14 +466,40 @@ module pft_coms
 
 
    !---------------------------------------------------------------------------------------!
-   !    Temporary parameters to predict fire survivorship from bark thickness.  In the     !
-   ! future survivorship should also depend on fire intensity.                             !
+   !    Parameters to predict fire survivorship from bark thickness when using EMBERFIRE.  !
    !---------------------------------------------------------------------------------------!
-   real, dimension(n_pft) :: fire_s_min
    real, dimension(n_pft) :: fire_s_max
-   real, dimension(n_pft) :: fire_s_inter
-   real, dimension(n_pft) :: fire_s_slope
+   real, dimension(n_pft) :: fire_s_efac
    !---------------------------------------------------------------------------------------!
+
+
+
+   !---------------------------------------------------------------------------------------!
+   !     Parameter associated with the LPJmL4 VPD-based fire danger index (D19).           !
+   !                                                                                       !
+   ! Reference:                                                                            !
+   ! Druke  M, Forkel M, von Bloh W, Sakschewski B, Cardoso M, Bustamante M, Kurths J,     !
+   !    Thonicke K. 2019. Improving the LPJmL4-SPITFIRE vegetation--fire model for South   !
+   !    America using satellite data. Geosci. Model Dev., 12: 5029-5054.                   !
+   !    doi:10.5194/gmd-12-5029-2019 (D19).                                                !
+   !---------------------------------------------------------------------------------------!
+   real, dimension(n_pft) :: alpha_fdivpd
+   !---------------------------------------------------------------------------------------!
+
+
+
+   !---------------------------------------------------------------------------------------!
+   !    Parameters that control for probability of mortality due to fire-driven crown      !
+   ! damage (SPITFIRE).                                                                    !
+   !---------------------------------------------------------------------------------------!
+   real, dimension(n_pft) :: fscorch
+   real, dimension(n_pft) :: escorch
+   real, dimension(n_pft) :: fx_rck_pft
+   real, dimension(n_pft) :: fx_pck_pft
+   !---------------------------------------------------------------------------------------!
+
+
+
 
    !---------------------------------------------------------------------------------------!
    !     Survivorship fraction for plants near felled trees.                               !

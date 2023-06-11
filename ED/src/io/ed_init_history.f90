@@ -48,6 +48,7 @@ module ed_init_history
                                   , chnkdims              & ! intent(inout)
                                   , chnkoffs              ! ! intent(inout)
       use landuse_init     , only : read_landuse_matrix   ! ! intent(in)
+      use fire_init        , only : read_fire_ignition    ! ! sub-routine
       implicit none
       !------ Local variables. ------------------------------------------------------------!
       type(edtype)                        , pointer     :: cgrid
@@ -429,6 +430,13 @@ module ed_init_history
       !------------------------------------------------------------------------------------!
 
 
+
+      !----- Load the anthropogenic disturbance (or set them all to zero). ----------------!
+      write(unit=*,fmt='(a,i2.2)') ' Loading fire ignition data.  Node: ',mynum
+      call read_fire_ignition()
+      !------------------------------------------------------------------------------------!
+
+
       !----- Load phenology in case it is prescribed (or set them with defaults). ---------!
       write(unit=*,fmt='(a,i2.2)') ' Checking prescribed phenology.  Node: ',mynum
       call phenology_init()
@@ -576,6 +584,8 @@ module ed_init_history
       call hdf_getslab_i(cgrid%load_adjacency          (ipy:ipy)                           &
                         ,'LOAD_ADJACENCY '           ,dsetrank,iparallel,.true. ,foundvar)
 
+      call hdf_getslab_r(cgrid%landfrac                (ipy:ipy)                           &
+                        ,'LANDFRAC '                 ,dsetrank,iparallel,.true. ,foundvar)
       call hdf_getslab_r(cgrid%wbar                    (ipy:ipy)                           &
                         ,'WBAR '                     ,dsetrank,iparallel,.true. ,foundvar)
       call hdf_getslab_r(cgrid%Te                      (ipy:ipy)                           &
@@ -1094,6 +1104,10 @@ module ed_init_history
                         ,'DMEAN_QPCPG_PY            ',dsetrank,iparallel,.false.,foundvar)
          call hdf_getslab_r(cgrid%dmean_dpcpg          (ipy:ipy)                           &
                         ,'DMEAN_DPCPG_PY            ',dsetrank,iparallel,.false.,foundvar)
+         call hdf_getslab_r(cgrid%dmean_fire_density   (ipy:ipy)                           &
+                        ,'DMEAN_FIRE_DENSITY_PY     ',dsetrank,iparallel,.false.,foundvar)
+         call hdf_getslab_r(cgrid%dmean_fire_extinction(ipy:ipy)                           &
+                        ,'DMEAN_FIRE_EXTINCTION_PY  ',dsetrank,iparallel,.false.,foundvar)
       end if
       return
    end subroutine fill_history_grid_p11dmean
@@ -1552,6 +1566,28 @@ module ed_init_history
                         ,'MMEAN_QPCPG_PY            ',dsetrank,iparallel,.false.,foundvar)
          call hdf_getslab_r(cgrid%mmean_dpcpg          (ipy:ipy)                           &
                         ,'MMEAN_DPCPG_PY            ',dsetrank,iparallel,.false.,foundvar)
+         call hdf_getslab_r(cgrid%mmean_burnt_area     (ipy:ipy)                           &
+                        ,'MMEAN_BURNT_AREA_PY       ',dsetrank,iparallel,.false.,foundvar)
+         call hdf_getslab_r(cgrid%mmean_fire_density   (ipy:ipy)                           &
+                        ,'MMEAN_FIRE_DENSITY_PY     ',dsetrank,iparallel,.false.,foundvar)
+         call hdf_getslab_r(cgrid%mmean_fire_extinction(ipy:ipy)                           &
+                        ,'MMEAN_FIRE_EXTINCTION_PY  ',dsetrank,iparallel,.false.,foundvar)
+         call hdf_getslab_r(cgrid%mmean_fire_intensity (ipy:ipy)                           &
+                        ,'MMEAN_FIRE_INTENSITY_PY   ',dsetrank,iparallel,.false.,foundvar)
+         call hdf_getslab_r(cgrid%mmean_fire_tlethal   (ipy:ipy)                           &
+                        ,'MMEAN_FIRE_TLETHAL_PY     ',dsetrank,iparallel,.false.,foundvar)
+         call hdf_getslab_r(cgrid%mmean_fire_spread    (ipy:ipy)                           &
+                        ,'MMEAN_FIRE_SPREAD_PY      ',dsetrank,iparallel,.false.,foundvar)
+         call hdf_getslab_r(cgrid%mmean_ignition_rate  (ipy:ipy)                           &
+                        ,'MMEAN_IGNITION_RATE_PY    ',dsetrank,iparallel,.false.,foundvar)
+         call hdf_getslab_r(cgrid%mmean_fire_f_bherb   (ipy:ipy)                           &
+                        ,'MMEAN_FIRE_F_BHERB_PY     ',dsetrank,iparallel,.false.,foundvar)
+         call hdf_getslab_r(cgrid%mmean_fire_f_bwoody  (ipy:ipy)                           &
+                        ,'MMEAN_FIRE_F_BWOODY_PY    ',dsetrank,iparallel,.false.,foundvar)
+         call hdf_getslab_r(cgrid%mmean_fire_f_fgc     (ipy:ipy)                           &
+                        ,'MMEAN_FIRE_F_FGC_PY       ',dsetrank,iparallel,.false.,foundvar)
+         call hdf_getslab_r(cgrid%mmean_fire_f_stgc    (ipy:ipy)                           &
+                        ,'MMEAN_FIRE_F_STGC_PY      ',dsetrank,iparallel,.false.,foundvar)
          call hdf_getslab_r(cgrid%mmsqu_gpp            (ipy:ipy)                           &
                         ,'MMSQU_GPP_PY              ',dsetrank,iparallel,.false.,foundvar)
          call hdf_getslab_r(cgrid%mmsqu_npp            (ipy:ipy)                           &
@@ -2804,6 +2840,7 @@ module ed_init_history
                               , memoffs       & ! intent(inout)
                               , memsize       ! ! intent(inout)
       use ed_misc_coms , only : ndcycle       & ! intent(in)
+                              , ndfire        & ! intent(in)
                               , writing_long  & ! intent(in)
                               , writing_eorq  & ! intent(in)
                               , writing_dcyc  ! ! intent(in)
@@ -2888,6 +2925,10 @@ module ed_init_history
                         ,'SITENUM                 ',dsetrank,iparallel,.true. ,foundvar)
       call hdf_getslab_i(cpoly%num_landuse_years                                           &
                         ,'NUM_LANDUSE_YEARS       ',dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_i(cpoly%num_sei_times                                               &
+                        ,'NUM_SEI_TIMES           ',dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_i(cpoly%num_flash_times                                             &
+                        ,'NUM_FLASH_TIMES         ',dsetrank,iparallel,.true. ,foundvar)
       call hdf_getslab_i(cpoly%hydro_next                                                  &
                         ,'HYDRO_NEXT              ',dsetrank,iparallel,.true. ,foundvar)
       call hdf_getslab_i(cpoly%hydro_prev                                                  &
@@ -2995,8 +3036,30 @@ module ed_init_history
                       ,'PRIMARY_HARVEST_MEMORY     ' ,dsetrank,iparallel,.true. ,foundvar)
       call hdf_getslab_r(cpoly%secondary_harvest_memory                                    &
                       ,'SECONDARY_HARVEST_MEMORY   ' ,dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_r(cpoly%fire_wmass_threshold                                        &
+                      ,'FIRE_WMASS_THRESHOLD       ' ,dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_r(cpoly%fire_density                                                &
+                      ,'FIRE_DENSITY               ' ,dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_r(cpoly%fire_extinction                                             &
+                      ,'FIRE_EXTINCTION            ' ,dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_r(cpoly%fire_intensity                                              &
+                      ,'FIRE_INTENSITY             ' ,dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_r(cpoly%fire_tlethal                                                &
+                      ,'FIRE_TLETHAL               ' ,dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_r(cpoly%fire_spread                                                 &
+                      ,'FIRE_SPREAD                ' ,dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_r(cpoly%burnt_area                                                  &
+                      ,'BURNT_AREA                 ' ,dsetrank,iparallel,.true. ,foundvar)
       call hdf_getslab_r(cpoly%ignition_rate                                               &
                       ,'IGNITION_RATE              ' ,dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_r(cpoly%fire_f_bherb                                                &
+                      ,'FIRE_F_BHERB               ' ,dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_r(cpoly%fire_f_bwoody                                               &
+                      ,'FIRE_F_BWOODY              ' ,dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_r(cpoly%fire_f_fgc                                                  &
+                      ,'FIRE_F_FGC                 ' ,dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_r(cpoly%fire_f_stgc                                                 &
+                      ,'FIRE_F_STGC                ' ,dsetrank,iparallel,.true. ,foundvar)
       call hdf_getslab_r(cpoly%rad_avg                                                     &
                       ,'RAD_AVG                    ' ,dsetrank,iparallel,.true. ,foundvar)
       call hdf_getslab_r(cpoly%turnover_amp                                                &
@@ -3011,6 +3074,12 @@ module ed_init_history
                      ,'LOGGING_HARVEST_SI           ',dsetrank,iparallel,.true. ,foundvar)
       call hdf_getslab_r(cpoly%combusted_fuel                                              &
                      ,'COMBUSTED_FUEL_SI            ',dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_r(cpoly%avg_running_pcpg                                            &
+                     ,'AVG_RUNNING_PCPG             ',dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_r(cpoly%today_fire_density                                          &
+                     ,'TODAY_FIRE_DENSITY           ',dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_r(cpoly%today_fire_extinction                                       &
+                     ,'TODAY_FIRE_EXTINCTION        ',dsetrank,iparallel,.true. ,foundvar)
       !------ Daily means. -------------------------------------------------------------------!
       if (writing_long) then
          call hdf_getslab_r(cpoly%dmean_atm_theiv                                          &
@@ -3047,6 +3116,10 @@ module ed_init_history
                         ,'DMEAN_QPCPG_SI            ',dsetrank,iparallel,.false.,foundvar)
          call hdf_getslab_r(cpoly%dmean_dpcpg                                              &
                         ,'DMEAN_DPCPG_SI            ',dsetrank,iparallel,.false.,foundvar)
+         call hdf_getslab_r(cpoly%dmean_fire_density                                       &
+                        ,'DMEAN_FIRE_DENSITY_SI     ',dsetrank,iparallel,.false.,foundvar)
+         call hdf_getslab_r(cpoly%dmean_fire_extinction                                    &
+                        ,'DMEAN_FIRE_EXTINCTION_SI  ',dsetrank,iparallel,.false.,foundvar)
       end if
       !------ Monthly means. -----------------------------------------------------------------!
       if (writing_eorq) then
@@ -3084,6 +3157,28 @@ module ed_init_history
                         ,'MMEAN_QPCPG_SI            ',dsetrank,iparallel,.false.,foundvar)
          call hdf_getslab_r(cpoly%mmean_dpcpg                                              &
                         ,'MMEAN_DPCPG_SI            ',dsetrank,iparallel,.false.,foundvar)
+         call hdf_getslab_r(cpoly%mmean_burnt_area                                         &
+                        ,'MMEAN_BURNT_AREA_SI       ',dsetrank,iparallel,.false.,foundvar)
+         call hdf_getslab_r(cpoly%mmean_fire_density                                       &
+                        ,'MMEAN_FIRE_DENSITY_SI     ',dsetrank,iparallel,.false.,foundvar)
+         call hdf_getslab_r(cpoly%mmean_fire_extinction                                    &
+                        ,'MMEAN_FIRE_EXTINCTION_SI  ',dsetrank,iparallel,.false.,foundvar)
+         call hdf_getslab_r(cpoly%mmean_fire_intensity                                     &
+                        ,'MMEAN_FIRE_INTENSITY_SI   ',dsetrank,iparallel,.false.,foundvar)
+         call hdf_getslab_r(cpoly%mmean_fire_tlethal                                       &
+                        ,'MMEAN_FIRE_TLETHAL_SI     ',dsetrank,iparallel,.false.,foundvar)
+         call hdf_getslab_r(cpoly%mmean_fire_spread                                        &
+                        ,'MMEAN_FIRE_SPREAD_SI      ',dsetrank,iparallel,.false.,foundvar)
+         call hdf_getslab_r(cpoly%mmean_ignition_rate                                      &
+                        ,'MMEAN_IGNITION_RATE_SI    ',dsetrank,iparallel,.false.,foundvar)
+         call hdf_getslab_r(cpoly%mmean_fire_f_bherb                                       &
+                        ,'MMEAN_FIRE_F_BHERB_SI     ',dsetrank,iparallel,.false.,foundvar)
+         call hdf_getslab_r(cpoly%mmean_fire_f_bwoody                                      &
+                        ,'MMEAN_FIRE_F_BWOODY_SI    ',dsetrank,iparallel,.false.,foundvar)
+         call hdf_getslab_r(cpoly%mmean_fire_f_fgc                                         &
+                        ,'MMEAN_FIRE_F_FGC_SI       ',dsetrank,iparallel,.false.,foundvar)
+         call hdf_getslab_r(cpoly%mmean_fire_f_stgc                                        &
+                        ,'MMEAN_FIRE_F_STGC_SI      ',dsetrank,iparallel,.false.,foundvar)
       end if
       !------------------------------------------------------------------------------------!
       !------------------------------------------------------------------------------------!
@@ -3240,7 +3335,7 @@ module ed_init_history
       !------------------------------------------------------------------------------------!
       !------------------------------------------------------------------------------------!
       !------------------------------------------------------------------------------------!
-      !      2-D variables, dimensions: (n_pft;nsites).                                    !
+      !      2-D variables, dimensions: (n_months;nsites).                                 !
       !------------------------------------------------------------------------------------!
       dsetrank    = 2
       globdims(1) = 12_8
@@ -3255,12 +3350,59 @@ module ed_init_history
       memdims (2) = int(cpoly%nsites  ,8)
       memsize (2) = int(cpoly%nsites  ,8)
       memoffs (2) = 0_8
+      call hdf_getslab_r(cpoly%avg_burnt_area                                              &
+                        ,'AVG_BURNT_AREA '       ,dsetrank,iparallel,.true.,foundvar)
+      call hdf_getslab_r(cpoly%avg_fire_intensity                                          &
+                        ,'AVG_FIRE_INTENSITY '   ,dsetrank,iparallel,.true.,foundvar)
       call hdf_getslab_r(cpoly%lambda_fire                                                 &
-                        ,'LAMBDA_FIRE ',dsetrank,iparallel,.true.,foundvar)
+                        ,'LAMBDA_FIRE '          ,dsetrank,iparallel,.true.,foundvar)
+      call hdf_getslab_r(cpoly%avg_fire_f_bherb                                            &
+                        ,'AVG_FIRE_F_BHERB '     ,dsetrank,iparallel,.true.,foundvar)
+      call hdf_getslab_r(cpoly%avg_fire_f_bwoody                                           &
+                        ,'AVG_FIRE_F_BWOODY '    ,dsetrank,iparallel,.true.,foundvar)
+      call hdf_getslab_r(cpoly%avg_fire_f_fgc                                              &
+                        ,'AVG_FIRE_F_FGC '       ,dsetrank,iparallel,.true.,foundvar)
+      call hdf_getslab_r(cpoly%avg_fire_f_stgc                                             &
+                        ,'AVG_FIRE_F_STGC '      ,dsetrank,iparallel,.true.,foundvar)
       call hdf_getslab_r(cpoly%avg_monthly_pcpg                                            &
-                        ,'AVG_MONTHLY_PCPG ',dsetrank,iparallel,.true.,foundvar)
+                        ,'AVG_MONTHLY_PCPG '     ,dsetrank,iparallel,.true.,foundvar)
       call hdf_getslab_r(cpoly%crop_yield                                                  &
-                        ,'CROP_YIELD_SI ',dsetrank,iparallel,.true.,foundvar)
+                        ,'CROP_YIELD_SI '        ,dsetrank,iparallel,.true.,foundvar)
+      !------------------------------------------------------------------------------------!
+      !------------------------------------------------------------------------------------!
+      !------------------------------------------------------------------------------------!
+
+
+
+
+
+
+      !------------------------------------------------------------------------------------!
+      !------------------------------------------------------------------------------------!
+      !------------------------------------------------------------------------------------!
+      !      2-D variables, dimensions: (n_pft;nsites).                                    !
+      !------------------------------------------------------------------------------------!
+      dsetrank    = 2
+      globdims(1) = int(ndfire,8)
+      chnkdims(1) = int(ndfire,8)
+      memdims (1) = int(ndfire,8)
+      memsize (1) = int(ndfire,8)
+      chnkoffs(1) = 0_8
+      memoffs (1) = 0_8
+      globdims(2) = int(nsites_global ,8)
+      chnkdims(2) = int(cpoly%nsites  ,8)
+      chnkoffs(2) = int(pysi_index - 1,8)
+      memdims (2) = int(cpoly%nsites  ,8)
+      memsize (2) = int(cpoly%nsites  ,8)
+      memoffs (2) = 0_8
+      call hdf_getslab_r(cpoly%tdfire_pcpg                                                 &
+                     ,'TDFIRE_PCPG                  ',dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_r(cpoly%tdfire_atm_tdew                                             &
+                     ,'TDFIRE_ATM_TDEW              ',dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_r(cpoly%tdfire_atm_temp                                             &
+                     ,'TDFIRE_ATM_TEMP              ',dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_r(cpoly%tdfire_atm_vpdef                                            &
+                     ,'TDFIRE_ATM_VPDEF             ',dsetrank,iparallel,.true. ,foundvar)
       !------------------------------------------------------------------------------------!
       !------------------------------------------------------------------------------------!
       !------------------------------------------------------------------------------------!
@@ -3502,6 +3644,7 @@ module ed_init_history
                                     , memoffs       & ! intent(inout)
                                     , memsize       ! ! intent(inout)
       use ed_misc_coms       , only : ndcycle       & ! intent(in)
+                                    , ndfire        & ! intent(in)
                                     , writing_long  & ! intent(in)
                                     , writing_eorq  & ! intent(in)
                                     , writing_dcyc  ! ! intent(in)
@@ -3889,6 +4032,8 @@ module ed_init_history
                      ,'MINERALIZED_N_LOSS          ',dsetrank,iparallel,.false.,foundvar)
       call hdf_getslab_r(csite%mineralized_N_input                                         &
                      ,'MINERALIZED_N_INPUT         ',dsetrank,iparallel,.false.,foundvar)
+      call hdf_getslab_r(csite%nesterov_index                                              &
+                     ,'NESTEROV_INDEX              ',dsetrank,iparallel,.true. ,foundvar)
       call hdf_getslab_r(csite%rshort_g                                                    &
                      ,'RSHORT_G                    ',dsetrank,iparallel,.true. ,foundvar)
       call hdf_getslab_r(csite%rshort_g_beam                                               &
@@ -4714,6 +4859,49 @@ module ed_init_history
       !------------------------------------------------------------------------------------!
       !------------------------------------------------------------------------------------!
       !------------------------------------------------------------------------------------!
+      !      2-D variables, dimensions: (ndfire,npatches).                                 !
+      !------------------------------------------------------------------------------------!
+      dsetrank    = 2
+      globdims(1) = int(ndfire,8)
+      chnkdims(1) = int(ndfire,8)
+      memdims (1) = int(ndfire,8)
+      memsize (1) = int(ndfire,8)
+      chnkoffs(1) = 0_8
+      memoffs (1) = 0_8
+      globdims(2) = int(npatches_global,8)
+      chnkdims(2) = int(csite%npatches ,8)
+      chnkoffs(2) = int(sipa_index - 1 ,8)
+      memdims (2) = int(csite%npatches ,8)
+      memsize (2) = int(csite%npatches ,8)
+      memoffs (2) = 0_8
+      call hdf_getslab_r(csite%tdfire_can_temp                                             &
+                     ,'TDFIRE_CAN_TEMP             ',dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_r(csite%tdfire_can_rhv                                              &
+                     ,'TDFIRE_CAN_RHV              ',dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_r(csite%tdfire_can_vpdef                                            &
+                     ,'TDFIRE_CAN_VPDEF            ',dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_r(csite%tdfire_sfc_wetness                                          &
+                     ,'TDFIRE_SFC_WETNESS          ',dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_r(csite%tdfire_sfc_mstpot                                           &
+                     ,'TDFIRE_SFC_MSTPOT           ',dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_r(csite%tdfire_can_vels                                             &
+                     ,'TDFIRE_CAN_VELS             ',dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_r(csite%tdfire_can_tdew                                             &
+                     ,'TDFIRE_CAN_TDEW             ',dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_r(csite%tdfire_fdi_vpd                                              &
+                     ,'TDFIRE_FDI_VPD              ',dsetrank,iparallel,.true. ,foundvar)
+      !------------------------------------------------------------------------------------!
+      !------------------------------------------------------------------------------------!
+      !------------------------------------------------------------------------------------!
+
+
+
+
+
+
+      !------------------------------------------------------------------------------------!
+      !------------------------------------------------------------------------------------!
+      !------------------------------------------------------------------------------------!
       !      3-D variables, dimensions: (n_pft,ff_nhgt,npatches).                          !
       !------------------------------------------------------------------------------------!
       dsetrank    = 3
@@ -5037,6 +5225,8 @@ module ed_init_history
                         ,'CROWN_AREA_CO             ',dsetrank,iparallel,.true. ,foundvar)
       call hdf_getslab_r(cpatch%cbr_bar                                                    &
                         ,'CBR_BAR                   ',dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_r(cpatch%fire_lethal_prob                                           &
+                        ,'FIRE_LETHAL_PROB          ',dsetrank,iparallel,.true. ,foundvar)
       call hdf_getslab_r(cpatch%leaf_energy                                                &
                         ,'LEAF_ENERGY               ',dsetrank,iparallel,.true. ,foundvar)
       call hdf_getslab_r(cpatch%leaf_temp                                                  &
@@ -5475,6 +5665,8 @@ module ed_init_history
                         ,'MMEAN_ROOT_DROP_CO        ',dsetrank,iparallel,.false.,foundvar)
          call hdf_getslab_r(cpatch%mmean_cb                                                &
                         ,'MMEAN_CB_CO               ',dsetrank,iparallel,.false.,foundvar)
+         call hdf_getslab_r(cpatch%mmean_fire_lethal_rate                                  &
+                        ,'MMEAN_FIRE_LETHAL_RATE_CO ',dsetrank,iparallel,.false.,foundvar)
          call hdf_getslab_r(cpatch%mmean_gpp                                               &
                         ,'MMEAN_GPP_CO              ',dsetrank,iparallel,.false.,foundvar)
          call hdf_getslab_r(cpatch%mmean_npp                                               &
@@ -5740,6 +5932,8 @@ module ed_init_history
                         ,'DDBH_MONTHLY              ',dsetrank,iparallel,.true. ,foundvar)
       call hdf_getslab_r(cpatch%plc_monthly                                                &
                         ,'PLC_MONTHLY               ',dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_r(cpatch%fire_lethal_rate                                           &
+                        ,'FIRE_LETHAL_RATE          ',dsetrank,iparallel,.true. ,foundvar)
       !------------------------------------------------------------------------------------!
       !------------------------------------------------------------------------------------!
       !------------------------------------------------------------------------------------!

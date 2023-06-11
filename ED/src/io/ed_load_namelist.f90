@@ -157,6 +157,8 @@ subroutine copy_nl(copy_type)
                                    , lu_database               & ! intent(out)
                                    , plantation_file           & ! intent(out)
                                    , lu_rescale_file           & ! intent(out)
+                                   , sei_database              & ! intent(out)
+                                   , flash_database            & ! intent(out)
                                    , sm_fire                   & ! intent(out)
                                    , time2canopy               & ! intent(out)
                                    , min_patch_area            & ! intent(out)
@@ -197,12 +199,14 @@ subroutine copy_nl(copy_type)
                                    , iclobber                  & ! intent(out)
                                    , frqfast                   & ! intent(out)
                                    , ndcycle                   & ! intent(out)
+                                   , ndfire                    & ! intent(out)
                                    , sfilin                    & ! intent(out)
                                    , ied_init_mode             & ! intent(out)
                                    , current_time              & ! intent(out)
                                    , thsums_database           & ! intent(out)
                                    , end_time                  & ! intent(out)
                                    , radfrq                    & ! intent(out)
+                                   , firefrq                   & ! intent(out)
                                    , ivegt_dynamics            & ! intent(out)
                                    , ibigleaf                  & ! intent(out)
                                    , integration_scheme        & ! intent(out)
@@ -338,6 +342,7 @@ subroutine copy_nl(copy_type)
       iyearz                    = nl%iyearz
       dtlsm                     = nl%dtlsm
       radfrq                    = nl%radfrq
+      firefrq                   = nl%firefrq
       month_yrstep              = nl%month_yrstep
 
       ifoutput                  = nl%ifoutput
@@ -393,6 +398,8 @@ subroutine copy_nl(copy_type)
       lu_database               = nl%lu_database
       plantation_file           = nl%plantation_file
       lu_rescale_file           = nl%lu_rescale_file
+      sei_database              = nl%sei_database
+      flash_database            = nl%flash_database
       thsums_database           = nl%thsums_database
 
       ed_met_driver_db          = nl%ed_met_driver_db
@@ -695,6 +702,18 @@ subroutine copy_nl(copy_type)
    !---------------------------------------------------------------------------------------!
 
 
+   !---------------------------------------------------------------------------------------!
+   !     The following variable will be used to allocate the mean diurnal cycle for the    !
+   ! FIRESTARTER model.                                                                    !
+   !---------------------------------------------------------------------------------------!
+   if (firefrq == 0.) then
+      ndfire = 1
+   else
+      ndfire = max(1,int(day_sec / firefrq))
+   end if
+   !---------------------------------------------------------------------------------------!
+
+
 
 
    !----- Sort up the chosen PFTs. --------------------------------------------------------!
@@ -733,6 +752,8 @@ subroutine copy_nl(copy_type)
    call copy_path_from_grid_1(ngrids,'lu_database'    ,lu_database    )
    call copy_path_from_grid_1(ngrids,'plantation_file',plantation_file)
    call copy_path_from_grid_1(ngrids,'lu_rescale_file',lu_rescale_file)
+   call copy_path_from_grid_1(ngrids,'sei_database'   ,sei_database   )
+   call copy_path_from_grid_1(ngrids,'flash_database' ,flash_database )
 
    call copy_path_from_grid_1(ngrids,'sfilin'         ,sfilin         )
    !---------------------------------------------------------------------------------------!

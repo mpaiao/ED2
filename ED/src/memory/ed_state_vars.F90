@@ -31,7 +31,9 @@ module ed_state_vars
                                  , str_len           ! ! intent(in)
    use disturb_coms       , only : lutime            & ! intent(in)
                                  , num_lu_trans      & ! intent(in)
-                                 , max_lu_years      ! ! intent(in)
+                                 , max_lu_years      & ! intent(in)
+                                 , seitime           & ! structure
+                                 , flashtime         ! ! intent(in)
    use met_driver_coms    , only : met_driv_data     & ! intent(in)
                                  , met_driv_state    ! ! intent(in)
    use fusion_fission_coms, only : ff_nhgt           & ! intent(in)
@@ -46,7 +48,8 @@ module ed_state_vars
                                  , history_fast      & ! intent(in)
                                  , history_dail      & ! intent(in)
                                  , history_eorq      & ! intent(in)
-                                 , ndcycle           ! ! intent(in)
+                                 , ndcycle           & ! intent(in)
+                                 , ndfire            ! ! intent(in)
 
    implicit none
    !=======================================================================================!
@@ -287,6 +290,14 @@ module ed_state_vars
       real, pointer,dimension(:,:) :: plc_monthly            !(13,ncohorts)
       !<Monthly percentage loss of xylem conductance for past 12 months and the
       !! current month - This is used for hydraulic failure mortality
+
+      real, pointer,dimension(:)   :: fire_lethal_prob       !(ncohorts)
+      !<Monthly probability of lethality accumulated over the past 12 months
+      !! current month - This is used to calculate survivorship for FIRESTARTER
+
+      real, pointer,dimension(:,:) :: fire_lethal_rate       !(13,ncohorts)
+      !<Monthly lethality rate due to fire for past 12 months and the
+      !! current month - This is used to report fire lethality for FIRESTARTER
 
       real ,pointer,dimension(:) :: leaf_energy
       !<Leaf internal energy (J/m2 ground)
@@ -772,6 +783,8 @@ module ed_state_vars
       real,pointer,dimension(:)   :: mmean_leaf_drop         !<Leaf drop        [ kgC/pl/yr]
       real,pointer,dimension(:)   :: mmean_root_drop         !<Fine-root drop   [ kgC/pl/yr]
       real,pointer,dimension(:)   :: mmean_cb                !<12-mon C balance [    kgC/pl]
+      !----- Montly means of variables, borrowed from monthly arrays ("avg_"). ------------!
+      real,pointer,dimension(:)   :: mmean_fire_lethal_rate  !<Fire lethality   [      1/yr]
       !----- Daily mean (same units as fast mean). ----------------------------------------!
       real,pointer,dimension(:)     :: dmean_gpp
       real,pointer,dimension(:)     :: dmean_npp
@@ -1634,6 +1647,9 @@ module ed_state_vars
       real, pointer,dimension(:) :: mineralized_N_loss
       !<Loss of mineralized soil nitrogen pool [kgN/m2/day]
 
+      real , pointer,dimension(:) :: nesterov_index
+      !<Nesterov index (fire model) [degC^2]
+
       real , pointer,dimension(:) :: rshort_g
       !<Short wave radiation absorbed by the ground (W/m2)
       
@@ -1806,6 +1822,34 @@ module ed_state_vars
       real,pointer,dimension(:)   :: runoff_rate
       real,pointer,dimension(:)   :: runoff
       real,pointer,dimension(:)   :: qrunoff
+
+
+
+      !----- Variables used by EMBERFIRE/FIRESTARTER. -------------------------------------!
+      real, pointer, dimension(:,:) :: tdfire_can_temp
+      !<Average canopy air space temperature, at sub-daily bins.
+
+      real, pointer, dimension(:,:) :: tdfire_can_rhv
+      !<Average canopy air space relative humidity, at sub-daily bins.
+
+      real, pointer, dimension(:,:) :: tdfire_can_vpdef
+      !<Average canopy air space vapour pressure deficit, at sub-daily bins.
+
+      real, pointer, dimension(:,:) :: tdfire_sfc_wetness
+      !<Average relative soil moisture, at sub-daily bins.
+
+      real, pointer, dimension(:,:) :: tdfire_sfc_mstpot
+      !<Average soil matric potential, at sub-daily bins.
+
+      real, pointer, dimension(:,:) :: tdfire_can_vels
+      !<Average canopy air space wind speed, at sub-daily bins.
+
+      real, pointer, dimension(:,:) :: tdfire_can_tdew
+      !<Average canopy air space dewpoint temperature, at sub-daily bins.
+
+      real , pointer,dimension(:,:) :: tdfire_fdi_vpd
+      !<VPD-based fire danger index, at sub-daily bins [--]
+
 
       !====================================================================================!
       !====================================================================================!
@@ -2426,12 +2470,108 @@ module ed_state_vars
       !-----------------------------------
       ! FIRE
       !-----------------------------------
-      real,pointer,dimension(:) :: ignition_rate
+
+      integer     ,pointer ,dimension(:)    :: num_sei_times
+      !<    The number of times with socio-economic data, calculated at read-in of data 
+      !< during fire_init.
+
+      type(seitime), pointer,dimension(:,:)  :: seitimes !(igntimes,nsites)
+      !<The vectorized ignition source that is allocated in fire_init.
+
+      integer     ,pointer ,dimension(:)    :: num_flash_times
+      !<    The number of times with flash rate density data, calculated at read-in of 
+      !< data during fire_init.
+
+      type(flashtime), pointer,dimension(:,:)  :: flashtimes !(igntimes,nsites)
+      !<The vectorized ignition source that is allocated in fire_init.
+
+
+
+      real, pointer, dimension(:) :: fire_wmass_threshold
+      !< Soil moisture threshold for fire (used when include_fire set is 1, 2 or 3.)
+
+      real, pointer, dimension(:) :: fire_density
+      !<Fire count per unit area (1/m2)
+
+      real, pointer, dimension(:) :: fire_extinction
+      !<Fire extinction rate (1/day)
+
+      real, pointer, dimension(:) :: fire_intensity
+      !<Fire intensity           ( W/m)
+
+      real, pointer, dimension(:) :: fire_tlethal
+      !<Duration of lethal bole heating     ( s)
+
+      real, pointer, dimension(:) :: fire_spread
+      !<Fire spread rate (m/s)
+
+      real, pointer, dimension(:) :: burnt_area
+      !<Burnt area "index" (m2_burned/m2)
+
+      real, pointer, dimension(:) :: ignition_rate
       !<total fuel in the dry patches
 
-      real,pointer, dimension(:,:) :: lambda_fire ! initialized in create_site !(12,nsites)
+      real, pointer, dimension(:) :: fire_f_bherb
+      !<Combusted fraction of herbaceous fuels
+
+      real, pointer, dimension(:) :: fire_f_bwoody
+      !<Combusted fraction of living woody fuels
+
+      real, pointer, dimension(:) :: fire_f_fgc
+      !<Combusted fraction of fast C on ground
+
+      real, pointer, dimension(:) :: fire_f_stgc
+      !<Combusted fraction of structural C on ground
+
+      real,pointer,dimension(:) :: avg_running_pcpg
+      !<Running average of precipitation rate (kg/m2/s)
+
+      real,pointer,dimension(:) :: today_fire_density
+      !<Daily average fire density (internal use only)
+
+      real,pointer,dimension(:) :: today_fire_extinction
+      !<Daily average fire extinction rate (internal use only)
+
+      real,pointer, dimension(:,:) :: lambda_fire
+      !<  Fire disturbance rate by month (1/mo) !(12,nsites)
+
+      real, pointer, dimension(:,:) :: avg_burnt_area
+      !<Burnt area by month !(12,nsites)
+
+      real, pointer, dimension(:,:) :: avg_fire_intensity
+      !<Fire intensity [W m-1] !(12,nsites)
+
       real,pointer,dimension(:,:)  :: avg_monthly_pcpg
       !<Monthly rainfall [mm/month] for each month over the past 12 months.
+
+      real, pointer, dimension(:,:) :: avg_fire_f_bherb
+      !<Combusted fraction of herbaceous fuels on ground over the past 12 months.
+
+      real, pointer, dimension(:,:) :: avg_fire_f_bwoody
+      !<Combusted fraction of living woody C on ground over the past 12 months.
+
+      real, pointer, dimension(:,:) :: avg_fire_f_fgc
+      !<Combusted fraction of fast C on ground over the past 12 months.
+
+      real, pointer, dimension(:,:) :: avg_fire_f_stgc
+      !<Combusted fraction of structural C on ground over the past 12 months.
+
+      real,pointer,dimension(:,:) :: tdfire_pcpg
+      !<Average precipitation rate, at sub-daily bins  (internal use only).
+
+      real,pointer,dimension(:,:) :: tdfire_atm_tdew
+      !<Average dew point temperature, at sub-daily bins (internal use only).
+
+      real,pointer,dimension(:,:) :: tdfire_atm_temp
+      !<Average air temperature, at sub-daily bins (internal use only).
+
+      real,pointer,dimension(:,:) :: tdfire_atm_vpdef
+      !<Average air vapour pressure deficit, at sub-daily bins (internal use only).
+
+
+      !-----------------------------------
+      ! PHENOLOGY
+      !-----------------------------------
 
       type(prescribed_phen),pointer, dimension(:) :: phen_pars
 
@@ -2539,6 +2679,8 @@ module ed_state_vars
       real,pointer,dimension(:) :: dmean_pcpg
       real,pointer,dimension(:) :: dmean_qpcpg
       real,pointer,dimension(:) :: dmean_dpcpg
+      real,pointer,dimension(:) :: dmean_fire_density
+      real,pointer,dimension(:) :: dmean_fire_extinction
       !------ Monthly mean. ---------------------------------------------------------------!
       real,pointer,dimension(:) :: mmean_atm_theiv
       real,pointer,dimension(:) :: mmean_atm_theta
@@ -2557,6 +2699,17 @@ module ed_state_vars
       real,pointer,dimension(:) :: mmean_pcpg
       real,pointer,dimension(:) :: mmean_qpcpg
       real,pointer,dimension(:) :: mmean_dpcpg
+      real,pointer,dimension(:) :: mmean_burnt_area
+      real,pointer,dimension(:) :: mmean_fire_density
+      real,pointer,dimension(:) :: mmean_fire_extinction
+      real,pointer,dimension(:) :: mmean_fire_intensity
+      real,pointer,dimension(:) :: mmean_fire_tlethal
+      real,pointer,dimension(:) :: mmean_fire_spread
+      real,pointer,dimension(:) :: mmean_ignition_rate
+      real,pointer,dimension(:) :: mmean_fire_f_bherb
+      real,pointer,dimension(:) :: mmean_fire_f_bwoody
+      real,pointer,dimension(:) :: mmean_fire_f_fgc
+      real,pointer,dimension(:) :: mmean_fire_f_stgc
       !------ Mean diel. ------------------------------------------------------------------!
       real,pointer,dimension(:,:) :: qmean_atm_theiv
       real,pointer,dimension(:,:) :: qmean_atm_theta
@@ -2642,6 +2795,11 @@ module ed_state_vars
 
       real,pointer,dimension(:) :: lat
       !<Latitude at the middle point of this polygon
+
+      real,pointer,dimension(:) :: landfrac
+      !<Fraction of landscape that can potentially sustain natural vegetation 
+      !<(i.e, excluding oceans, inland water, glaciers and urban/built-up areas, but 
+      !< including deserts).
 
       integer,pointer,dimension(:) :: xatm
       
@@ -3246,6 +3404,8 @@ module ed_state_vars
       real,pointer,dimension(:)     :: dmean_pcpg
       real,pointer,dimension(:)     :: dmean_qpcpg
       real,pointer,dimension(:)     :: dmean_dpcpg
+      real,pointer,dimension(:)     :: dmean_fire_density
+      real,pointer,dimension(:)     :: dmean_fire_extinction
       !----- Monthly mean (same units as fast mean). --------------------------------------!
       real,pointer,dimension(:)     :: mmean_gpp
       real,pointer,dimension(:)     :: mmean_npp
@@ -3409,6 +3569,17 @@ module ed_state_vars
       real,pointer,dimension(:)     :: mmean_pcpg
       real,pointer,dimension(:)     :: mmean_qpcpg
       real,pointer,dimension(:)     :: mmean_dpcpg
+      real,pointer,dimension(:)     :: mmean_burnt_area
+      real,pointer,dimension(:)     :: mmean_fire_density
+      real,pointer,dimension(:)     :: mmean_fire_extinction
+      real,pointer,dimension(:)     :: mmean_fire_intensity
+      real,pointer,dimension(:)     :: mmean_fire_tlethal
+      real,pointer,dimension(:)     :: mmean_fire_spread
+      real,pointer,dimension(:)     :: mmean_ignition_rate
+      real,pointer,dimension(:)     :: mmean_fire_f_bherb
+      real,pointer,dimension(:)     :: mmean_fire_f_bwoody
+      real,pointer,dimension(:)     :: mmean_fire_f_fgc
+      real,pointer,dimension(:)     :: mmean_fire_f_stgc
       !----- Monthly mean sum of squares. -------------------------------------------------!
       real,pointer,dimension(:)     :: mmsqu_gpp
       real,pointer,dimension(:)     :: mmsqu_npp
@@ -3811,6 +3982,7 @@ module ed_state_vars
       allocate(cgrid%walltime_py                (                    npolygons))
       allocate(cgrid%lon                        (                    npolygons))
       allocate(cgrid%lat                        (                    npolygons))
+      allocate(cgrid%landfrac                   (                    npolygons))
       allocate(cgrid%xatm                       (                    npolygons))
       allocate(cgrid%yatm                       (                    npolygons))
       allocate(cgrid%site_adjacency             (max_site,max_sitep1,npolygons))
@@ -4247,6 +4419,8 @@ module ed_state_vars
          allocate(cgrid%dmean_pcpg              (                     npolygons))
          allocate(cgrid%dmean_qpcpg             (                     npolygons))
          allocate(cgrid%dmean_dpcpg             (                     npolygons))
+         allocate(cgrid%dmean_fire_density      (                     npolygons))
+         allocate(cgrid%dmean_fire_extinction   (                     npolygons))
       end if
       !------------------------------------------------------------------------------------!
 
@@ -4458,6 +4632,17 @@ module ed_state_vars
          allocate(cgrid%mmean_pcpg              (                     npolygons)) 
          allocate(cgrid%mmean_qpcpg             (                     npolygons)) 
          allocate(cgrid%mmean_dpcpg             (                     npolygons)) 
+         allocate(cgrid%mmean_burnt_area        (                     npolygons))
+         allocate(cgrid%mmean_fire_density      (                     npolygons))
+         allocate(cgrid%mmean_fire_extinction   (                     npolygons))
+         allocate(cgrid%mmean_fire_intensity    (                     npolygons))
+         allocate(cgrid%mmean_fire_tlethal      (                     npolygons))
+         allocate(cgrid%mmean_fire_spread       (                     npolygons))
+         allocate(cgrid%mmean_ignition_rate     (                     npolygons))
+         allocate(cgrid%mmean_fire_f_bherb      (                     npolygons))
+         allocate(cgrid%mmean_fire_f_bwoody     (                     npolygons))
+         allocate(cgrid%mmean_fire_f_fgc        (                     npolygons))
+         allocate(cgrid%mmean_fire_f_stgc       (                     npolygons))
          allocate(cgrid%mmsqu_gpp               (                     npolygons)) 
          allocate(cgrid%mmsqu_npp               (                     npolygons)) 
          allocate(cgrid%mmsqu_plresp            (                     npolygons)) 
@@ -4757,6 +4942,8 @@ module ed_state_vars
       allocate(cpoly%qrunoff                       (                          nsites))
       allocate(cpoly%min_monthly_temp              (                          nsites))
       allocate(cpoly%num_landuse_years             (                          nsites))
+      allocate(cpoly%num_sei_times                 (                          nsites))
+      allocate(cpoly%num_flash_times               (                          nsites))
       allocate(cpoly%mindbh_harvest                (                    n_pft,nsites))
       allocate(cpoly%prob_harvest                  (                    n_pft,nsites))
       allocate(cpoly%plantation                    (                          nsites))
@@ -4770,9 +4957,29 @@ module ed_state_vars
       allocate(cpoly%secondary_harvest_target      (                          nsites))
       allocate(cpoly%primary_harvest_memory        (                          nsites))
       allocate(cpoly%secondary_harvest_memory      (                          nsites))
+      allocate(cpoly%fire_wmass_threshold          (                          nsites))
+      allocate(cpoly%fire_density                  (                          nsites))
+      allocate(cpoly%fire_extinction               (                          nsites))
+      allocate(cpoly%fire_intensity                (                          nsites))
+      allocate(cpoly%fire_tlethal                  (                          nsites))
+      allocate(cpoly%fire_spread                   (                          nsites))
+      allocate(cpoly%burnt_area                    (                          nsites))
       allocate(cpoly%ignition_rate                 (                          nsites))
+      allocate(cpoly%fire_f_bherb                  (                          nsites))
+      allocate(cpoly%fire_f_bwoody                 (                          nsites))
+      allocate(cpoly%fire_f_fgc                    (                          nsites))
+      allocate(cpoly%fire_f_stgc                   (                          nsites))
+      allocate(cpoly%avg_running_pcpg              (                          nsites))
+      allocate(cpoly%today_fire_density            (                          nsites))
+      allocate(cpoly%today_fire_extinction         (                          nsites))
       allocate(cpoly%lambda_fire                   (                       12,nsites))
+      allocate(cpoly%avg_burnt_area                (                       12,nsites))
+      allocate(cpoly%avg_fire_intensity            (                       12,nsites))
       allocate(cpoly%avg_monthly_pcpg              (                       12,nsites))
+      allocate(cpoly%avg_fire_f_bherb              (                       12,nsites))
+      allocate(cpoly%avg_fire_f_bwoody             (                       12,nsites))
+      allocate(cpoly%avg_fire_f_fgc                (                       12,nsites))
+      allocate(cpoly%avg_fire_f_stgc               (                       12,nsites))
       allocate(cpoly%phen_pars                     (                          nsites))
       allocate(cpoly%disturbance_memory            (n_dist_types,n_dist_types,nsites))
       allocate(cpoly%disturbance_rates             (n_dist_types,n_dist_types,nsites))
@@ -4783,6 +4990,10 @@ module ed_state_vars
       allocate(cpoly%rd_bar_toc                    (                    n_pft,nsites))
       allocate(cpoly%llspan_toc                    (                    n_pft,nsites))
       allocate(cpoly%sla_toc                       (                    n_pft,nsites))
+      allocate(cpoly%tdfire_pcpg                   (                   ndfire,nsites))
+      allocate(cpoly%tdfire_atm_tdew               (                   ndfire,nsites))
+      allocate(cpoly%tdfire_atm_temp               (                   ndfire,nsites))
+      allocate(cpoly%tdfire_atm_vpdef              (                   ndfire,nsites))
       allocate(cpoly%basal_area                    (       n_pft,       n_dbh,nsites))
       allocate(cpoly%basal_area_growth             (       n_pft,       n_dbh,nsites))
       allocate(cpoly%agb                           (       n_pft,       n_dbh,nsites))
@@ -4838,6 +5049,8 @@ module ed_state_vars
          allocate(cpoly%dmean_pcpg                 (                          nsites))
          allocate(cpoly%dmean_qpcpg                (                          nsites))
          allocate(cpoly%dmean_dpcpg                (                          nsites))
+         allocate(cpoly%dmean_fire_density         (                          nsites))
+         allocate(cpoly%dmean_fire_extinction      (                          nsites))
       end if
 
       if (writing_eorq) then
@@ -4858,6 +5071,17 @@ module ed_state_vars
          allocate(cpoly%mmean_pcpg                 (                          nsites))
          allocate(cpoly%mmean_qpcpg                (                          nsites))
          allocate(cpoly%mmean_dpcpg                (                          nsites))
+         allocate(cpoly%mmean_burnt_area           (                          nsites))
+         allocate(cpoly%mmean_fire_density         (                          nsites))
+         allocate(cpoly%mmean_fire_extinction      (                          nsites))
+         allocate(cpoly%mmean_fire_intensity       (                          nsites))
+         allocate(cpoly%mmean_fire_tlethal         (                          nsites))
+         allocate(cpoly%mmean_fire_spread          (                          nsites))
+         allocate(cpoly%mmean_ignition_rate        (                          nsites))
+         allocate(cpoly%mmean_fire_f_bherb         (                          nsites))
+         allocate(cpoly%mmean_fire_f_bwoody        (                          nsites))
+         allocate(cpoly%mmean_fire_f_fgc           (                          nsites))
+         allocate(cpoly%mmean_fire_f_stgc          (                          nsites))
       end if
 
       if (writing_dcyc) then
@@ -5071,6 +5295,14 @@ module ed_state_vars
       allocate(csite%today_Af_decomp               (              npatches))
       allocate(csite%today_Bf_decomp               (              npatches))
       allocate(csite%today_rh                      (              npatches))
+      allocate(csite%tdfire_can_temp               (       ndfire,npatches))
+      allocate(csite%tdfire_can_rhv                (       ndfire,npatches))
+      allocate(csite%tdfire_can_vpdef              (       ndfire,npatches))
+      allocate(csite%tdfire_can_vels               (       ndfire,npatches))
+      allocate(csite%tdfire_can_tdew               (       ndfire,npatches))
+      allocate(csite%tdfire_sfc_wetness            (       ndfire,npatches))
+      allocate(csite%tdfire_sfc_mstpot             (       ndfire,npatches))
+      allocate(csite%tdfire_fdi_vpd                (       ndfire,npatches))
       allocate(csite%repro                         (        n_pft,npatches))
       allocate(csite%veg_rough                     (              npatches))
       allocate(csite%veg_height                    (              npatches))
@@ -5088,6 +5320,7 @@ module ed_state_vars
       allocate(csite%total_plant_nitrogen_uptake   (              npatches))
       allocate(csite%mineralized_N_loss            (              npatches))
       allocate(csite%mineralized_N_input           (              npatches))
+      allocate(csite%nesterov_index                (              npatches))
       allocate(csite%rshort_g                      (              npatches))
       allocate(csite%rshort_g_beam                 (              npatches))
       allocate(csite%rshort_g_diffuse              (              npatches))
@@ -5593,6 +5826,8 @@ module ed_state_vars
       allocate(cpatch%cbr_bar                      (                    ncohorts))
       allocate(cpatch%ddbh_monthly                 (                 13,ncohorts))
       allocate(cpatch%plc_monthly                  (                 13,ncohorts))
+      allocate(cpatch%fire_lethal_prob             (                    ncohorts))
+      allocate(cpatch%fire_lethal_rate             (                 13,ncohorts))
       allocate(cpatch%leaf_energy                  (                    ncohorts))
       allocate(cpatch%leaf_temp                    (                    ncohorts))
       allocate(cpatch%leaf_vpdef                   (                    ncohorts))
@@ -5918,6 +6153,7 @@ module ed_state_vars
          allocate(cpatch%mmean_leaf_drop           (                    ncohorts))
          allocate(cpatch%mmean_root_drop           (                    ncohorts))
          allocate(cpatch%mmean_cb                  (                    ncohorts))
+         allocate(cpatch%mmean_fire_lethal_rate    (                    ncohorts))
          allocate(cpatch%mmean_gpp                 (                    ncohorts))
          allocate(cpatch%mmean_npp                 (                    ncohorts))
          allocate(cpatch%mmean_leaf_resp           (                    ncohorts))
@@ -6144,6 +6380,7 @@ module ed_state_vars
       nullify(cgrid%walltime_py             )
       nullify(cgrid%lon                     )
       nullify(cgrid%lat                     )
+      nullify(cgrid%landfrac                )
       nullify(cgrid%xatm                    )
       nullify(cgrid%yatm                    )
       nullify(cgrid%site_adjacency          )
@@ -6569,6 +6806,8 @@ module ed_state_vars
       nullify(cgrid%dmean_pcpg              )
       nullify(cgrid%dmean_qpcpg             )
       nullify(cgrid%dmean_dpcpg             )
+      nullify(cgrid%dmean_fire_density      )
+      nullify(cgrid%dmean_fire_extinction   )
       nullify(cgrid%mmean_thbark            )
       nullify(cgrid%mmean_lai               )
       nullify(cgrid%mmean_bleaf             )
@@ -6769,6 +7008,17 @@ module ed_state_vars
       nullify(cgrid%mmean_pcpg              )
       nullify(cgrid%mmean_qpcpg             )
       nullify(cgrid%mmean_dpcpg             )
+      nullify(cgrid%mmean_burnt_area        )
+      nullify(cgrid%mmean_fire_density      )
+      nullify(cgrid%mmean_fire_extinction   )
+      nullify(cgrid%mmean_fire_intensity    )
+      nullify(cgrid%mmean_fire_tlethal      )
+      nullify(cgrid%mmean_fire_spread       )
+      nullify(cgrid%mmean_ignition_rate     )
+      nullify(cgrid%mmean_fire_f_bherb      )
+      nullify(cgrid%mmean_fire_f_bwoody     )
+      nullify(cgrid%mmean_fire_f_fgc        )
+      nullify(cgrid%mmean_fire_f_stgc       )
       nullify(cgrid%mmsqu_gpp               )
       nullify(cgrid%mmsqu_npp               )
       nullify(cgrid%mmsqu_plresp            )
@@ -7032,6 +7282,8 @@ module ed_state_vars
       nullify(cpoly%qrunoff                    )
       nullify(cpoly%min_monthly_temp           )
       nullify(cpoly%num_landuse_years          )
+      nullify(cpoly%num_sei_times              )
+      nullify(cpoly%num_flash_times            )
       nullify(cpoly%mindbh_harvest             )
       nullify(cpoly%prob_harvest               )
       nullify(cpoly%plantation                 )
@@ -7045,9 +7297,33 @@ module ed_state_vars
       nullify(cpoly%secondary_harvest_target   )
       nullify(cpoly%primary_harvest_memory     )
       nullify(cpoly%secondary_harvest_memory   )
-      nullify(cpoly%ignition_rate              )
+      nullify(cpoly%fire_wmass_threshold       )
+      nullify(cpoly%fire_density               )
+      nullify(cpoly%fire_extinction            )
+      nullify(cpoly%fire_intensity             )
+      nullify(cpoly%fire_tlethal               )
+      nullify(cpoly%fire_spread                )
+      nullify(cpoly%burnt_area                 )
       nullify(cpoly%lambda_fire                )
+      nullify(cpoly%ignition_rate              )
+      nullify(cpoly%fire_f_bherb               )
+      nullify(cpoly%fire_f_bwoody              )
+      nullify(cpoly%fire_f_fgc                 )
+      nullify(cpoly%fire_f_stgc                )
+      nullify(cpoly%avg_running_pcpg           )
+      nullify(cpoly%tdfire_pcpg                )
+      nullify(cpoly%tdfire_atm_tdew            )
+      nullify(cpoly%tdfire_atm_temp            )
+      nullify(cpoly%tdfire_atm_vpdef           )
+      nullify(cpoly%today_fire_density         )
+      nullify(cpoly%today_fire_extinction      )
+      nullify(cpoly%avg_burnt_area             )
+      nullify(cpoly%avg_fire_intensity         )
       nullify(cpoly%avg_monthly_pcpg           )
+      nullify(cpoly%avg_fire_f_bherb           )
+      nullify(cpoly%avg_fire_f_bwoody          )
+      nullify(cpoly%avg_fire_f_fgc             )
+      nullify(cpoly%avg_fire_f_stgc            )
       nullify(cpoly%phen_pars                  )
       nullify(cpoly%disturbance_memory         )
       nullify(cpoly%disturbance_rates          )
@@ -7108,6 +7384,8 @@ module ed_state_vars
       nullify(cpoly%dmean_pcpg                 )
       nullify(cpoly%dmean_qpcpg                )
       nullify(cpoly%dmean_dpcpg                )
+      nullify(cpoly%dmean_fire_density         )
+      nullify(cpoly%dmean_fire_extinction      )
       nullify(cpoly%mmean_atm_theiv            )
       nullify(cpoly%mmean_atm_theta            )
       nullify(cpoly%mmean_atm_temp             )
@@ -7125,6 +7403,17 @@ module ed_state_vars
       nullify(cpoly%mmean_pcpg                 )
       nullify(cpoly%mmean_qpcpg                )
       nullify(cpoly%mmean_dpcpg                )
+      nullify(cpoly%mmean_burnt_area           )
+      nullify(cpoly%mmean_fire_density         )
+      nullify(cpoly%mmean_fire_extinction      )
+      nullify(cpoly%mmean_fire_intensity       )
+      nullify(cpoly%mmean_fire_tlethal         )
+      nullify(cpoly%mmean_fire_spread          )
+      nullify(cpoly%mmean_ignition_rate        )
+      nullify(cpoly%mmean_fire_f_bherb         )
+      nullify(cpoly%mmean_fire_f_bwoody        )
+      nullify(cpoly%mmean_fire_f_fgc           )
+      nullify(cpoly%mmean_fire_f_stgc          )
       nullify(cpoly%qmean_atm_theiv            )
       nullify(cpoly%qmean_atm_theta            )
       nullify(cpoly%qmean_atm_temp             )
@@ -7298,6 +7587,14 @@ module ed_state_vars
       nullify(csite%today_Af_decomp            )
       nullify(csite%today_Bf_decomp            )
       nullify(csite%today_rh                   )
+      nullify(csite%tdfire_can_temp            )
+      nullify(csite%tdfire_can_rhv             )
+      nullify(csite%tdfire_can_vpdef           )
+      nullify(csite%tdfire_sfc_wetness         )
+      nullify(csite%tdfire_sfc_mstpot          )
+      nullify(csite%tdfire_can_vels            )
+      nullify(csite%tdfire_can_tdew            )
+      nullify(csite%tdfire_fdi_vpd             )
       nullify(csite%repro                      )
       nullify(csite%veg_rough                  )
       nullify(csite%veg_height                 )
@@ -7315,6 +7612,7 @@ module ed_state_vars
       nullify(csite%total_plant_nitrogen_uptake)
       nullify(csite%mineralized_N_loss         )
       nullify(csite%mineralized_N_input        )
+      nullify(csite%nesterov_index             )
       nullify(csite%rshort_g                   )
       nullify(csite%rshort_g_beam              )
       nullify(csite%rshort_g_diffuse           )
@@ -7792,6 +8090,8 @@ module ed_state_vars
       nullify(cpatch%cbr_bar                 )
       nullify(cpatch%ddbh_monthly            )
       nullify(cpatch%plc_monthly             )
+      nullify(cpatch%fire_lethal_prob        )
+      nullify(cpatch%fire_lethal_rate        )
       nullify(cpatch%leaf_energy             )
       nullify(cpatch%leaf_temp               )
       nullify(cpatch%leaf_vpdef              )
@@ -8107,6 +8407,7 @@ module ed_state_vars
       nullify(cpatch%mmean_leaf_drop         )
       nullify(cpatch%mmean_root_drop         )
       nullify(cpatch%mmean_cb                )
+      nullify(cpatch%mmean_fire_lethal_rate  )
       nullify(cpatch%mmean_gpp               )
       nullify(cpatch%mmean_npp               )
       nullify(cpatch%mmean_leaf_resp         )
@@ -8463,6 +8764,14 @@ module ed_state_vars
       if(associated(csite%today_Af_decomp            )) deallocate(csite%today_Af_decomp            )
       if(associated(csite%today_Bf_decomp            )) deallocate(csite%today_Bf_decomp            )
       if(associated(csite%today_rh                   )) deallocate(csite%today_rh                   )
+      if(associated(csite%tdfire_can_temp            )) deallocate(csite%tdfire_can_temp            )
+      if(associated(csite%tdfire_can_rhv             )) deallocate(csite%tdfire_can_rhv             )
+      if(associated(csite%tdfire_can_vpdef           )) deallocate(csite%tdfire_can_vpdef           )
+      if(associated(csite%tdfire_sfc_wetness         )) deallocate(csite%tdfire_sfc_wetness         )
+      if(associated(csite%tdfire_sfc_mstpot          )) deallocate(csite%tdfire_sfc_mstpot          )
+      if(associated(csite%tdfire_can_vels            )) deallocate(csite%tdfire_can_vels            )
+      if(associated(csite%tdfire_can_tdew            )) deallocate(csite%tdfire_can_tdew            )
+      if(associated(csite%tdfire_fdi_vpd             )) deallocate(csite%tdfire_fdi_vpd             )
       if(associated(csite%repro                      )) deallocate(csite%repro                      )
       if(associated(csite%veg_rough                  )) deallocate(csite%veg_rough                  )
       if(associated(csite%veg_height                 )) deallocate(csite%veg_height                 )
@@ -8480,6 +8789,7 @@ module ed_state_vars
       if(associated(csite%total_plant_nitrogen_uptake)) deallocate(csite%total_plant_nitrogen_uptake)
       if(associated(csite%mineralized_N_loss         )) deallocate(csite%mineralized_N_loss         )
       if(associated(csite%mineralized_N_input        )) deallocate(csite%mineralized_N_input        )
+      if(associated(csite%nesterov_index             )) deallocate(csite%nesterov_index             )
       if(associated(csite%rshort_g                   )) deallocate(csite%rshort_g                   )
       if(associated(csite%rshort_g_beam              )) deallocate(csite%rshort_g_beam              )
       if(associated(csite%rshort_g_diffuse           )) deallocate(csite%rshort_g_diffuse           )
@@ -8961,6 +9271,8 @@ module ed_state_vars
       if(associated(cpatch%cbr_bar                 )) deallocate(cpatch%cbr_bar                 )
       if(associated(cpatch%ddbh_monthly            )) deallocate(cpatch%ddbh_monthly            )
       if(associated(cpatch%plc_monthly             )) deallocate(cpatch%plc_monthly             )
+      if(associated(cpatch%fire_lethal_prob        )) deallocate(cpatch%fire_lethal_prob        )
+      if(associated(cpatch%fire_lethal_rate        )) deallocate(cpatch%fire_lethal_rate        )
       if(associated(cpatch%leaf_energy             )) deallocate(cpatch%leaf_energy             )
       if(associated(cpatch%leaf_temp               )) deallocate(cpatch%leaf_temp               )
       if(associated(cpatch%leaf_vpdef              )) deallocate(cpatch%leaf_vpdef              )
@@ -9278,6 +9590,7 @@ module ed_state_vars
       if(associated(cpatch%mmean_leaf_drop         )) deallocate(cpatch%mmean_leaf_drop         )
       if(associated(cpatch%mmean_root_drop         )) deallocate(cpatch%mmean_root_drop         )
       if(associated(cpatch%mmean_cb                )) deallocate(cpatch%mmean_cb                )
+      if(associated(cpatch%mmean_fire_lethal_rate  )) deallocate(cpatch%mmean_fire_lethal_rate  )
       if(associated(cpatch%mmean_gpp               )) deallocate(cpatch%mmean_gpp               )
       if(associated(cpatch%mmean_npp               )) deallocate(cpatch%mmean_npp               )
       if(associated(cpatch%mmean_leaf_resp         )) deallocate(cpatch%mmean_leaf_resp         )
@@ -9668,6 +9981,7 @@ module ed_state_vars
          osite%total_plant_nitrogen_uptake(opa) = isite%total_plant_nitrogen_uptake(ipa)
          osite%mineralized_N_loss         (opa) = isite%mineralized_N_loss         (ipa)
          osite%mineralized_N_input        (opa) = isite%mineralized_N_input        (ipa)
+         osite%nesterov_index             (opa) = isite%nesterov_index             (ipa)
          osite%rshort_g                   (opa) = isite%rshort_g                   (ipa)
          osite%rshort_g_beam              (opa) = isite%rshort_g_beam              (ipa)
          osite%rshort_g_diffuse           (opa) = isite%rshort_g_diffuse           (ipa)
@@ -9833,6 +10147,20 @@ module ed_state_vars
             do n=1,ff_nhgt
                osite%cumlai_profile(m,n,opa) = isite%cumlai_profile(m,n,ipa)
             end do
+         end do
+         !---------------------------------------------------------------------------------!
+
+
+         !----- Fire-model variables. -----------------------------------------------------!
+         do m=1,ndfire
+            osite%tdfire_can_temp   (m,opa) = isite%tdfire_can_temp   (m,ipa)
+            osite%tdfire_can_rhv    (m,opa) = isite%tdfire_can_rhv    (m,ipa)
+            osite%tdfire_can_vpdef  (m,opa) = isite%tdfire_can_vpdef  (m,ipa)
+            osite%tdfire_sfc_wetness(m,opa) = isite%tdfire_sfc_wetness(m,ipa)
+            osite%tdfire_sfc_mstpot (m,opa) = isite%tdfire_sfc_mstpot (m,ipa)
+            osite%tdfire_can_vels   (m,opa) = isite%tdfire_can_vels   (m,ipa)
+            osite%tdfire_can_tdew   (m,opa) = isite%tdfire_can_tdew   (m,ipa)
+            osite%tdfire_fdi_vpd    (m,opa) = isite%tdfire_fdi_vpd    (m,ipa)
          end do
          !---------------------------------------------------------------------------------!
 
@@ -10429,6 +10757,7 @@ module ed_state_vars
       osite%total_plant_nitrogen_uptake(1:z) = pack(isite%total_plant_nitrogen_uptake,lmask)
       osite%mineralized_N_loss         (1:z) = pack(isite%mineralized_N_loss         ,lmask)
       osite%mineralized_N_input        (1:z) = pack(isite%mineralized_N_input        ,lmask)
+      osite%nesterov_index             (1:z) = pack(isite%nesterov_index             ,lmask)
       osite%rshort_g                   (1:z) = pack(isite%rshort_g                   ,lmask)
       osite%rshort_g_beam              (1:z) = pack(isite%rshort_g_beam              ,lmask)
       osite%rshort_g_diffuse           (1:z) = pack(isite%rshort_g_diffuse           ,lmask)
@@ -10529,6 +10858,20 @@ module ed_state_vars
          do n=1,ff_nhgt
             osite%cumlai_profile(m,n,1:z) = pack(isite%cumlai_profile(m,n,:),lmask)
          end do
+      end do
+      !------------------------------------------------------------------------------------!
+
+
+      !----- Fire-model variables. --------------------------------------------------------!
+      do m=1,ndfire
+         osite%tdfire_can_temp   (m,1:z) = pack(isite%tdfire_can_temp   (m,:),lmask)
+         osite%tdfire_can_rhv    (m,1:z) = pack(isite%tdfire_can_rhv    (m,:),lmask)
+         osite%tdfire_can_vpdef  (m,1:z) = pack(isite%tdfire_can_vpdef  (m,:),lmask)
+         osite%tdfire_sfc_wetness(m,1:z) = pack(isite%tdfire_sfc_wetness(m,:),lmask)
+         osite%tdfire_sfc_mstpot (m,1:z) = pack(isite%tdfire_sfc_mstpot (m,:),lmask)
+         osite%tdfire_can_vels   (m,1:z) = pack(isite%tdfire_can_vels   (m,:),lmask)
+         osite%tdfire_can_tdew   (m,1:z) = pack(isite%tdfire_can_tdew   (m,:),lmask)
+         osite%tdfire_fdi_vpd    (m,1:z) = pack(isite%tdfire_fdi_vpd    (m,:),lmask)
       end do
       !------------------------------------------------------------------------------------!
 
@@ -11155,6 +11498,7 @@ module ed_state_vars
          opatch%is_small                (oco) = ipatch%is_small                (ico)
          opatch%is_viable               (oco) = ipatch%is_viable               (ico)
          opatch%cbr_bar                 (oco) = ipatch%cbr_bar                 (ico)
+         opatch%fire_lethal_prob        (oco) = ipatch%fire_lethal_prob        (ico)
          opatch%leaf_energy             (oco) = ipatch%leaf_energy             (ico)
          opatch%leaf_temp               (oco) = ipatch%leaf_temp               (ico)
          opatch%leaf_vpdef              (oco) = ipatch%leaf_vpdef              (ico)
@@ -11375,8 +11719,9 @@ module ed_state_vars
 
          !------ Mortality auxiliary variables. -------------------------------------------!
          do m=1,13
-            opatch%ddbh_monthly(m,oco) = ipatch%ddbh_monthly(m,ico)
-            opatch%plc_monthly(m,oco)  = ipatch%plc_monthly(m,ico)
+            opatch%ddbh_monthly    (m,oco) = ipatch%ddbh_monthly    (m,ico)
+            opatch%plc_monthly     (m,oco) = ipatch%plc_monthly     (m,ico)
+            opatch%fire_lethal_rate(m,oco) = ipatch%fire_lethal_rate(m,ico)
          end do
          !---------------------------------------------------------------------------------!
 
@@ -11535,6 +11880,7 @@ module ed_state_vars
             opatch%mmean_leaf_drop         (oco) = ipatch%mmean_leaf_drop         (ico)
             opatch%mmean_root_drop         (oco) = ipatch%mmean_root_drop         (ico)
             opatch%mmean_cb                (oco) = ipatch%mmean_cb                (ico)
+            opatch%mmean_fire_lethal_rate  (oco) = ipatch%mmean_fire_lethal_rate  (ico)
             opatch%mmean_gpp               (oco) = ipatch%mmean_gpp               (ico)
             opatch%mmean_npp               (oco) = ipatch%mmean_npp               (ico)
             opatch%mmean_leaf_resp         (oco) = ipatch%mmean_leaf_resp         (ico)
@@ -11900,6 +12246,7 @@ module ed_state_vars
       opatch%is_small              (1:z) = pack(ipatch%is_small                  ,lmask)
       opatch%is_viable             (1:z) = pack(ipatch%is_viable                 ,lmask)
       opatch%cbr_bar               (1:z) = pack(ipatch%cbr_bar                   ,lmask)
+      opatch%fire_lethal_prob      (1:z) = pack(ipatch%fire_lethal_prob          ,lmask)
       opatch%leaf_energy           (1:z) = pack(ipatch%leaf_energy               ,lmask)
       opatch%leaf_temp             (1:z) = pack(ipatch%leaf_temp                 ,lmask)
       opatch%leaf_vpdef            (1:z) = pack(ipatch%leaf_vpdef                ,lmask)
@@ -12044,8 +12391,9 @@ module ed_state_vars
 
       !------ Mortality auxiliary variables. ----------------------------------------------!
       do m=1,13
-         opatch%ddbh_monthly(m,1:z) = pack(ipatch%ddbh_monthly  (m,:),lmask)
-         opatch%plc_monthly(m,1:z)  = pack(ipatch%plc_monthly  (m,:),lmask)
+         opatch%ddbh_monthly    (m,1:z) = pack(ipatch%ddbh_monthly     (m,:),lmask)
+         opatch%plc_monthly     (m,1:z)  = pack(ipatch%plc_monthly     (m,:),lmask)
+         opatch%fire_lethal_rate(m,1:z)  = pack(ipatch%fire_lethal_rate(m,:),lmask)
       end do
       !------------------------------------------------------------------------------------!
 
@@ -12378,6 +12726,7 @@ module ed_state_vars
       opatch%mmean_leaf_drop         (1:z) = pack(ipatch%mmean_leaf_drop           ,lmask)
       opatch%mmean_root_drop         (1:z) = pack(ipatch%mmean_root_drop           ,lmask)
       opatch%mmean_cb                (1:z) = pack(ipatch%mmean_cb                  ,lmask)
+      opatch%mmean_fire_lethal_rate  (1:z) = pack(ipatch%mmean_fire_lethal_rate    ,lmask)
       opatch%mmean_gpp               (1:z) = pack(ipatch%mmean_gpp                 ,lmask)
       opatch%mmean_npp               (1:z) = pack(ipatch%mmean_npp                 ,lmask)
       opatch%mmean_leaf_resp         (1:z) = pack(ipatch%mmean_leaf_resp           ,lmask)
@@ -13189,6 +13538,14 @@ module ed_state_vars
                             ,'NDCYCLE :90:hist:anal:dail:mont:dcyc:year')
 
       nvar=nvar+1
+      call vtable_edio_i_sca(ndfire,nvar,igr,0,0                                           &
+                            ,var_len,var_len_global,max_ptrs                               &
+                            ,'NDFIRE  :90:hist:anal:dail:mont:dcyc:year')
+      call vtable_edio_i_sca(ndfire,nvar,igr,1,0                                           &
+                            ,var_len,var_len_global,max_ptrs                               &
+                            ,'NDFIRE  :90:hist:anal:dail:mont:dcyc:year')
+
+      nvar=nvar+1
       call vtable_edio_i_sca(isoilflg(igr),nvar,igr,0,0                                    &
                             ,var_len,var_len_global,max_ptrs                               &
                             ,'ISOILFLG :90:hist:anal:dail:mont:dcyc:year')
@@ -13493,7 +13850,15 @@ module ed_state_vars
          call metadata_edio(nvar,igr,'Latitude of Polygon','[deg]','(ipoly)')
       end if
 
-      
+      if (associated(cgrid%landfrac)) then
+         nvar=nvar+1
+         call vtable_edio_r(npts,cgrid%landfrac,nvar,igr,init,cgrid%pyglob_id                   &
+                           ,var_len,var_len_global,max_ptrs                                &
+                           ,'LANDFRAC :11:hist:anal:dail:mont:dcyc:year')
+         call metadata_edio(nvar,igr,'(Non-water, non-urban) land fraction'                &
+                           ,'[frac]','(ipoly)')
+      end if
+
       if (associated(cgrid%wbar)) then
          nvar=nvar+1
          call vtable_edio_r(npts,cgrid%wbar,nvar,igr,init,cgrid%pyglob_id                  &
@@ -16749,6 +17114,24 @@ module ed_state_vars
                            ,'Daily mean - Precipitation depth'                             &
                            ,'[          m]','(ipoly)'            )
       end if
+      if (associated(cgrid%dmean_fire_density    )) then
+         nvar = nvar+1
+         call vtable_edio_r(npts,cgrid%dmean_fire_density                                  &
+                           ,nvar,igr,init,cgrid%pyglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'DMEAN_FIRE_DENSITY_PY      :11:'//trim(dail_keys)     )
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Daily mean - Fire count density'                              &
+                           ,'[       1/m2]','(ipoly)'            )
+      end if
+      if (associated(cgrid%dmean_fire_extinction )) then
+         nvar = nvar+1
+         call vtable_edio_r(npts,cgrid%dmean_fire_extinction                               &
+                           ,nvar,igr,init,cgrid%pyglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'DMEAN_FIRE_EXTINCTION_PY   :11:'//trim(dail_keys)     )
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Daily mean - Fire extinction rate'                            &
+                           ,'[      1/day]','(ipoly)'            )
+      end if
       !------------------------------------------------------------------------------------!
 
       return
@@ -18192,6 +18575,105 @@ module ed_state_vars
          call metadata_edio(nvar,igr                                                       &
                            ,'Monthly mean - Precipitation depth'                           &
                            ,'[          m]','(ipoly)'            )
+      end if
+      if (associated(cgrid%mmean_burnt_area      )) then
+         nvar = nvar+1
+         call vtable_edio_r(npts,cgrid%mmean_burnt_area                                    &
+                           ,nvar,igr,init,cgrid%pyglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'MMEAN_BURNT_AREA_PY        :11:'//trim(eorq_keys))
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Monthly mean - Burnt area'                                    &
+                           ,'[      m2/m2]','(ipoly)'            )
+      end if
+      if (associated(cgrid%mmean_fire_density    )) then
+         nvar = nvar+1
+         call vtable_edio_r(npts,cgrid%mmean_fire_density                                  &
+                           ,nvar,igr,init,cgrid%pyglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'MMEAN_FIRE_DENSITY_PY      :11:'//trim(eorq_keys))
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Monthly mean - Fire count density'                            &
+                           ,'[       1/m2]','(ipoly)'            )
+      end if
+      if (associated(cgrid%mmean_fire_extinction )) then
+         nvar = nvar+1
+         call vtable_edio_r(npts,cgrid%mmean_fire_extinction                               &
+                           ,nvar,igr,init,cgrid%pyglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'MMEAN_FIRE_EXTINCTION_PY   :11:'//trim(eorq_keys))
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Monthly mean - Fire extinction rate'                          &
+                           ,'[      1/day]','(ipoly)'            )
+      end if
+      if (associated(cgrid%mmean_fire_intensity  )) then
+         nvar = nvar+1
+         call vtable_edio_r(npts,cgrid%mmean_fire_intensity                                &
+                           ,nvar,igr,init,cgrid%pyglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'MMEAN_FIRE_INTENSITY_PY    :11:'//trim(eorq_keys))
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Monthly mean - Fire intensity'                                &
+                           ,'[        W/m]','(ipoly)'            )
+      end if
+      if (associated(cgrid%mmean_fire_tlethal    )) then
+         nvar = nvar+1
+         call vtable_edio_r(npts,cgrid%mmean_fire_tlethal                                  &
+                           ,nvar,igr,init,cgrid%pyglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'MMEAN_FIRE_TLETHAL_PY      :11:'//trim(eorq_keys))
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Monthly mean - Duration of lethal bole heating'               &
+                           ,'[          s]','(ipoly)'            )
+      end if
+      if (associated(cgrid%mmean_fire_spread     )) then
+         nvar = nvar+1
+         call vtable_edio_r(npts,cgrid%mmean_fire_spread                                   &
+                           ,nvar,igr,init,cgrid%pyglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'MMEAN_FIRE_SPREAD_PY    :11:'//trim(eorq_keys))
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Monthly mean - Fire spread rate'                              &
+                           ,'[        m/s]','(ipoly)'            )
+      end if
+      if (associated(cgrid%mmean_ignition_rate   )) then
+         nvar = nvar+1
+         call vtable_edio_r(npts,cgrid%mmean_ignition_rate                                 &
+                           ,nvar,igr,init,cgrid%pyglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'MMEAN_IGNITION_RATE_PY  :11:'//trim(eorq_keys))
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Monthly mean - Ignition rate'                                 &
+                           ,'[   1/m2/day]','(ipoly)'            )
+      end if
+      if (associated(cgrid%mmean_fire_f_bherb    )) then
+         nvar = nvar+1
+         call vtable_edio_r(npts,cgrid%mmean_fire_f_bherb                                  &
+                           ,nvar,igr,init,cgrid%pyglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'MMEAN_FIRE_F_BHERB_PY   :11:'//trim(eorq_keys))
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Monthly mean - Combusted fraction of herbaceous fuels'        &
+                           ,'[   0-1]','(ipoly)'            )
+      end if
+      if (associated(cgrid%mmean_fire_f_bwoody   )) then
+         nvar = nvar+1
+         call vtable_edio_r(npts,cgrid%mmean_fire_f_bwoody                                 &
+                           ,nvar,igr,init,cgrid%pyglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'MMEAN_FIRE_F_BWOODY_PY  :11:'//trim(eorq_keys))
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Monthly mean - Combusted fraction of living woody fuels'      &
+                           ,'[   0-1]','(ipoly)'            )
+      end if
+      if (associated(cgrid%mmean_fire_f_fgc      )) then
+         nvar = nvar+1
+         call vtable_edio_r(npts,cgrid%mmean_fire_f_fgc                                    &
+                           ,nvar,igr,init,cgrid%pyglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'MMEAN_FIRE_F_FGC_PY     :11:'//trim(eorq_keys))
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Monthly mean - Combusted fraction of fast carbon'             &
+                           ,'[   0-1]','(ipoly)'            )
+      end if
+      if (associated(cgrid%mmean_fire_f_stgc     )) then
+         nvar = nvar+1
+         call vtable_edio_r(npts,cgrid%mmean_fire_f_stgc                                   &
+                           ,nvar,igr,init,cgrid%pyglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'MMEAN_FIRE_F_STGC_PY    :11:'//trim(eorq_keys))
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Monthly mean - Combusted fraction of structural carbon'       &
+                           ,'[   0-1]','(ipoly)'            )
       end if
       if(associated(cgrid%mmean_fast_grnd_c    )) then
          nvar = nvar + 1
@@ -21384,6 +21866,7 @@ module ed_state_vars
       call filltab_polygontype_p24     (cpoly,igr,init,var_len,var_len_global,max_ptrs,nvar)
       call filltab_polygontype_m21     (cpoly,igr,init,var_len,var_len_global,max_ptrs,nvar)
       call filltab_polygontype_p29     (cpoly,igr,init,var_len,var_len_global,max_ptrs,nvar)
+      call filltab_polygontype_p292    (cpoly,igr,init,var_len,var_len_global,max_ptrs,nvar)
       call filltab_polygontype_p246    (cpoly,igr,init,var_len,var_len_global,max_ptrs,nvar)
       call filltab_polygontype_p255    (cpoly,igr,init,var_len,var_len_global,max_ptrs,nvar)
       !------------------------------------------------------------------------------------!
@@ -21499,6 +21982,24 @@ module ed_state_vars
                            ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
                            ,'NUM_LANDUSE_YEARS :20:hist') 
          call metadata_edio(nvar,igr,'Number of years with land use data','[--]','(isite)') 
+      end if
+
+      if (associated(cpoly%num_sei_times)) then
+         nvar=nvar+1
+         call vtable_edio_i(npts,cpoly%num_sei_times                                       &
+                           ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'NUM_SEI_TIMES :20:hist') 
+         call metadata_edio(nvar,igr,'Number of times with socio-economic index data'      &
+                           ,'[--]','(isite)')
+      end if
+
+      if (associated(cpoly%num_flash_times)) then
+         nvar=nvar+1
+         call vtable_edio_i(npts,cpoly%num_flash_times                                     &
+                           ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'NUM_FLASH_TIMES :20:hist') 
+         call metadata_edio(nvar,igr,'Number of times with flash rate density data'        &
+                           ,'[--]','(isite)')
       end if
 
       if (associated(cpoly%hydro_next)) then
@@ -21737,11 +22238,108 @@ module ed_state_vars
          call metadata_edio(nvar,igr,'Harvest debt from secondary vegetation','[kgC/m2]','(isite)') 
       end if
 
+      if (associated(cpoly%fire_wmass_threshold)) then
+         nvar=nvar+1
+           call vtable_edio_r(npts,cpoly%fire_wmass_threshold,nvar,igr,init,cpoly%siglob_id, &
+           var_len,var_len_global,max_ptrs,'FIRE_WMASS_THRESHOLD :21:hist') 
+         call metadata_edio(nvar,igr,'No metadata available','[NA]','NA') 
+      end if
+
+      if (associated(cpoly%fire_density)) then
+         nvar=nvar+1
+         call vtable_edio_r(npts,cpoly%fire_density                                        &
+                           ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'FIRE_DENSITY :21:hist:dail') 
+         call metadata_edio(nvar,igr,'Instantaneous fire count density','[1/m2]','(isi)')
+      end if
+
+      if (associated(cpoly%fire_extinction)) then
+         nvar=nvar+1
+         call vtable_edio_r(npts,cpoly%fire_extinction                                     &
+                           ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'FIRE_EXTINCTION :21:hist:dail') 
+         call metadata_edio(nvar,igr,'Instantaneous fire extinction rate','[1/day]','(isi)')
+      end if
+
+      if (associated(cpoly%fire_intensity)) then
+         nvar=nvar+1
+         call vtable_edio_r(npts,cpoly%fire_intensity                                      &
+                           ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'FIRE_INTENSITY :21:hist:dail') 
+         call metadata_edio(nvar,igr,'Instantaneous fire intensity','[W/m]','(isi)')
+      end if
+
+      if (associated(cpoly%fire_tlethal)) then
+         nvar=nvar+1
+         call vtable_edio_r(npts,cpoly%fire_tlethal                                        &
+                           ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'FIRE_TLETHAL :21:hist:dail') 
+         call metadata_edio(nvar,igr,'Instantaneous duration of lethal heating'            &
+                           ,'[s]','(isi)')
+      end if
+
+      if (associated(cpoly%fire_spread)) then
+         nvar=nvar+1
+         call vtable_edio_r(npts,cpoly%fire_spread                                         &
+                           ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'FIRE_SPREAD :21:hist:dail') 
+         call metadata_edio(nvar,igr,'Instantaneous fire spread rate','[m/s]','(isi)')
+      end if
+
+      if (associated(cpoly%burnt_area)) then
+         nvar=nvar+1
+         call vtable_edio_r(npts,cpoly%burnt_area                                          &
+                           ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'BURNT_AREA :21:hist:dail:mont:dcyc') 
+         call metadata_edio(nvar,igr,'Burnt area','[m2_burnt/m2]','(isi)')
+      end if
+
       if (associated(cpoly%ignition_rate)) then
          nvar=nvar+1
-           call vtable_edio_r(npts,cpoly%ignition_rate,nvar,igr,init,cpoly%siglob_id, &
-           var_len,var_len_global,max_ptrs,'IGNITION_RATE :21:hist:mont:dcyc') 
-         call metadata_edio(nvar,igr,'No metadata available','[NA]','NA') 
+         call vtable_edio_r(npts,cpoly%ignition_rate                                       &
+                           ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'IGNITION_RATE :21:hist:dail') 
+         call metadata_edio(nvar,igr,'Ignition rate','[  1/m2/s]','(isi)') 
+      end if
+
+      if (associated(cpoly%fire_f_bherb)) then
+         nvar=nvar+1
+         call vtable_edio_r(npts,cpoly%fire_f_bherb                                        &
+                           ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'FIRE_F_BHERB :21:hist:dail') 
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Combusted fraction of herbaceous fuels'                       &
+                           ,'[   0-1]','NA')
+      end if
+
+      if (associated(cpoly%fire_f_bwoody)) then
+         nvar=nvar+1
+         call vtable_edio_r(npts,cpoly%fire_f_bwoody                                       &
+                           ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'FIRE_F_BWOODY :21:hist:dail') 
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Combusted fraction of living woody fuels'                     &
+                           ,'[   0-1]','NA')
+      end if
+
+      if (associated(cpoly%fire_f_fgc)) then
+         nvar=nvar+1
+         call vtable_edio_r(npts,cpoly%fire_f_fgc                                          &
+                           ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'FIRE_F_FGC :21:hist:dail') 
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Combusted fraction of fast carbon'                            &
+                           ,'[   0-1]','NA')
+      end if
+
+      if (associated(cpoly%fire_f_stgc)) then
+         nvar=nvar+1
+         call vtable_edio_r(npts,cpoly%fire_f_stgc                                         &
+                           ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'FIRE_F_STGC :21:hist:dail') 
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Combusted fraction of structural carbon'                      &
+                           ,'[   0-1]','NA')
       end if
 
       if (associated(cpoly%daylight)) then
@@ -21806,6 +22404,26 @@ module ed_state_vars
          call metadata_edio(nvar,igr                                                       &
                            ,'Turnover amplification factor (light-modulated phenology)'    &
                            ,'[--]','(isite)')
+      end if
+
+      if (associated(cpoly%today_fire_density)) then
+         nvar=nvar+1
+         call vtable_edio_r(npts,cpoly%today_fire_density                                  &
+                           ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'TODAY_FIRE_DENSITY :21:hist') 
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Internal variable, do not use it for analysis'                &
+                           ,'[--]','(isite)') 
+      end if
+
+      if (associated(cpoly%today_fire_extinction)) then
+         nvar=nvar+1
+         call vtable_edio_r(npts,cpoly%today_fire_extinction                               &
+                           ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'TODAY_FIRE_EXTINCTION :21:hist') 
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Internal variable, do not use it for analysis'                &
+                           ,'[--]','(isite)') 
       end if
 
       return
@@ -22250,6 +22868,24 @@ module ed_state_vars
                            ,'Daily mean - CO2 mixing ratio: Atmosphere'                    &
                            ,'[   umol/mol]','(isite)'            )
       end if
+      if (associated(cpoly%dmean_fire_density    )) then
+         nvar = nvar+1
+         call vtable_edio_r(npts,cpoly%dmean_fire_density                                  &
+                           ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'DMEAN_FIRE_DENSITY_SI      :21:'//trim(dail_keys)     )
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Daily mean - Fire count density'                              &
+                           ,'[       1/m2]','(isite)'            )
+      end if
+      if (associated(cpoly%dmean_fire_extinction )) then
+         nvar = nvar+1
+         call vtable_edio_r(npts,cpoly%dmean_fire_extinction                               &
+                           ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'DMEAN_FIRE_EXTINCTION_SI   :21:'//trim(dail_keys)     )
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Daily mean - Fire extinction rate'                            &
+                           ,'[      1/day]','(isite)'            )
+      end if
       !------------------------------------------------------------------------------------!
 
       return
@@ -22471,6 +23107,106 @@ module ed_state_vars
          call metadata_edio(nvar,igr                                                       &
                            ,'Monthly mean - Precipitation depth'                           &
                            ,'[          m]','(isite)'            )
+      end if
+      if (associated(cpoly%mmean_burnt_area      )) then
+         nvar = nvar+1
+         call vtable_edio_r(npts,cpoly%mmean_burnt_area                                    &
+                           ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'MMEAN_BURNT_AREA_SI        :21:'//trim(eorq_keys))
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Monthly mean - Burnt area'                                    &
+                           ,'[      m2/m2]','(isite)'            )
+      end if
+      if (associated(cpoly%mmean_fire_density    )) then
+         nvar = nvar+1
+         call vtable_edio_r(npts,cpoly%mmean_fire_density                                  &
+                           ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'MMEAN_FIRE_DENSITY_SI      :21:'//trim(eorq_keys))
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Monthly mean - Fire count density'                            &
+                           ,'[       1/m2]','(isite)'            )
+      end if
+      if (associated(cpoly%mmean_fire_extinction )) then
+         nvar = nvar+1
+         call vtable_edio_r(npts,cpoly%mmean_fire_extinction                               &
+                           ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'MMEAN_FIRE_EXTINCTION_SI   :21:'//trim(eorq_keys))
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Monthly mean - Fire extinction rate'                          &
+                           ,'[      1/day]','(isite)'            )
+      end if
+      if (associated(cpoly%mmean_fire_intensity  )) then
+         nvar = nvar+1
+         call vtable_edio_r(npts,cpoly%mmean_fire_intensity                                &
+                           ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'MMEAN_FIRE_INTENSITY_SI    :21:'//trim(eorq_keys))
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Monthly mean - Fire intensity'                                &
+                           ,'[        W/m]','(isite)'            )
+      end if
+      if (associated(cpoly%mmean_fire_tlethal    )) then
+         nvar = nvar+1
+         call vtable_edio_r(npts,cpoly%mmean_fire_tlethal                                  &
+                           ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'MMEAN_FIRE_TLETHAL_SI      :21:'//trim(eorq_keys))
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Monthly mean - Duration of lethal bole heating'               &
+                           ,'[          s]','(isite)'            )
+      end if
+      if (associated(cpoly%mmean_fire_spread     )) then
+         nvar = nvar+1
+         call vtable_edio_r(npts,cpoly%mmean_fire_spread                                   &
+                           ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'MMEAN_FIRE_SPREAD_SI       :21:'//trim(eorq_keys))
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Monthly mean - Fire spread rate'                              &
+                           ,'[        m/s]','(isite)'            )
+      end if
+      if (associated(cpoly%mmean_ignition_rate   )) then
+         nvar = nvar+1
+         call vtable_edio_r(npts,cpoly%mmean_ignition_rate                                 &
+                           ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'MMEAN_IGNITION_RATE_SI     :21:'//trim(eorq_keys))
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Monthly mean - Fire ignition rate'                            &
+                           ,'[   1/m2/day]','(isite)'            )
+      end if
+      if (associated(cpoly%mmean_fire_f_bherb    )) then
+         nvar = nvar+1
+         call vtable_edio_r(npts,cpoly%mmean_fire_f_bherb                                  &
+                           ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'MMEAN_FIRE_F_BHERB_SI      :21:'//trim(eorq_keys))
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Monthly mean - Combusted fraction of herbaceous fuels'        &
+                           ,'[        0-1]','(isite)'            )
+      end if
+      if (associated(cpoly%mmean_fire_f_bwoody   )) then
+         nvar = nvar+1
+         call vtable_edio_r(npts,cpoly%mmean_fire_f_bwoody                                 &
+                           ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'MMEAN_FIRE_F_BWOODY_SI     :21:'//trim(eorq_keys))
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Monthly mean - Combusted fraction of living woody fuels'      &
+                           ,'[        0-1]','(isite)'            )
+      end if
+      if (associated(cpoly%mmean_fire_f_fgc      )) then
+         nvar = nvar+1
+         call vtable_edio_r(npts,cpoly%mmean_fire_f_fgc                                    &
+                           ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'MMEAN_FIRE_F_FGC_SI        :21:'//trim(eorq_keys))
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Monthly mean - Combusted fraction of fast carbon'             &
+                           ,'[        0-1]','(isite)'            )
+      end if
+
+      if (associated(cpoly%mmean_fire_f_stgc     )) then
+         nvar = nvar+1
+         call vtable_edio_r(npts,cpoly%mmean_fire_f_stgc                                   &
+                           ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'MMEAN_FIRE_F_STGC_SI       :21:'//trim(eorq_keys))
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Monthly mean - Combusted fraction of structural carbon'       &
+                           ,'[        0-1]','(isite)'            )
       end if
       !------------------------------------------------------------------------------------!
       !------------------------------------------------------------------------------------!
@@ -22905,9 +23641,72 @@ module ed_state_vars
 
       if (associated(cpoly%lambda_fire)) then
          nvar=nvar+1
-         call vtable_edio_r(npts,cpoly%lambda_fire,nvar,igr,init,cpoly%siglob_id           &
-                           ,var_len,var_len_global,max_ptrs,'LAMBDA_FIRE :29:hist')
-         call metadata_edio(nvar,igr,'No metadata available','[NA]','NA') 
+         call vtable_edio_r(npts,cpoly%lambda_fire                                         &
+                           ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'LAMBDA_FIRE :29:hist')
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Fire disturbance rate over 12 months'                         &
+                           ,'[1/mo]','(12,isite)') 
+      end if
+
+      if (associated(cpoly%avg_burnt_area)) then
+         nvar=nvar+1
+         call vtable_edio_r(npts,cpoly%avg_burnt_area                                      &
+                           ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'AVG_BURNT_AREA :29:hist')
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Burnt area over 12 months'                                    &
+                           ,'[0-1]','(12,isite)') 
+      end if
+
+      if (associated(cpoly%avg_fire_intensity)) then
+         nvar=nvar+1
+         call vtable_edio_r(npts,cpoly%avg_fire_intensity                                  &
+                           ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'AVG_FIRE_INTENSITY :29:hist')
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Fire intensity over 12 months'                                &
+                           ,'[W/m]','(12,isite)') 
+      end if
+
+      if (associated(cpoly%avg_fire_f_bherb  )) then
+         nvar=nvar+1
+         call vtable_edio_r(npts,cpoly%avg_fire_f_bherb                                    &
+                           ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'AVG_FIRE_F_BHERB :29:hist')
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Combusted fraction of herbaceous fuels over 12 months'        &
+                           ,'[0-1]','(12,isite)') 
+      end if
+
+      if (associated(cpoly%avg_fire_f_bwoody )) then
+         nvar=nvar+1
+         call vtable_edio_r(npts,cpoly%avg_fire_f_bwoody                                   &
+                           ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'AVG_FIRE_F_BWOODY :29:hist')
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Combusted fraction of living woody fuels over 12 months'      &
+                           ,'[0-1]','(12,isite)') 
+      end if
+
+      if (associated(cpoly%avg_fire_f_fgc    )) then
+         nvar=nvar+1
+         call vtable_edio_r(npts,cpoly%avg_fire_f_fgc                                      &
+                           ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'AVG_FIRE_F_FGC    :29:hist')
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Combusted fraction of fast carbon over 12 months'             &
+                           ,'[0-1]','(12,isite)') 
+      end if
+
+      if (associated(cpoly%avg_fire_f_stgc   )) then
+         nvar=nvar+1
+         call vtable_edio_r(npts,cpoly%avg_fire_f_stgc                                     &
+                           ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'AVG_FIRE_F_STGC   :29:hist')
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Combusted fraction of structural carbon over 12 months'       &
+                           ,'[0-1]','(12,isite)') 
       end if
 
       if (associated(cpoly%avg_monthly_pcpg)) then
@@ -22919,10 +23718,12 @@ module ed_state_vars
 
       if (associated(cpoly%crop_yield)) then
          nvar=nvar+1
-         call vtable_edio_r(npts,cpoly%crop_yield,nvar,igr,init,cpoly%siglob_id            &
-                           ,var_len,var_len_global,max_ptrs                                &
-                           ,'CROP_YIELD_SI :29:hist:mont:dcyc')     
-         call metadata_edio(nvar,igr,'Crop yield (seeds)','[kgC/m2]','(12,isite)') 
+         call vtable_edio_r(npts,cpoly%crop_yield                                          &
+                           ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'CROP_YIELD_SI :29:hist:mont:dcyc')
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Crop yield (seeds) over 12 months'                            &
+                           ,'[kgC/m2]','(12,isite)') 
       end if
       !------------------------------------------------------------------------------------!
       !------------------------------------------------------------------------------------!
@@ -22930,6 +23731,93 @@ module ed_state_vars
    end subroutine filltab_polygontype_p29
    !=======================================================================================!
    !=======================================================================================!
+
+
+
+
+
+
+   !=======================================================================================!
+   !=======================================================================================!
+   !  SUBROUTINE: FILLTAB_POLYGONTYPE_P292
+   !> \brief This routine will fill the pointer table with the site-level variables
+   !> (polygontype) that have two dimensions (ndfire,nsites) and are real (type 292).
+   !---------------------------------------------------------------------------------------!
+   subroutine filltab_polygontype_p292(cpoly,igr,init,var_len,var_len_global,max_ptrs,nvar)
+      use ed_var_tables, only : vtable_edio_r  & ! sub-routine
+                              , metadata_edio  ! ! sub-routine
+
+      implicit none
+      !----- Arguments. -------------------------------------------------------------------!
+      type(polygontype), target        :: cpoly
+      integer          , intent(in)    :: init
+      integer          , intent(in)    :: igr
+      integer          , intent(in)    :: var_len
+      integer          , intent(in)    :: max_ptrs
+      integer          , intent(in)    :: var_len_global
+      integer          , intent(inout) :: nvar
+      !----- Local variables. -------------------------------------------------------------!
+      integer                          :: npts
+      !------------------------------------------------------------------------------------!
+
+
+
+
+
+
+      !------------------------------------------------------------------------------------!
+      !------------------------------------------------------------------------------------!
+      !     This is the 2-D block, with dimensions being nsites and 12 months.  Make sure  !
+      ! to include only variables of type 29 here, as they will all use the same npts.     !
+      !------------------------------------------------------------------------------------!
+      npts = cpoly%nsites * ndfire
+
+      if (associated(cpoly%tdfire_pcpg)) then
+         nvar=nvar+1
+         call vtable_edio_r(npts,cpoly%tdfire_pcpg                                         &
+                           ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'TDFIRE_PCPG :292:hist') 
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Internal variable, do not use it for analysis'                &
+                           ,'[--]','(isite)') 
+      end if
+
+      if (associated(cpoly%tdfire_atm_tdew)) then
+         nvar=nvar+1
+         call vtable_edio_r(npts,cpoly%tdfire_atm_tdew                                     &
+                           ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'TDFIRE_ATM_TDEW :292:hist') 
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Internal variable, do not use it for analysis'                &
+                           ,'[--]','(isite)') 
+      end if
+
+      if (associated(cpoly%tdfire_atm_vpdef)) then
+         nvar=nvar+1
+         call vtable_edio_r(npts,cpoly%tdfire_atm_vpdef                                    &
+                           ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'TDFIRE_ATM_VPDEF :292:hist') 
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Internal variable, do not use it for analysis'                &
+                           ,'[--]','(isite)') 
+      end if
+
+      if (associated(cpoly%tdfire_atm_temp)) then
+         nvar=nvar+1
+         call vtable_edio_r(npts,cpoly%tdfire_atm_temp                                     &
+                           ,nvar,igr,init,cpoly%siglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'TDFIRE_ATM_TEMP :292:hist') 
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Internal variable, do not use it for analysis'                &
+                           ,'[--]','(isite)') 
+      end if
+
+
+      return
+   end subroutine filltab_polygontype_p292
+   !=======================================================================================!
+   !=======================================================================================!
+
 
 
 
@@ -23168,6 +24056,7 @@ module ed_state_vars
       call filltab_sitetype_m32      (csite,igr,init,var_len,var_len_global,max_ptrs,nvar)
       call filltab_sitetype_p33      (csite,igr,init,var_len,var_len_global,max_ptrs,nvar)
       call filltab_sitetype_p34      (csite,igr,init,var_len,var_len_global,max_ptrs,nvar)
+      call filltab_sitetype_p392     (csite,igr,init,var_len,var_len_global,max_ptrs,nvar)
       call filltab_sitetype_p346     (csite,igr,init,var_len,var_len_global,max_ptrs,nvar)
       !------------------------------------------------------------------------------------!
 
@@ -23713,6 +24602,14 @@ module ed_state_vars
            call vtable_edio_r(npts,csite%mineralized_N_input,nvar,igr,init,csite%paglob_id, &
            var_len,var_len_global,max_ptrs,'NMIN_INPUT :31:hist') 
          call metadata_edio(nvar,igr,'No metadata available','[NA]','NA') 
+      end if
+
+      if (associated(csite%nesterov_index)) then
+         nvar=nvar+1
+         call vtable_edio_r(npts,csite%nesterov_index                                      &
+                           ,nvar,igr,init,csite%paglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'NESTEROV_INDEX :31:hist:dail') 
+         call metadata_edio(nvar,igr,'Nesterov index','[degC^2]','(ipatch)') 
       end if
 
       if (associated(csite%rshort_g)) then
@@ -28680,6 +29577,132 @@ module ed_state_vars
 
    !=======================================================================================!
    !=======================================================================================!
+   !  SUBROUTINE: FILLTAB_SITETYPE_P392
+   !> \brief This routine will fill the pointer table with the patch-level variables
+   !> (sitetype) that have two dimensions (ndfire,npatches).
+   !---------------------------------------------------------------------------------------!
+   subroutine filltab_sitetype_p392(csite,igr,init,var_len,var_len_global,max_ptrs,nvar)
+      use ed_var_tables, only : vtable_edio_r  & ! sub-routine
+                              , metadata_edio  ! ! sub-routine
+
+      implicit none
+      !----- Arguments. -------------------------------------------------------------------!
+      type(sitetype), target        :: csite
+      integer       , intent(in)    :: init
+      integer       , intent(in)    :: igr
+      integer       , intent(in)    :: var_len
+      integer       , intent(in)    :: max_ptrs
+      integer       , intent(in)    :: var_len_global
+      integer       , intent(inout) :: nvar
+      !----- Local variables. -------------------------------------------------------------!
+      integer                       :: npts
+      !------------------------------------------------------------------------------------!
+
+
+
+
+
+
+      !------------------------------------------------------------------------------------!
+      !------------------------------------------------------------------------------------!
+      !       This part should have only 2-D vectors with dimensions npatches and ndfire.  !
+      !  Notice that they all use the same npts.  Here you should only add variables of    !
+      ! type 392.                                                                          !
+      !------------------------------------------------------------------------------------!
+      npts = csite%npatches * ndfire
+
+      if (associated(csite%tdfire_can_temp )) then
+         nvar=nvar+1
+         call vtable_edio_r(npts,csite%tdfire_can_temp                                     &
+                           ,nvar,igr,init,csite%paglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'TDFIRE_CAN_TEMP               :392:hist')
+         call metadata_edio(nvar,igr                                                       &
+                           ,'For internal ED2 use only.  Do not use for research'          &
+                           ,'[   NA]','(ipatch)'            )
+      end if
+
+      if (associated(csite%tdfire_can_rhv )) then
+         nvar=nvar+1
+         call vtable_edio_r(npts,csite%tdfire_can_rhv                                      &
+                           ,nvar,igr,init,csite%paglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'TDFIRE_CAN_RHV               :392:hist')
+         call metadata_edio(nvar,igr                                                       &
+                           ,'For internal ED2 use only.  Do not use for research'          &
+                           ,'[   NA]','(ipatch)'            )
+      end if
+
+      if (associated(csite%tdfire_can_vpdef)) then
+         nvar=nvar+1
+         call vtable_edio_r(npts,csite%tdfire_can_vpdef                                    &
+                           ,nvar,igr,init,csite%paglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'TDFIRE_CAN_VPDEF             :392:hist')
+         call metadata_edio(nvar,igr                                                       &
+                           ,'For internal ED2 use only.  Do not use for research'          &
+                           ,'[   NA]','(ipatch)'            )
+      end if
+
+      if (associated(csite%tdfire_sfc_wetness)) then
+         nvar=nvar+1
+         call vtable_edio_r(npts,csite%tdfire_sfc_wetness                                  &
+                           ,nvar,igr,init,csite%paglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'TDFIRE_SFC_WETNESS           :392:hist')
+         call metadata_edio(nvar,igr                                                       &
+                           ,'For internal ED2 use only.  Do not use for research'          &
+                           ,'[   NA]','(ipatch)'            )
+      end if
+
+      if (associated(csite%tdfire_sfc_mstpot)) then
+         nvar=nvar+1
+         call vtable_edio_r(npts,csite%tdfire_sfc_mstpot                                   &
+                           ,nvar,igr,init,csite%paglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'TDFIRE_SFC_MSTPOT            :392:hist')
+         call metadata_edio(nvar,igr                                                       &
+                           ,'For internal ED2 use only.  Do not use for research'          &
+                           ,'[   NA]','(ipatch)'            )
+      end if
+
+      if (associated(csite%tdfire_can_vels)) then
+         nvar=nvar+1
+         call vtable_edio_r(npts,csite%tdfire_can_vels                                     &
+                           ,nvar,igr,init,csite%paglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'TDFIRE_CAN_VELS              :392:hist')
+         call metadata_edio(nvar,igr                                                       &
+                           ,'For internal ED2 use only.  Do not use for research'          &
+                           ,'[   NA]','(ipatch)'            )
+      end if
+
+      if (associated(csite%tdfire_can_tdew)) then
+         nvar=nvar+1
+         call vtable_edio_r(npts,csite%tdfire_can_tdew                                     &
+                           ,nvar,igr,init,csite%paglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'TDFIRE_CAN_TDEW              :392:hist')
+         call metadata_edio(nvar,igr                                                       &
+                           ,'For internal ED2 use only.  Do not use for research'          &
+                           ,'[   NA]','(ipatch)'            )
+      end if
+
+      if (associated(csite%tdfire_fdi_vpd)) then
+         nvar=nvar+1
+         call vtable_edio_r(npts,csite%tdfire_fdi_vpd                                      &
+                           ,nvar,igr,init,csite%paglob_id,var_len,var_len_global,max_ptrs  &
+                           ,'TDFIRE_FDI_VPD               :392:hist') 
+         call metadata_edio(nvar,igr                                                       &
+                           ,'For internal ED2 use only.  Do not use for research'          &
+                           ,'[   NA]','(ipatch)'            )
+      end if
+
+      return
+   end subroutine filltab_sitetype_p392
+   !=======================================================================================!
+   !=======================================================================================!
+
+
+
+
+
+
+   !=======================================================================================!
+   !=======================================================================================!
    !  SUBROUTINE: FILLTAB_SITETYPE_P346
    !> \brief This routine will fill the pointer table with the patch-level variables
    !> (sitetype) that have three dimensions (n_pft,ff_nhgt,npatches).
@@ -29194,6 +30217,15 @@ module ed_state_vars
            call vtable_edio_r(npts,cpatch%cbr_bar,nvar,igr,init,cpatch%coglob_id, &
            var_len,var_len_global,max_ptrs,'CBR_BAR :41:hist:mont:year:dcyc') 
          call metadata_edio(nvar,igr,'Relative carbon balance','[NA]','NA') 
+      end if
+
+      if (associated(cpatch%fire_lethal_prob)) then
+         nvar=nvar+1
+         call vtable_edio_r(npts,cpatch%fire_lethal_prob                                   &
+                           ,nvar,igr,init,cpatch%coglob_id,var_len,var_len_global,max_ptrs &
+                           ,'FIRE_LETHAL_PROB :41:hist') 
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Fire lethality probability','[0-1]','(icohort)') 
       end if
 
       if (associated(cpatch%leaf_energy)) then
@@ -32477,6 +33509,15 @@ module ed_state_vars
                            ,'Monthly mean - Carbon balance'                                &
                            ,'[  kgC/pl]','(icohort)'            )
       end if
+      if (associated(cpatch%mmean_fire_lethal_rate)) then
+         nvar = nvar+1
+         call vtable_edio_r(npts,cpatch%mmean_fire_lethal_rate                             &
+                           ,nvar,igr,init,cpatch%coglob_id,var_len,var_len_global,max_ptrs &
+                           ,'MMEAN_FIRE_LETHAL_RATE_CO     :41:'//trim(eorq_keys))
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Monthly mean - Fire lethality rate (FIRESTARTER)'             &
+                           ,'[    1/yr]','(icohort)'            )
+      end if
       if (associated(cpatch%mmean_nppleaf         )) then
          nvar = nvar+1
          call vtable_edio_r(npts,cpatch%mmean_nppleaf                                      &
@@ -33975,6 +35016,16 @@ module ed_state_vars
                            ,'PLC_MONTHLY :491:hist:mont:dcyc:year') 
          call metadata_edio(nvar,igr,'Monthly average loss of xylem conductance last 12 months+current' &
                            ,'[1]','13 - icohort') 
+      end if
+
+      if (associated(cpatch%fire_lethal_rate)) then
+         nvar=nvar+1
+         call vtable_edio_r(npts,cpatch%fire_lethal_rate                                   &
+                           ,nvar,igr,init,cpatch%coglob_id,var_len,var_len_global,max_ptrs &
+                           ,'FIRE_LETHAL_RATE :491:hist:mont:dcyc:year') 
+         call metadata_edio(nvar,igr                                                       &
+                           ,'Monthly fire lethality (FIRESTARTER) 12 months+current'       &
+                           ,'[1/month]','13 - icohort') 
       end if
 
       if (associated(cpatch%cb_mlmax)) then

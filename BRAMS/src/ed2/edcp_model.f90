@@ -188,6 +188,8 @@ subroutine ed_coup_model(ifm)
                                   , zero_ed_fmean_vars          ! ! sub-routine
    use edio                , only : ed_output                   ! ! sub-routine
    use euler_driver        , only : euler_timestep              ! ! sub-routine
+   use fire                , only : reset_monthly_fire          & ! sub-routine
+                                  , reset_yearly_fire           ! ! sub-routine
    use heun_driver         , only : heun_timestep               ! ! sub-routine
    use hybrid_driver       , only : hybrid_timestep             ! ! sub-routine
    use lsm_hyd             , only : updateHydroParms            & ! sub-routine
@@ -507,6 +509,23 @@ subroutine ed_coup_model(ifm)
             call zero_litter_inputs(edgrid_g(ifm))
          end do
       end if
+      !------------------------------------------------------------------------------------!
+
+
+      !------------------------------------------------------------------------------------!
+      !     Reset fire variables.                                                          !
+      !------------------------------------------------------------------------------------!
+      do ifm=1,ngrids
+         !------ New month, reset variables used for monthly integration. -----------------!
+         if (new_month) then
+            call reset_monthly_fire(edgrid_g(ifm))
+         end if
+         !------ New year, reset variables used for disturbance rate. ---------------------!
+         if (new_year) then
+            call reset_yearly_fire(edgrid_g(ifm))
+         end if
+         !---------------------------------------------------------------------------------!
+      end do
       !------------------------------------------------------------------------------------!
 
 

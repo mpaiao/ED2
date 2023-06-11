@@ -2705,7 +2705,8 @@ module average_utils
       use ed_max_dims   , only : n_pft         & ! intent(in)
                                , n_age         & ! intent(in)
                                , n_dbh         ! ! intent(in)
-      use ed_misc_coms  , only : writing_long  ! ! intent(in)
+      use ed_misc_coms  , only : writing_long  & ! intent(in)
+                               , ndfire        ! ! intent(in)
       use consts_coms   , only : umols_2_kgCyr & ! intent(in)
                                , day_sec       ! ! intent(in)
       implicit none
@@ -2719,6 +2720,7 @@ module average_utils
       integer                       :: isi
       integer                       :: ipa
       integer                       :: ico
+      integer                       :: ifr
       real                          :: day_seci
       !------------------------------------------------------------------------------------!
 
@@ -2756,6 +2758,19 @@ module average_utils
                csite%today_Af_decomp (ipa) = csite%today_Af_decomp (ipa) * day_seci
                csite%today_Bf_decomp (ipa) = csite%today_Bf_decomp (ipa) * day_seci
                csite%today_rh        (ipa) = csite%today_rh        (ipa) * day_seci
+               !---------------------------------------------------------------------------!
+
+
+
+               !---------------------------------------------------------------------------!
+               !      Convert the average canopy wind speed.  We integrated the kinetic    !
+               ! energy, so we must take the square root.  No need to convert the other    !
+               ! variables, as we already applied the weighting factor throughout the      !
+               ! daily integration.                                                        !
+               !---------------------------------------------------------------------------!
+               do ifr=1,ndfire
+                  csite%tdfire_can_vels(ifr,ipa) = sqrt(csite%tdfire_can_vels(ifr,ipa))
+               end do
                !---------------------------------------------------------------------------!
 
 
@@ -2821,7 +2836,11 @@ module average_utils
                                , sitetype      & ! structure
                                , patchtype     ! ! structure
       use ed_misc_coms  , only : writing_long  ! ! intent(in)
-      use consts_coms   , only : yr_day ! ! intent(in)
+      use consts_coms   , only : yr_day        & ! intent(in)
+                               , day_sec       & ! intent(in)
+                               , tiny_num      & ! intent(in)
+                               , lnexp_min     & ! intent(in)
+                               , lnexp_max     ! ! intent(in)
       implicit none
       !----- Arguments. -------------------------------------------------------------------!
       type(edtype)                                  , target     :: cgrid
@@ -2833,16 +2852,68 @@ module average_utils
       integer                                                    :: isi
       integer                                                    :: ipa
       integer                                                    :: ico
+      real                                                       :: lnexp
+      real                                                       :: pmean_fire_density
+      !------------------------------------------------------------------------------------!
 
+
+      !------------------------------------------------------------------------------------!
+      !     Loop through polygons.                                                         !
+      !------------------------------------------------------------------------------------!
       polyloop: do ipy=1,cgrid%npolygons
          cpoly => cgrid%polygon(ipy)
+
+         !----- Initialise fire density (current and previous day, for extinction rate). --!
+         pmean_fire_density            = 0.0
+         cgrid%dmean_fire_density(ipy) = 0.0
+         !---------------------------------------------------------------------------------!
+
+         !---------------------------------------------------------------------------------!
+         !     Loop through sites.                                                         !
+         !---------------------------------------------------------------------------------!
          siteloop: do isi=1,cpoly%nsites
             csite => cpoly%site(isi)
-            patchloop: do ipa=1,csite%npatches
 
+
+            !------------------------------------------------------------------------------!
+            !     Copy the fire density and the extinction rate.  Convert extinction rate  !
+            ! to 1/day.                                                                    !
+            !------------------------------------------------------------------------------!
+            cpoly%dmean_fire_density   (isi) = cpoly%today_fire_density   (isi)
+            cpoly%dmean_fire_extinction(isi) = cpoly%today_fire_extinction(isi)            &
+                                             * day_sec
+            !------------------------------------------------------------------------------!
+
+
+            !------- Integrate the polygon average. ---------------------------------------!
+            cgrid%dmean_fire_density   (ipy) = cgrid%dmean_fire_density   (ipy)            &
+                                             + cpoly%dmean_fire_density   (isi)            &
+                                             * cpoly%area                 (isi)
+            !------------------------------------------------------------------------------!
+
+
+            !------------------------------------------------------------------------------!
+            !     Find "yesterday's" polygon average.                                      !
+            !------------------------------------------------------------------------------!
+            lnexp              = max( lnexp_min                                            &
+                                    , min( lnexp_max, cpoly%dmean_fire_extinction(isi) ) )
+            pmean_fire_density = pmean_fire_density                                        &
+                               + cpoly%dmean_fire_density(isi) * exp(lnexp)                &
+                               * cpoly%area              (isi)
+            !------------------------------------------------------------------------------!
+
+
+
+            !------------------------------------------------------------------------------!
+            !     Loop through patches.                                                    !
+            !------------------------------------------------------------------------------!
+            patchloop: do ipa=1,csite%npatches
                cpatch => csite%patch(ipa)
-               
-               !----- Included a loop so it won't crash with empty cohorts... -------------!
+
+               !---------------------------------------------------------------------------!
+               !     Loop through cohorts. This must be a loop, so it won't crash with     !
+               ! empty patches.                                                            !
+               !---------------------------------------------------------------------------!
                cohortloop: do ico=1,cpatch%ncohorts
 
                   !------------------------------------------------------------------------!
@@ -2867,10 +2938,28 @@ module average_utils
                      cpatch%dmean_nppdaily  (ico) = cpatch%today_nppdaily  (ico)           &
                                                   * yr_day / cpatch%nplant (ico)
                   end if
+                  !------------------------------------------------------------------------!
                end do cohortloop
+               !---------------------------------------------------------------------------!
             end do patchloop
+            !------------------------------------------------------------------------------!
          end do siteloop
+         !---------------------------------------------------------------------------------!
+
+
+         !---------------------------------------------------------------------------------!
+         !       Find average fire extinction rate.                                        !
+         !---------------------------------------------------------------------------------!
+         if ( cgrid%dmean_fire_density(ipy) > tiny_num .and.                               &
+              pmean_fire_density            > tiny_num       ) then
+            cgrid%dmean_fire_extinction(ipy) = log( pmean_fire_density                     &
+                                                  / cgrid%dmean_fire_density(ipy) )
+         else
+            cgrid%dmean_fire_extinction(ipy) = 0.0
+         end if
+         !---------------------------------------------------------------------------------!
       end do polyloop
+      !------------------------------------------------------------------------------------!
 
       return
    end subroutine normalize_ed_todayNPP_vars
@@ -3412,6 +3501,7 @@ module average_utils
                               , polygontype  & ! structure
                               , sitetype     & ! structure
                               , patchtype    ! ! structure
+      use consts_coms  , only : huge_num     ! ! intent(in)
       implicit none
       !----- Arguments. -------------------------------------------------------------------!
       type(edtype)     , target  :: cgrid
@@ -3429,6 +3519,15 @@ module average_utils
                
          do isi = 1,cpoly%nsites
             csite => cpoly%site(isi)
+
+            !----- Reset variables stored in polygontype. ---------------------------------!
+            cpoly%tdfire_pcpg           (:,isi) = 0.0
+            cpoly%tdfire_atm_tdew       (:,isi) = 0.0
+            cpoly%tdfire_atm_temp       (:,isi) = 0.0
+            cpoly%tdfire_atm_vpdef      (:,isi) = 0.0
+            cpoly%today_fire_density      (isi) = 0.0
+            cpoly%today_fire_extinction   (isi) = 0.0
+            !------------------------------------------------------------------------------!
 
             do ipa = 1,csite%npatches
                cpatch => csite%patch(ipa)
@@ -3452,6 +3551,19 @@ module average_utils
                csite%today_Af_decomp (ipa) = 0.0
                csite%today_Bf_decomp (ipa) = 0.0
                csite%today_rh        (ipa) = 0.0
+               !---------------------------------------------------------------------------!
+
+
+               !---------------------------------------------------------------------------!
+               !    Variables used by the new fire model.                                 !
+               !---------------------------------------------------------------------------!
+               csite%tdfire_can_temp   (:,ipa) =  0.0
+               csite%tdfire_can_rhv    (:,ipa) =  0.0
+               csite%tdfire_can_vpdef  (:,ipa) =  0.0
+               csite%tdfire_can_tdew   (:,ipa) =  0.0
+               csite%tdfire_can_vels   (:,ipa) =  0.0
+               csite%tdfire_sfc_wetness(:,ipa) =  0.0
+               csite%tdfire_sfc_mstpot (:,ipa) =  0.0
                !---------------------------------------------------------------------------!
 
 
@@ -3755,6 +3867,8 @@ module average_utils
          cgrid%dmean_pcpg               (ipy) = 0.0
          cgrid%dmean_qpcpg              (ipy) = 0.0
          cgrid%dmean_dpcpg              (ipy) = 0.0
+         cgrid%dmean_fire_density       (ipy) = 0.0
+         cgrid%dmean_fire_extinction    (ipy) = 0.0
 
          !---------------------------------------------------------------------------------!
          !       Loop over sites.                                                          !
@@ -3780,6 +3894,8 @@ module average_utils
             cpoly%dmean_pcpg           (isi) = 0.0
             cpoly%dmean_qpcpg          (isi) = 0.0
             cpoly%dmean_dpcpg          (isi) = 0.0
+            cpoly%dmean_fire_density   (isi) = 0.0
+            cpoly%dmean_fire_extinction(isi) = 0.0
 
             !------------------------------------------------------------------------------!
             !       Loop over sites.                                                       !
@@ -4017,7 +4133,8 @@ module average_utils
                               , patchtype    ! ! structure
       use ed_max_dims  , only : n_dbh        & ! intent(in)
                               , n_pft        ! ! intent(in)
-      use consts_coms  , only : yr_day       ! ! intent(in)
+      use consts_coms  , only : yr_day       & ! intent(in)
+                              , tiny_num     ! ! intent(in)
       use ed_misc_coms , only : current_time & ! intent(in)
                               , simtime      ! ! structure
       implicit none
@@ -4618,6 +4735,17 @@ module average_utils
          cgrid%mmean_dpcpg            (ipy) = cgrid%mmean_dpcpg            (ipy)           &
                                             + cgrid%dmean_dpcpg            (ipy)           &
                                             * ndaysi
+         cgrid%mmean_fire_density     (ipy) = cgrid%mmean_fire_density     (ipy)           &
+                                            + cgrid%dmean_fire_density     (ipy)           &
+                                            * ndaysi
+         cgrid%mmean_fire_extinction  (ipy) = cgrid%mmean_fire_extinction  (ipy)           &
+                                            + cgrid%dmean_fire_extinction  (ipy)           &
+                                            * ndaysi
+         !---------------------------------------------------------------------------------!
+
+
+
+
          !---------------------------------------------------------------------------------!
          !     Mean sum of squares.  Use double precision to integrating term, then        !
          ! convert the term back to single precision.  This step is needed to avoid under- !
@@ -4777,6 +4905,39 @@ module average_utils
             cpoly%mmean_dpcpg          (isi) = cpoly%mmean_dpcpg          (isi)            &
                                              + cpoly%dmean_dpcpg          (isi)            &
                                              * ndaysi
+            !------------------------------------------------------------------------------!
+
+
+
+            !----- Variables whose instantaneous counterparts are updated daily. ----------!
+            cpoly%mmean_fire_density   (isi) = cpoly%mmean_fire_density   (isi)            &
+                                             + cpoly%dmean_fire_density   (isi)            &
+                                             * ndaysi
+            cpoly%mmean_fire_extinction(isi) = cpoly%mmean_fire_extinction(isi)            &
+                                             + cpoly%dmean_fire_extinction(isi)            &
+                                             * ndaysi
+            cpoly%mmean_fire_intensity (isi) = cpoly%mmean_fire_intensity (isi)            &
+                                             + cpoly%fire_intensity       (isi)            &
+                                             * ndaysi
+            cpoly%mmean_fire_spread    (isi) = cpoly%mmean_fire_spread    (isi)            &
+                                             + cpoly%fire_spread          (isi)            &
+                                             * ndaysi
+            cpoly%mmean_ignition_rate  (isi) = cpoly%mmean_ignition_rate  (isi)            &
+                                             + cpoly%ignition_rate        (isi)            &
+                                             * ndaysi
+            !------------------------------------------------------------------------------!
+
+
+
+            !------------------------------------------------------------------------------!
+            !       Integrate the inverse of lethal duration of fire, because the value    !
+            ! goes to infinity for no fires.                                               !
+            !------------------------------------------------------------------------------!
+            if (cpoly%fire_tlethal(isi) > tiny_num) then
+               cpoly%mmean_fire_tlethal (isi) = cpoly%mmean_fire_tlethal(isi)              &
+                                              + 1. / cpoly%fire_tlethal (isi)              &
+                                              * ndaysi
+            end if
             !------------------------------------------------------------------------------!
 
 
@@ -5567,6 +5728,8 @@ module average_utils
                                       , polygontype        & ! structure
                                       , sitetype           & ! structure
                                       , patchtype          ! ! structure
+      use ed_misc_coms         , only : simtime            & ! intent(in)
+                                      , current_time       ! ! intent(in)
       use grid_coms            , only : nzg                ! ! intent(in)
       use therm_lib            , only : press2exner        & ! function
                                       , extheta2temp       & ! function
@@ -5576,7 +5739,8 @@ module average_utils
                                       , idealdmolsh        ! ! function
       use soil_coms            , only : tiny_sfcwater_mass & ! intent(in)
                                       , soil               ! ! intent(in)
-      use consts_coms          , only : t00                & ! intent(in)
+      use consts_coms          , only : tiny_num           & ! intent(in)
+                                      , t00                & ! intent(in)
                                       , wdns               ! ! intent(in)
       implicit none
       !----- Arguments. -------------------------------------------------------------------!
@@ -5585,6 +5749,7 @@ module average_utils
       type(polygontype)                     , pointer :: cpoly
       type(sitetype)                        , pointer :: csite
       type(patchtype)                       , pointer :: cpatch
+      type(simtime)                                   :: lastmonth
       real             , dimension(nzg)               :: cgrid_mmean_soil_hcap
       integer                                         :: ipy
       integer                                         :: isi
@@ -5593,12 +5758,23 @@ module average_utils
       integer                                         :: lsl
       integer                                         :: k
       integer                                         :: nsoil
+      integer                                         :: imo
       real                                            :: can_exner
       real                                            :: atm_exner
       real                                            :: site_area_i
       real                                            :: poly_area_i
       real                                            :: site_wgt
       real                                            :: patch_wgt
+      real                                            :: ndaysi
+      !------------------------------------------------------------------------------------!
+
+
+
+      !------------------------------------------------------------------------------------!
+      !     Find the previous month so we can link the correct monthly averages.           !
+      !------------------------------------------------------------------------------------!
+      call lastmonthdate(current_time,lastmonth,ndaysi)
+      imo = lastmonth%month
       !------------------------------------------------------------------------------------!
 
 
@@ -5646,6 +5822,30 @@ module average_utils
             cpoly%mmean_atm_rhos(isi) = idealdenssh ( cpoly%mmean_atm_prss  (isi)          &
                                                     , cpoly%mmean_atm_temp  (isi)          &
                                                     , cpoly%mmean_atm_shv   (isi) )
+            !------------------------------------------------------------------------------!
+
+
+            !------------------------------------------------------------------------------!
+            !       We integrated the inverse of lethal duration of fire, because the      !
+            ! values go to infinity when there is no fire.  We now convert the integrated  !
+            ! value back to time units.                                                    !
+            !------------------------------------------------------------------------------!
+            if (cpoly%mmean_fire_tlethal(isi) > tiny_num) then
+               cpoly%mmean_fire_tlethal (isi) = 1. / cpoly%mmean_fire_tlethal(isi)
+            else
+               cpoly%mmean_fire_tlethal (isi) = 0.
+            end if
+            !------------------------------------------------------------------------------!
+
+
+            !------------------------------------------------------------------------------!
+            !       Copy the burnt area from the 12-month array.                           !
+            !------------------------------------------------------------------------------!
+            cpoly%mmean_burnt_area   (isi) = cpoly%avg_burnt_area   (imo,isi)
+            cpoly%mmean_fire_f_bherb (isi) = cpoly%avg_fire_f_bherb (imo,isi)
+            cpoly%mmean_fire_f_bwoody(isi) = cpoly%avg_fire_f_bwoody(imo,isi)
+            cpoly%mmean_fire_f_fgc   (isi) = cpoly%avg_fire_f_fgc   (imo,isi)
+            cpoly%mmean_fire_f_stgc  (isi) = cpoly%avg_fire_f_stgc  (imo,isi)
             !------------------------------------------------------------------------------!
 
 
@@ -5770,6 +5970,14 @@ module average_utils
                      end if
                   end if
                   !------------------------------------------------------------------------!
+
+
+                  !------------------------------------------------------------------------!
+                  !      Copy fire mortality rate from the 12-month array (convert it to   !
+                  ! 1/yr, to be consistent with other mortality rates).                    !
+                  !------------------------------------------------------------------------!
+                  cpatch%mmean_fire_lethal_rate(ico) = 12.*cpatch%fire_lethal_rate(imo,ico)
+                  !------------------------------------------------------------------------!
                end do cohortloop
                !---------------------------------------------------------------------------!
 
@@ -5796,7 +6004,64 @@ module average_utils
                !---------------------------------------------------------------------------------!
             end do patchloop
             !------------------------------------------------------------------------------!
+
+
+
+
+            !------------------------------------------------------------------------------!
+            !      For the following variables, we use the site-level averages.            !
+            !------------------------------------------------------------------------------!
+            cgrid%mmean_burnt_area     (ipy) = cgrid%mmean_burnt_area     (ipy)            &
+                                             + cpoly%mmean_burnt_area     (isi)            &
+                                             * site_wgt
+            cgrid%mmean_fire_intensity (ipy) = cgrid%mmean_fire_intensity (ipy)            &
+                                             + cpoly%mmean_fire_intensity (isi)            &
+                                             * site_wgt
+            cgrid%mmean_fire_spread    (ipy) = cgrid%mmean_fire_spread    (ipy)            &
+                                             + cpoly%mmean_fire_spread    (isi)            &
+                                             * site_wgt
+            cgrid%mmean_ignition_rate  (ipy) = cgrid%mmean_ignition_rate  (ipy)            &
+                                             + cpoly%mmean_ignition_rate  (isi)            &
+                                             * site_wgt
+            cgrid%mmean_fire_f_bherb   (ipy) = cgrid%mmean_fire_f_bherb   (ipy)            &
+                                             + cpoly%mmean_fire_f_bherb   (isi)            &
+                                             * site_wgt
+            cgrid%mmean_fire_f_bwoody  (ipy) = cgrid%mmean_fire_f_bwoody  (ipy)            &
+                                             + cpoly%mmean_fire_f_bwoody  (isi)            &
+                                             * site_wgt
+            cgrid%mmean_fire_f_fgc     (ipy) = cgrid%mmean_fire_f_fgc     (ipy)            &
+                                             + cpoly%mmean_fire_f_fgc     (isi)            &
+                                             * site_wgt
+            cgrid%mmean_fire_f_stgc    (ipy) = cgrid%mmean_fire_f_stgc    (ipy)            &
+                                             + cpoly%mmean_fire_f_stgc    (isi)            &
+                                             * site_wgt
+            !------------------------------------------------------------------------------!
+
+
+            !------------------------------------------------------------------------------!
+            !       Integrate the inverse of lethal duration of fire, because the values   !
+            ! go to infinity when there is no fire.  We convert it back to time outside    !
+            ! the loop.                                                                    !
+            !------------------------------------------------------------------------------!
+            if (cpoly%mmean_fire_tlethal(isi) > tiny_num) then
+               cgrid%mmean_fire_tlethal(ipy) = cgrid%mmean_fire_tlethal     (ipy)          &
+                                             + 1. / cpoly%mmean_fire_tlethal(isi)          &
+                                             * site_wgt
+            end if
+            !------------------------------------------------------------------------------!
          end do siteloop
+         !---------------------------------------------------------------------------------!
+
+
+
+         !---------------------------------------------------------------------------------!
+         !     Convert lethal time back to time units.                                     !
+         !---------------------------------------------------------------------------------!
+         if (cgrid%mmean_fire_tlethal(ipy) > tiny_num) then
+            cgrid%mmean_fire_tlethal(ipy) = 1. / cgrid%mmean_fire_tlethal(ipy)
+         else
+            cgrid%mmean_fire_tlethal(ipy) = 0.
+         end if
          !---------------------------------------------------------------------------------!
 
 
@@ -6154,6 +6419,17 @@ module average_utils
          cgrid%mmean_pcpg                 (ipy) = 0.0
          cgrid%mmean_qpcpg                (ipy) = 0.0
          cgrid%mmean_dpcpg                (ipy) = 0.0
+         cgrid%mmean_burnt_area           (ipy) = 0.0
+         cgrid%mmean_fire_density         (ipy) = 0.0
+         cgrid%mmean_fire_extinction      (ipy) = 0.0
+         cgrid%mmean_fire_intensity       (ipy) = 0.0
+         cgrid%mmean_fire_tlethal         (ipy) = 0.0
+         cgrid%mmean_fire_spread          (ipy) = 0.0
+         cgrid%mmean_ignition_rate        (ipy) = 0.0
+         cgrid%mmean_fire_f_bherb         (ipy) = 0.0
+         cgrid%mmean_fire_f_bwoody        (ipy) = 0.0
+         cgrid%mmean_fire_f_fgc           (ipy) = 0.0
+         cgrid%mmean_fire_f_stgc          (ipy) = 0.0
          cgrid%mmsqu_gpp                  (ipy) = 0.0
          cgrid%mmsqu_npp                  (ipy) = 0.0
          cgrid%mmsqu_plresp               (ipy) = 0.0
@@ -6211,6 +6487,17 @@ module average_utils
             cpoly%mmean_pcpg           (isi) = 0.0
             cpoly%mmean_qpcpg          (isi) = 0.0
             cpoly%mmean_dpcpg          (isi) = 0.0
+            cpoly%mmean_burnt_area     (isi) = 0.0
+            cpoly%mmean_fire_density   (isi) = 0.0
+            cpoly%mmean_fire_extinction(isi) = 0.0
+            cpoly%mmean_fire_intensity (isi) = 0.0
+            cpoly%mmean_fire_tlethal   (isi) = 0.0
+            cpoly%mmean_fire_spread    (isi) = 0.0
+            cpoly%mmean_ignition_rate  (isi) = 0.0
+            cpoly%mmean_fire_f_bherb   (isi) = 0.0
+            cpoly%mmean_fire_f_bwoody  (isi) = 0.0
+            cpoly%mmean_fire_f_fgc     (isi) = 0.0
+            cpoly%mmean_fire_f_stgc    (isi) = 0.0
 
 
             !------------------------------------------------------------------------------!

@@ -33,6 +33,7 @@ module vegetation_dynamics
       use consts_coms          , only : day_sec                       & ! intent(in)
                                       , yr_day                        ! ! intent(in)
       use mem_polygons         , only : maxpatch                      ! ! intent(in)
+      use disturb_coms         , only : include_fire                  ! ! intent(in)
       use average_utils        , only : normalize_ed_today_vars       & ! sub-routine
                                       , normalize_ed_todaynpp_vars    & ! sub-routine
                                       , zero_ed_today_vars            ! ! sub-routine
@@ -47,7 +48,10 @@ module vegetation_dynamics
       use update_derived_utils , only : update_workload               & ! sub-routine
                                       , update_polygon_derived_props  ! ! sub-routine
       use fusion_fission_coms  , only : ifusion                       ! ! intent(in)
-      use fire                 , only : fire_frequency                ! ! sub-routine
+      use fire                 , only : fire_frequency                & ! sub-routine
+                                      , integ_fire_danger             & ! sub-routine
+                                      , integ_emberfire               & ! sub-routine
+                                      , integ_firestarter             ! ! sub-routine
       use budget_utils         , only : ed_init_budget                ! ! sub-routine
       implicit none
       !----- Arguments. -------------------------------------------------------------------!
@@ -101,6 +105,19 @@ module vegetation_dynamics
          !----- Update phenology and growth of live tissues. ------------------------------!
          call phenology_driver(cgrid,doy,current_time%month, dtlsm_o_day,veget_dyn_on)
          call dbalive_dt(cgrid,gr_tfact0,year_o_day,veget_dyn_on)
+         !----- Integrate fire danger indices (used by some fire models). -----------------!
+         call integ_fire_danger(cgrid)
+         !----- Depending on the fire model, we must integrate fire disturbances daily. ---!
+         select case (include_fire)
+         case (3)
+            !------ EMBERFIRE model. ------------------------------------------------------!
+            call integ_emberfire(cgrid)
+            !------------------------------------------------------------------------------!
+         case (4)
+            !------ FIRESTARTER model. ----------------------------------------------------!
+            call integ_firestarter(cgrid,day_sec)
+            !------------------------------------------------------------------------------!
+         end select
          !---------------------------------------------------------------------------------!
 
 

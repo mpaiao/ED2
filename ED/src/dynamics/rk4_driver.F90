@@ -32,7 +32,8 @@ module rk4_driver
       use photosyn_driv          , only : canopy_photosynthesis      ! ! sub-routine
       use rk4_misc               , only : sanity_check_veg_energy    ! ! sub-routine
       use rk4_copy_patch         , only : copy_rk4patch_init         ! ! sub-routine
-      use rk4_integ_utils        , only : copy_met_2_rk4site         ! ! sub-routine
+      use rk4_integ_utils        , only : update_today_met_summ      & ! subroutine
+                                        , copy_met_2_rk4site         ! ! sub-routine
       use update_derived_utils   , only : update_patch_derived_props ! ! sub-routine
       use plant_hydro            , only : plant_hydro_driver         ! ! sub-routine
       use therm_lib              , only : tq2enthalpy                ! ! function
@@ -114,6 +115,13 @@ module rk4_driver
             imon                             = current_time%month
             cpoly%avg_monthly_pcpg(imon,isi) = cpoly%avg_monthly_pcpg(imon,isi)            &
                                              + cmet%pcpg * dtlsm
+            !------------------------------------------------------------------------------!
+
+
+            !------------------------------------------------------------------------------!
+            !     Update met driver summary variables.                                     !
+            !------------------------------------------------------------------------------!
+            call update_today_met_summ(cpoly,isi)
             !------------------------------------------------------------------------------!
 
 

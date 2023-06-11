@@ -32,7 +32,8 @@ module hybrid_driver
      use stem_resp_driv         , only : stem_respiration           ! ! function
      use photosyn_driv          , only : canopy_photosynthesis      ! ! function
      use update_derived_utils   , only : update_patch_derived_props ! ! subroutine
-     use rk4_integ_utils        , only : copy_met_2_rk4site         & ! subroutine
+     use rk4_integ_utils        , only : update_today_met_summ      & ! subroutine
+                                       , copy_met_2_rk4site         & ! subroutine
                                        , rk4_sanity_check           ! ! subroutine
      use rk4_misc               , only : sanity_check_veg_energy    ! ! sub-routine
      use rk4_copy_patch         , only : copy_rk4patch_init         ! ! sub-routine
@@ -110,6 +111,13 @@ module hybrid_driver
            cpoly%avg_monthly_pcpg(imon,isi) = cpoly%avg_monthly_pcpg(imon,isi)   &
                                             + cmet%pcpg * dtlsm
            !---------------------------------------------------------------------!
+
+
+            !------------------------------------------------------------------------------!
+            !     Update met driver summary variables.                                     !
+            !------------------------------------------------------------------------------!
+            call update_today_met_summ(cpoly,isi)
+            !------------------------------------------------------------------------------!
 
            call copy_met_2_rk4site(nzg,cmet%atm_ustar,cmet%atm_theiv         &
                 ,cmet%atm_vpdef      &
@@ -416,6 +424,7 @@ module hybrid_driver
                                 , adjust_sfcw_properties    & ! sub-routine
                                 , update_diagnostic_vars    & ! sub-routine
                                 , update_density_vars       & ! sub-routine
+                                , update_rmean_vars         & ! sub-routine
                                 , print_rk4_state           ! ! sub-routine
       use ed_misc_coms   , only : fast_diagnostics          & ! intent(in)
                                 , dtlsm                     ! ! intent(in)
@@ -660,20 +669,18 @@ module hybrid_driver
                ! 3b.  Great, it worked, so now we can advance to the next step.  We just need !
                !      to do some minor adjustments before...                                  !
                !------------------------------------------------------------------------------!
+               !----- i.   Update leaf properties to avoid negative water. -------------------!
                call adjust_veg_properties(ytemp,h,csite,ipa,ibuff)
-
                !----- ii.  Final update of top soil properties to avoid off-bounds moisture. -!
                call adjust_topsoil_properties(ytemp,h)
-
-               !----- ii. Make temporary surface water stable and positively defined. --------!
+               !----- iii. Make temporary surface water stable and positively defined. -------!
                call adjust_sfcw_properties(nzg,nzs,ytemp,h,csite,ipa)
-
-               !----- iii.  Update the diagnostic variables. ---------------------------------!
+               !----- iv.  Update the diagnostic variables. ----------------------------------!
                call update_diagnostic_vars(ytemp, csite,ipa,ibuff)
-               !------------------------------------------------------------------------------!
-
-               !----- iv.  Update the density variables. -------------------------------------!
+               !----- v.  Update the density variables. --------------------------------------!
                call update_density_vars(ytemp,initp)
+               !----- vi. Update time-step averages. -----------------------------------------!
+               call update_rmean_vars(ytemp,h,csite,ipa,ibuff)
                !------------------------------------------------------------------------------!
 
                !------------------------------------------------------------------------------!

@@ -852,7 +852,8 @@ subroutine geth5dims(idim_type,varlen,globid,var_len_global,dsetrank,varn,nrec,i
                                  , stride         & ! intent(in)
                                  , globdims       ! ! intent(in)
    use fusion_fission_coms, only : ff_nhgt        ! ! intent(in)
-   use ed_misc_coms       , only : ndcycle        ! ! intent(in)
+   use ed_misc_coms       , only : ndcycle        & ! intent(in)
+                                 , ndfire         ! ! intent(in)
 
    implicit none
    !----- Arguments. ----------------------------------------------------------------------!
@@ -1244,7 +1245,18 @@ subroutine geth5dims(idim_type,varlen,globid,var_len_global,dsetrank,varn,nrec,i
       chnkoffs(2) = int(globid,8)
       cnt(1:2)    = 1_8
       stride(1:2) = 1_8
-     
+
+   case (292) ! (n_months,nsites)
+      dsetrank = 2
+      globdims(1) = int(ndfire,8)
+      chnkdims(1) = int(ndfire,8)
+      chnkoffs(1) = 0_8
+      globdims(2) = int(var_len_global,8)
+      chnkdims(2) = int(varlen,8)
+      chnkoffs(2) = int(globid,8)
+      cnt(1:2)    = 1_8
+      stride(1:2) = 1_8
+
    case (30,31) !(npatches)
       
       dsetrank = 1            
@@ -1378,9 +1390,9 @@ subroutine geth5dims(idim_type,varlen,globid,var_len_global,dsetrank,varn,nrec,i
       chnkoffs(2) = int(globid,8)
       cnt(1:2)    = 1_8
       stride(1:2) = 1_8
-  
-   case (39) !(n_mort,npatches)
-      
+
+   case (39) !(n_months,npatches)
+
       ! Month type
       dsetrank = 2
       globdims(1) = 12_8
@@ -1391,7 +1403,20 @@ subroutine geth5dims(idim_type,varlen,globid,var_len_global,dsetrank,varn,nrec,i
       chnkoffs(2) = int(globid,8)
       cnt(1:2)    = 1_8
       stride(1:2) = 1_8
-              
+
+   case (392) !(ndfire,npatches)
+
+      ! Fire type
+      dsetrank = 2
+      globdims(1) = int(ndfire,8)
+      chnkdims(1) = int(ndfire,8)
+      chnkoffs(1) = 0_8
+      globdims(2) = int(var_len_global,8)
+      chnkdims(2) = int(varlen,8)
+      chnkoffs(2) = int(globid,8)
+      cnt(1:2)    = 1_8
+      stride(1:2) = 1_8
+
    case (40,41) !(ncohorts)
       
       dsetrank = 1
@@ -1496,6 +1521,19 @@ subroutine geth5dims(idim_type,varlen,globid,var_len_global,dsetrank,varn,nrec,i
       dsetrank = 2
       globdims(1) = 13_8
       chnkdims(1) = 13_8
+      chnkoffs(1) = 0_8
+      globdims(2) = int(var_len_global,8)
+      chnkdims(2) = int(varlen,8)
+      chnkoffs(2) = int(globid,8)
+      cnt(1:2)    = 1_8
+      stride(1:2) = 1_8
+     
+   case (492) !(ndfire,ncohorts)
+      
+      ! 13 Months type
+      dsetrank = 2
+      globdims(1) = int(ndfire,8)
+      chnkdims(1) = int(ndfire,8)
       chnkoffs(1) = 0_8
       globdims(2) = int(var_len_global,8)
       chnkdims(2) = int(varlen,8)

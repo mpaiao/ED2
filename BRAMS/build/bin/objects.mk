@@ -323,8 +323,8 @@ OBJ_MODEL =                         \
 	farq_katul.o                \
 	farq_leuning.o              \
 	fatal_error.o               \
-	fire_ed10.o                 \
-	fire_ed22.o                 \
+	fire.o                      \
+	fire_init.o                 \
 	forestry.o                  \
 	fuse_fiss_utils.o           \
 	fusion_fission_coms.o       \
