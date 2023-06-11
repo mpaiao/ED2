@@ -20,6 +20,7 @@ $ED_NL
    NL%ITIMEZ = 0
    NL%DTLSM = 600
    NL%RADFRQ = 600
+   NL%FIREFRQ = 3600
    NL%MONTH_YRSTEP=7
    NL%N_ED_REGION = 0
    NL%GRID_TYPE = 0
@@ -91,6 +92,8 @@ $ED_NL
    NL%SLCOL_DATABASE    = '/mypath/soil_data/colour/LC2007JGRB/LC2007JGRB_'
    NL%LU_DATABASE = ''
    NL%PLANTATION_FILE = ''
+   NL%SEI_DATABASE    = '/mypath/ignition_data/sei_kummu2018/kummu_'
+   NL%FLASH_DATABASE  = '/mypath/ignition_data/frd_albrecht2016/albrecht_'
    NL%THSUMS_DATABASE = 'common/ed_inputs/'
    NL%ED_MET_DRIVER_DB = 'umbs/met/ED_MET_DRIVER_HEADER'
    NL%OBSTIME_DB=''
