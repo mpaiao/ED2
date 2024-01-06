@@ -2740,6 +2740,10 @@ module ed_state_vars
       !<Lapse rate transfer data
 
       real,pointer,dimension(:) :: cosz
+      !< Cosine of the zenith angle
+
+      real,pointer,dimension(:) :: eff_cosz
+      !< Effective cosine of the zenith angle.
 
       real , pointer,dimension(:) :: cbudget_initialstorage
       !<Total Carbon (vegetation plus soil plus CAS) at the beginning of budget-averaging 
@@ -3844,6 +3848,7 @@ module ed_state_vars
       allocate(cgrid%met                        (                    npolygons))
       allocate(cgrid%lapse                      (                    npolygons))
       allocate(cgrid%cosz                       (                    npolygons))
+      allocate(cgrid%eff_cosz                   (                    npolygons))
       allocate(cgrid%cbudget_initialstorage     (                    npolygons))
       allocate(cgrid%cbudget_nep                (                    npolygons))
       allocate(cgrid%cbudget_removedstorage     (                    npolygons))
@@ -6177,6 +6182,7 @@ module ed_state_vars
       nullify(cgrid%met                     )
       nullify(cgrid%lapse                   )
       nullify(cgrid%cosz                    )
+      nullify(cgrid%eff_cosz                )
       nullify(cgrid%cbudget_initialstorage  )
       nullify(cgrid%cbudget_nep             )
       nullify(cgrid%cbudget_removedstorage  )
@@ -13617,11 +13623,18 @@ module ed_state_vars
               var_len,var_len_global,max_ptrs,'TOTAL_BASAL_AREA_RECRUIT :11:hist:anal:year') 
          call metadata_edio(nvar,igr,'Polygon basal area gained by recruits','[cm2/m2/yr]','ipoly')
       end if
-      
+
       if (associated(cgrid%cosz)) then
          nvar=nvar+1
          call vtable_edio_r(npts,cgrid%cosz,nvar,igr,init,cgrid%pyglob_id, &
               var_len,var_len_global,max_ptrs,'COSZ :11:hist') 
+         call metadata_edio(nvar,igr,'Cosine of the zenith angle','[a/h]','ipoly')
+      end if
+
+      if (associated(cgrid%eff_cosz)) then
+         nvar=nvar+1
+         call vtable_edio_r(npts,cgrid%eff_cosz,nvar,igr,init,cgrid%pyglob_id, &
+              var_len,var_len_global,max_ptrs,'EFF_COSZ :11:hist') 
          call metadata_edio(nvar,igr,'Cosine of the zenith angle','[a/h]','ipoly')
       end if
       

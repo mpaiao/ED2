@@ -255,7 +255,7 @@ module rk4_integ_utils
    subroutine copy_met_2_rk4site(mzg,atm_ustar,atm_theiv,atm_vpdef,atm_theta,atm_tmp       &
                                 ,atm_shv,atm_co2,zoff,exner,pcpg,qpcpg,dpcpg,prss,rshort   &
                                 ,rlong,par_beam,par_diffuse,nir_beam,nir_diffuse,geoht     &
-                                ,lsl,ntext_soil,green_leaf_factor,lon,lat,cosz)
+                                ,lsl,ntext_soil,green_leaf_factor,lon,lat,cosz,eff_cosz)
       use ed_max_dims    , only : n_pft         ! ! intent(in)
       use rk4_coms       , only : rk4site       ! ! structure
       use canopy_air_coms, only : ustmin8       ! ! intent(in)
@@ -295,6 +295,7 @@ module rk4_integ_utils
       real                     , intent(in) :: lon
       real                     , intent(in) :: lat
       real                     , intent(in) :: cosz
+      real                     , intent(in) :: eff_cosz
       !------------------------------------------------------------------------------------!
 
       
@@ -326,6 +327,7 @@ module rk4_integ_utils
       rk4site%lon                   = dble(lon                 )
       rk4site%lat                   = dble(lat                 )
       rk4site%cosz                  = dble(cosz                )
+      rk4site%eff_cosz              = dble(eff_cosz            )
       rk4site%green_leaf_factor(:)  = dble(green_leaf_factor(:))
       !------------------------------------------------------------------------------------!
 

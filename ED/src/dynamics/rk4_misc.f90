@@ -3984,7 +3984,9 @@ module rk4_misc
       write (unit=*,fmt='(a,1x,es12.4)') ' Downward SW radiation      : ',rk4site%rshort
       write (unit=*,fmt='(a,1x,es12.4)') ' Downward LW radiation      : ',rk4site%rlong
       write (unit=*,fmt='(a,1x,es12.4)') ' Zenith angle (deg)         : '                  &
-                                                              ,acos(rk4site%cosz) / pio1808
+                                                          ,acos(rk4site%cosz    ) / pio1808
+      write (unit=*,fmt='(a,1x,es12.4)') ' Effect. zenith angle (deg) : '                  &
+                                                          ,acos(rk4site%eff_cosz) / pio1808
 
       write (unit=*,fmt='(80a)') ('=',k=1,80)
       write (unit=*,fmt='(a)'  ) 'Leaf information (only those resolvable are shown): '

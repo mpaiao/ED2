@@ -7311,8 +7311,7 @@ subroutine init_can_rad_params()
                                     , snow_albedo_nir             & ! intent(out)
                                     , snow_emiss_tir              & ! intent(out)
                                     , rshort_twilight_min         & ! intent(out)
-                                    , cosz_min                    & ! intent(out)
-                                    , cosz_min8                   ! ! intent(out)
+                                    , cosz_min                    ! ! intent(out)
    use pft_coms              , only : is_grass                    & ! intent(in)
                                     , is_tropical                 & ! intent(in)
                                     , is_conifer                  ! ! intent(in)
@@ -7327,18 +7326,17 @@ subroutine init_can_rad_params()
 
    !---------------------------------------------------------------------------------------!
    !      The following parameters are used to split the shortwave radiation into visible  !
-   ! and near-infrared radiation.                                                          !
+   ! and near-infrared radiation. The NIR counterparts are defined in sub-routine          !
+   ! init_derived_params_after_xml()                                                       !
    !---------------------------------------------------------------------------------------!
-   fvis_beam_def = 0.43
-   fnir_beam_def = 1.0 - fvis_beam_def
-   fvis_diff_def = 0.52
-   fnir_diff_def = 1.0 - fvis_diff_def
+   fvis_beam_def = 0.43  ! The remainder will be defined as fnir_beam_def
+   fvis_diff_def = 0.52  ! The remainder will be defined as fnir_diff_def
    !---------------------------------------------------------------------------------------!
 
 
 
    !---------------------------------------------------------------------------------------!
-   !     Clumping factor.  This factor indicates the degree of clumpiness of leaves.       !a
+   !     Clumping factor.  This factor indicates the degree of clumpiness of leaves.       !
    !  0 -- black hole                                                                      !
    !  1 -- homogeneous, no clumping.                                                       !
    !---------------------------------------------------------------------------------------!
@@ -7491,12 +7489,25 @@ subroutine init_can_rad_params()
 
 
    !---------------------------------------------------------------------------------------!
-   !     These variables are the thresholds for things that should be computed during the  !
-   ! day time hours only.                                                                  !
+   !     Double-precision version of the minimum cosine of zenith angle for which we       !
+   ! assume day time conditions (i.e., when there is any chance for direct solar           !
+   ! irradiance) . If applied to effective cosine of zenith angle, this defines when       !
+   ! twilight conditions (i.e., there is any solar irradiance) are met or exceeded.        !
+   ! Also rshort_twilight_min provides an extra threshold for when twilight conditions are !
+   ! met or exceeded.                                                                      !
    !---------------------------------------------------------------------------------------!
+   cosz_min            = cos(89.9*pio180) ! cos(89.5*pio180)
    rshort_twilight_min = 0.5
-   cosz_min            = cos(89.*pio180) !cos(89.5*pio180)
-   cosz_min8           = dble(cosz_min)
+   !---------------------------------------------------------------------------------------!
+
+
+
+
+   !---------------------------------------------------------------------------------------!
+   !     This variable is the resolution (in degrees) for deriving the look-up table for   !
+   ! the modified Chapman's function.                                                      !
+   !---------------------------------------------------------------------------------------!
+   dzen_ref = 5.0d-2
    !---------------------------------------------------------------------------------------!
 
 
@@ -8273,6 +8284,10 @@ subroutine init_derived_params_after_xml()
    use ed_therm_lib         , only : calc_veg_hcap             ! ! function
    use canopy_radiation_coms, only : ihrzrad                   & ! intent(in)
                                    , cci_hmax                  & ! intent(in)
+                                   , fvis_beam_def             & ! intent(in)
+                                   , fvis_diff_def             & ! intent(in)
+                                   , cosz_min                  & ! intent(in)
+                                   , dzen_ref                  & ! intent(in)
                                    , leaf_trans_vis            & ! intent(in)
                                    , leaf_reflect_vis          & ! intent(in)
                                    , wood_trans_vis            & ! intent(in)
@@ -8284,6 +8299,12 @@ subroutine init_derived_params_after_xml()
                                    , leaf_emiss_tir            & ! intent(in)
                                    , wood_emiss_tir            & ! intent(in)
                                    , orient_factor             & ! intent(in)
+                                   , fnir_beam_def             & ! intent(out)
+                                   , fnir_diff_def             & ! intent(out)
+                                   , cosz_min8                 & ! intent(out)
+                                   , nzen_ref                  & ! intent(out)
+                                   , zend_ref                  & ! intent(out)
+                                   , huestis_ref               & ! intent(out)
                                    , leaf_scatter_vis          & ! intent(out)
                                    , leaf_backscatter_vis      & ! intent(out)
                                    , wood_scatter_vis          & ! intent(out)
@@ -8296,7 +8317,8 @@ subroutine init_derived_params_after_xml()
                                    , wood_backscatter_tir      & ! intent(out)
                                    , phi1                      & ! intent(out)
                                    , phi2                      & ! intent(out)
-                                   , mu_bar                    ! ! intent(out)
+                                   , mu_bar                    & ! intent(out)
+                                   , set_huestis_lut           ! ! sub-routine
    use rk4_coms             , only : effarea_heat              & ! intent(in)
                                    , effarea_evap              & ! intent(in)
                                    , effarea_transp            ! ! intent(in)
@@ -8970,6 +8992,45 @@ subroutine init_derived_params_after_xml()
       !------------------------------------------------------------------------------------!
    end select
    !---------------------------------------------------------------------------------------!
+
+
+
+
+   !---------------------------------------------------------------------------------------!
+   !      The following parameters are used to split the shortwave radiation into visible  !
+   ! and near-infrared radiation. The VIS counterparts have been defined either at sub-    !
+   ! routine init_can_rad_params or through the XML.                                       !
+   !---------------------------------------------------------------------------------------!
+   fnir_beam_def = 1.0 - fvis_beam_def
+   fnir_diff_def = 1.0 - fvis_diff_def
+   !---------------------------------------------------------------------------------------!
+
+
+
+
+   !---------------------------------------------------------------------------------------!
+   !     Double-precision version of the minimum cosine of zenith angle for which we       !
+   ! assume day time conditions (i.e., when there is any chance for direct solar           !
+   ! irradiance) . If applied to effective cosine of zenith angle, this defines when       !
+   ! twilight conditions (i.e., there is any solar irradiance) are met or exceeded.        !
+   !---------------------------------------------------------------------------------------!
+   cosz_min8      = dble(cosz_min     )
+   !---------------------------------------------------------------------------------------!
+
+
+
+
+   !---------------------------------------------------------------------------------------!
+   !     Assign the dimensions for the modified Chapman function look-up table, and        !
+   ! set the reference zenith angles and modified Chapman function values.                 !
+   !---------------------------------------------------------------------------------------!
+   nzen_ref = ceiling( 1.80d2 / dzen_ref)
+   allocate(zend_ref   (nzen_ref))
+   allocate(huestis_ref(nzen_ref))
+   call set_huestis_lut(nzen_ref,dzen_ref,zend_ref,huestis_ref)
+   !---------------------------------------------------------------------------------------!
+
+
 
    !---------------------------------------------------------------------------------------!
    !     Scattering coefficients.  Contrary to ED-2.1, these values are based on the       !

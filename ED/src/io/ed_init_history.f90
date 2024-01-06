@@ -610,6 +610,8 @@ module ed_init_history
                         ,'TOTAL_BASAL_AREA_RECRUIT ' ,dsetrank,iparallel,.false.,foundvar)
       call hdf_getslab_r(cgrid%cosz                    (ipy:ipy)                           &
                         ,'COSZ '                     ,dsetrank,iparallel,.true. ,foundvar)
+      call hdf_getslab_r(cgrid%eff_cosz                (ipy:ipy)                           &
+                        ,'EFF_COSZ '                 ,dsetrank,iparallel,.true. ,foundvar)
       call hdf_getslab_r(cgrid%cbudget_initialstorage  (ipy:ipy)                           &
                         ,'CBUDGET_INITIALSTORAGE_PY ',dsetrank,iparallel,.true. ,foundvar)
       call hdf_getslab_r(cgrid%cbudget_nep             (ipy:ipy)                           &

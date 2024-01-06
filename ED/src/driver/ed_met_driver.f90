@@ -861,7 +861,8 @@ module ed_met_driver
                                       , current_time              ! ! intent(in)
       use canopy_air_coms      , only : ubmin                     & ! intent(in)
                                       , ustmin                    ! ! intent(in)
-      use canopy_radiation_coms, only : cosz_min                  ! ! intent(in)
+      use canopy_radiation_coms, only : cosz_min                  & ! intent(in)
+                                      , find_eff_cosz             ! ! intent(in)
       use consts_coms          , only : day_sec                   & ! intent(in)
                                       , t00                       & ! intent(in)
                                       , t3ple                     & ! intent(in)
@@ -882,7 +883,7 @@ module ed_met_driver
       use lapse                , only : calc_met_lapse            ! ! sub-routine
       use update_derived_utils , only : update_model_time_dm      ! ! sub-routine
       use radiate_utils        , only : ed_zen                    & ! function
-                                      , mean_daysecz              & ! function
+                                      , mean_chapman              & ! function
                                       , solar_radiation_breakdown & ! sub-routine
                                       , dump_radinfo              ! ! sub-routine
 
@@ -915,8 +916,8 @@ module ed_met_driver
       real(kind=4)               :: snden            ! snow density (kg/m3)
       real(kind=4)               :: fice             ! Ice fraction precipication
       real(kind=4)               :: fliq             ! Liquid fraction precipitation
-      real(kind=4)               :: secz_prev        ! Mean of sec(zenith angle) - previous
-      real(kind=4)               :: secz_next        ! Mean of sec(zenith angle) - next
+      real(kind=4)               :: chapman_prev     ! Mean of Chapman function - previous
+      real(kind=4)               :: chapman_next     ! Mean of Chapman function - next
       real(kind=4)               :: fperp_prev       ! Perpendicular flux - previous
       real(kind=4)               :: fperp_next       ! Perpendicular flux - next
       logical                    :: night_next
@@ -932,7 +933,8 @@ module ed_met_driver
       !------------------------------------------------------------------------------------!
       do ipy=1,cgrid%npolygons
          cgrid%met(ipy)%vels = 0.0
-         cgrid%cosz(ipy)     = ed_zen(cgrid%lon(ipy),cgrid%lat(ipy),current_time)
+         cgrid%cosz    (ipy) = ed_zen(cgrid%lon(ipy),cgrid%lat(ipy),current_time)
+         cgrid%eff_cosz(ipy) = find_eff_cosz(cgrid%cosz(ipy))
       end do
       !------------------------------------------------------------------------------------!
 
@@ -956,9 +958,9 @@ module ed_met_driver
                   !------------------------------------------------------------------------!
                   mprev = 1
                   prevmet_timea = current_time
+                  !------------------------------------------------------------------------!
 
                case (0,3)
-                  
                   !------------------------------------------------------------------------!
                   !     Time dependent variables, but with no time interpolation.          !
                   !------------------------------------------------------------------------!
@@ -967,6 +969,7 @@ module ed_met_driver
                   mprev            = int(float(nseconds_elapsed) / met_frq(iformat,iv)) + 1
                   dtprev           = floor(real(nseconds_elapsed)/met_frq(iformat,iv))     &
                                    * met_frq(iformat,iv) - real(nseconds_elapsed)
+                  !------------------------------------------------------------------------!
 
 
 
@@ -1023,10 +1026,12 @@ module ed_met_driver
                   else
                      do ipy = 1,cgrid%npolygons
                         !------------------------------------------------------------------!
-                        !     Check whether this is day time or night time.  We should     !
-                        ! only do the full interpolation thing during the day, the night   !
-                        ! should have no incoming radiation until we incorporate fireflies !
-                        ! (or a good twilight scheme) in the model.                        !
+                        !     Check whether this is daytime or night/twilight time.  We    !
+                        ! should carry out the sun-angle dependent interpolation only when !
+                        ! there is direct light. Although we check for daytime using the   !
+                        ! actual cosine of the zenith angle, we interpolate irradiance     !
+                        ! using the effective cosine of zenith angle, which prevents near- !
+                        ! singularities close to sunset times.                             !
                         !------------------------------------------------------------------!
                         if (cgrid%cosz(ipy) > cosz_min) then
                            !---------------------------------------------------------------!
@@ -1035,12 +1040,13 @@ module ed_met_driver
                            !---------------------------------------------------------------!
                            select case (imetavg)
                            case (0)
-                              secz_prev = mean_daysecz(cgrid%lon(ipy),cgrid%lat(ipy)       &
-                                                      ,prevmet_timea,dt_radinterp,0.)
+                              chapman_prev =                                               &
+                                 mean_chapman(cgrid%lon(ipy),cgrid%lat(ipy),prevmet_timea  &
+                                             ,dt_radinterp,0.,.false.)
                            case default
-                              secz_prev = mean_daysecz(cgrid%lon(ipy),cgrid%lat(ipy)       &
-                                                      ,prevmet_timea,dt_radinterp          &
-                                                      ,met_frq(iformat,iv))
+                              chapman_prev =                                               &
+                                 mean_chapman(cgrid%lon(ipy),cgrid%lat(ipy),prevmet_timea  &
+                                             ,dt_radinterp,met_frq(iformat,iv),.true.)
                            end select
                            !---------------------------------------------------------------!
 
@@ -1050,7 +1056,7 @@ module ed_met_driver
                            !     Decide whether we want to use the previous or the next    !
                            ! data based on both the zenith angle.                          !
                            !---------------------------------------------------------------!
-                           night_prev = secz_prev == 0.
+                           night_prev = chapman_prev == 0.
                            !---------------------------------------------------------------!
 
 
@@ -1072,15 +1078,15 @@ module ed_met_driver
                               ! secant and scaling back with the current cosine of zenith  !
                               ! angle.                                                     !
                               !------------------------------------------------------------!
-                              fperp_prev = cgrid%metinput(ipy)%nbdsf(mprev) * secz_prev
-                              cgrid%met(ipy)%nir_beam = fperp_prev * cgrid%cosz(ipy)
+                              fperp_prev = cgrid%metinput(ipy)%nbdsf(mprev) * chapman_prev
+                              cgrid%met(ipy)%nir_beam = fperp_prev * cgrid%eff_cosz(ipy)
                            end if
                            !---------------------------------------------------------------!
 
 
 
                            !----- Assume all future stuff to be zero, we won't use them. --!
-                           secz_next               = 0.
+                           chapman_next            = 0.
                            night_next              = .true.
                            fperp_next              = 0.
                            wprev                   = 1.0
@@ -1090,8 +1096,8 @@ module ed_met_driver
 
                         else
                            !----- Night time, assign it zero. -----------------------------!
-                           secz_prev               = 0.
-                           secz_next               = 0.
+                           chapman_prev            = 0.
+                           chapman_next            = 0.
                            night_prev              = .true.
                            night_next              = .true.
                            fperp_prev              = 0.
@@ -1112,8 +1118,8 @@ module ed_met_driver
                         if (print_radinterp) then
                            call dump_radinfo(cgrid,ipy,mprev,mnext,prevmet_timea           &
                                             ,nextmet_timea,met_frq(iformat,iv),wprev,wnext &
-                                            ,secz_prev,secz_next,fperp_prev,fperp_next     &
-                                            ,night_prev,night_next,'nbdsf')
+                                            ,chapman_prev,chapman_next,fperp_prev          &
+                                            ,fperp_next,night_prev,night_next,'nbdsf')
                         end if
                         !------------------------------------------------------------------!
                      end do
@@ -1133,26 +1139,27 @@ module ed_met_driver
                      end do
                   else
                      do ipy = 1,cgrid%npolygons
-
                         !------------------------------------------------------------------!
-                        !     Check whether this is day time or night time.  We should     !
-                        ! only do the full interpolation thing during the day, the night   !
-                        ! should have no incoming radiation until we incorporate fireflies !
-                        ! (or a good twilight scheme) in the model.                        !
+                        !     Check whether this is day/twilight time or night time.  We   !
+                        ! should carry out the sun-angle dependent interpolation only when !
+                        ! there is diffuse light.  Interpolation is done with the          !
+                        ! effective cosine of zenith angle, which should be safe for       !
+                        ! interpolations as long as cosz_min is not way too close to zero. !
                         !------------------------------------------------------------------!
-                        if (cgrid%cosz(ipy) > cosz_min) then
+                        if (cgrid%eff_cosz(ipy) > cosz_min) then
                            !---------------------------------------------------------------!
                            !     Define the normalisation factors for the previous and the !
                            ! next time.                                                    !
                            !---------------------------------------------------------------!
                            select case (imetavg)
                            case (0)
-                              secz_prev = mean_daysecz(cgrid%lon(ipy),cgrid%lat(ipy)       &
-                                                      ,prevmet_timea,dt_radinterp,0.)
+                              chapman_prev =                                               &
+                                 mean_chapman(cgrid%lon(ipy),cgrid%lat(ipy),prevmet_timea  &
+                                             ,dt_radinterp,0.,.true.)
                            case default
-                              secz_prev = mean_daysecz(cgrid%lon(ipy),cgrid%lat(ipy)       &
-                                                      ,prevmet_timea,dt_radinterp          &
-                                                      ,met_frq(iformat,iv))
+                              chapman_prev =                                               &
+                                 mean_chapman(cgrid%lon(ipy),cgrid%lat(ipy),prevmet_timea  &
+                                             ,dt_radinterp,met_frq(iformat,iv),.true.)
                            end select
                            !---------------------------------------------------------------!
 
@@ -1162,7 +1169,7 @@ module ed_met_driver
                            !     Decide whether we want to use the previous or the next    !
                            ! data based on both the zenith angle.                          !
                            !---------------------------------------------------------------!
-                           night_prev = secz_prev == 0.
+                           night_prev = chapman_prev == 0.
                            !---------------------------------------------------------------!
 
 
@@ -1184,15 +1191,15 @@ module ed_met_driver
                               ! secant and scaling back with the current cosine of zenith  !
                               ! angle.                                                     !
                               !------------------------------------------------------------!
-                              fperp_prev = cgrid%metinput(ipy)%nddsf(mprev) * secz_prev
-                              cgrid%met(ipy)%nir_diffuse = fperp_prev * cgrid%cosz(ipy)
+                              fperp_prev = cgrid%metinput(ipy)%nddsf(mprev) * chapman_prev
+                              cgrid%met(ipy)%nir_diffuse = fperp_prev * cgrid%eff_cosz(ipy)
                            end if
                            !---------------------------------------------------------------!
 
 
 
                            !----- Assume all future stuff to be zero, we won't use them. --!
-                           secz_next               = 0.
+                           chapman_next            = 0.
                            night_next              = .true.
                            fperp_next              = 0.
                            wprev                   = 1.0
@@ -1202,8 +1209,8 @@ module ed_met_driver
 
                         else
                            !----- Night time, assign it zero. -----------------------------!
-                           secz_prev                  = 0.
-                           secz_next                  = 0.
+                           chapman_prev               = 0.
+                           chapman_next               = 0.
                            night_prev                 = .true.
                            night_next                 = .true.
                            fperp_prev                 = 0.
@@ -1224,8 +1231,8 @@ module ed_met_driver
                         if (print_radinterp) then
                            call dump_radinfo(cgrid,ipy,mprev,mnext,prevmet_timea           &
                                             ,nextmet_timea,met_frq(iformat,iv),wprev,wnext &
-                                            ,secz_prev,secz_next,fperp_prev,fperp_next     &
-                                            ,night_prev,night_next,'nddsf')
+                                            ,chapman_prev,chapman_next,fperp_prev          &
+                                            ,fperp_next,night_prev,night_next,'nddsf')
                         end if
                         !------------------------------------------------------------------!
                      end do
@@ -1246,10 +1253,12 @@ module ed_met_driver
                      do ipy = 1,cgrid%npolygons
 
                         !------------------------------------------------------------------!
-                        !     Check whether this is day time or night time.  We should     !
-                        ! only do the full interpolation thing during the day, the night   !
-                        ! should have no incoming radiation until we incorporate fireflies !
-                        ! (or a good twilight scheme) in the model.                        !
+                        !     Check whether this is daytime or night/twilight time.  We    !
+                        ! should carry out the sun-angle dependent interpolation only when !
+                        ! there is direct light. Although we check for daytime using the   !
+                        ! actual cosine of the zenith angle, we interpolate irradiance     !
+                        ! using the effective cosine of zenith angle, which prevents near- !
+                        ! singularities close to sunset times.                             !
                         !------------------------------------------------------------------!
                         if (cgrid%cosz(ipy) > cosz_min) then
                            !---------------------------------------------------------------!
@@ -1258,12 +1267,13 @@ module ed_met_driver
                            !---------------------------------------------------------------!
                            select case (imetavg)
                            case (0)
-                              secz_prev = mean_daysecz(cgrid%lon(ipy),cgrid%lat(ipy)       &
-                                                      ,prevmet_timea,dt_radinterp,0.)
+                              chapman_prev =                                               &
+                                 mean_chapman(cgrid%lon(ipy),cgrid%lat(ipy),prevmet_timea  &
+                                             ,dt_radinterp,0.,.false.)
                            case default
-                              secz_prev = mean_daysecz(cgrid%lon(ipy),cgrid%lat(ipy)       &
-                                                      ,prevmet_timea,dt_radinterp          &
-                                                      ,met_frq(iformat,iv))
+                              chapman_prev =                                               &
+                                 mean_chapman(cgrid%lon(ipy),cgrid%lat(ipy),prevmet_timea  &
+                                             ,dt_radinterp,met_frq(iformat,iv),.false.)
                            end select
                            !---------------------------------------------------------------!
 
@@ -1273,7 +1283,7 @@ module ed_met_driver
                            !     Decide whether we want to use the previous or the next    !
                            ! data based on both the zenith angle.                          !
                            !---------------------------------------------------------------!
-                           night_prev = secz_prev == 0.
+                           night_prev = chapman_prev == 0.
                            !---------------------------------------------------------------!
 
 
@@ -1295,15 +1305,15 @@ module ed_met_driver
                               ! secant and scaling back with the current cosine of zenith  !
                               ! angle.                                                     !
                               !------------------------------------------------------------!
-                              fperp_prev = cgrid%metinput(ipy)%vbdsf(mprev) * secz_prev
-                              cgrid%met(ipy)%par_beam = fperp_prev * cgrid%cosz(ipy)
+                              fperp_prev = cgrid%metinput(ipy)%vbdsf(mprev) * chapman_prev
+                              cgrid%met(ipy)%par_beam = fperp_prev * cgrid%eff_cosz(ipy)
                            end if
                            !---------------------------------------------------------------!
 
 
 
                            !----- Assume all future stuff to be zero, we won't use them. --!
-                           secz_next               = 0.
+                           chapman_next            = 0.
                            night_next              = .true.
                            fperp_next              = 0.
                            wprev                   = 1.0
@@ -1313,8 +1323,8 @@ module ed_met_driver
 
                         else
                            !----- Night time, assign it zero. -----------------------------!
-                           secz_prev               = 0.
-                           secz_next               = 0.
+                           chapman_prev            = 0.
+                           chapman_next            = 0.
                            night_prev              = .true.
                            night_next              = .true.
                            fperp_prev              = 0.
@@ -1335,8 +1345,8 @@ module ed_met_driver
                         if (print_radinterp) then
                            call dump_radinfo(cgrid,ipy,mprev,mnext,prevmet_timea           &
                                             ,nextmet_timea,met_frq(iformat,iv),wprev,wnext &
-                                            ,secz_prev,secz_next,fperp_prev,fperp_next     &
-                                            ,night_prev,night_next,'vbdsf')
+                                            ,chapman_prev,chapman_next,fperp_prev          &
+                                            ,fperp_next,night_prev,night_next,'vbdsf')
                         end if
                         !------------------------------------------------------------------!
                      end do
@@ -1358,24 +1368,26 @@ module ed_met_driver
                      do ipy = 1,cgrid%npolygons
 
                         !------------------------------------------------------------------!
-                        !     Check whether this is day time or night time.  We should     !
-                        ! only do the full interpolation thing during the day, the night   !
-                        ! should have no incoming radiation until we incorporate fireflies !
-                        ! (or a good twilight scheme) in the model.                        !
+                        !     Check whether this is day/twilight time or night time.  We   !
+                        ! should carry out the sun-angle dependent interpolation only when !
+                        ! there is diffuse light.  Interpolation is done with the          !
+                        ! effective cosine of zenith angle, which should be safe for       !
+                        ! interpolations as long as cosz_min is not way too close to zero. !
                         !------------------------------------------------------------------!
-                        if (cgrid%cosz(ipy) > cosz_min) then
+                        if (cgrid%eff_cosz(ipy) > cosz_min) then
                            !---------------------------------------------------------------!
                            !     Define the normalisation factors for the previous and the !
                            ! next time.                                                    !
                            !---------------------------------------------------------------!
                            select case (imetavg)
                            case (0)
-                              secz_prev = mean_daysecz(cgrid%lon(ipy),cgrid%lat(ipy)       &
-                                                      ,prevmet_timea,dt_radinterp,0.)
+                              chapman_prev =                                               &
+                                 mean_chapman(cgrid%lon(ipy),cgrid%lat(ipy),prevmet_timea  &
+                                             ,dt_radinterp,0.,.true.)
                            case default
-                              secz_prev = mean_daysecz(cgrid%lon(ipy),cgrid%lat(ipy)       &
-                                                      ,prevmet_timea,dt_radinterp          &
-                                                      ,met_frq(iformat,iv))
+                              chapman_prev =                                               &
+                                 mean_chapman(cgrid%lon(ipy),cgrid%lat(ipy),prevmet_timea  &
+                                             ,dt_radinterp,met_frq(iformat,iv))
                            end select
                            !---------------------------------------------------------------!
 
@@ -1385,7 +1397,7 @@ module ed_met_driver
                            !     Decide whether we want to use the previous or the next    !
                            ! data based on both the zenith angle.                          !
                            !---------------------------------------------------------------!
-                           night_prev = secz_prev == 0.
+                           night_prev = chapman_prev == 0.
                            !---------------------------------------------------------------!
 
 
@@ -1407,15 +1419,15 @@ module ed_met_driver
                               ! secant and scaling back with the current cosine of zenith  !
                               ! angle.                                                     !
                               !------------------------------------------------------------!
-                              fperp_prev = cgrid%metinput(ipy)%vddsf(mprev) * secz_prev
-                              cgrid%met(ipy)%par_diffuse = fperp_prev * cgrid%cosz(ipy)
+                              fperp_prev = cgrid%metinput(ipy)%vddsf(mprev) * chapman_prev
+                              cgrid%met(ipy)%par_diffuse = fperp_prev * cgrid%eff_cosz(ipy)
                            end if
                            !---------------------------------------------------------------!
 
 
 
                            !----- Assume all future stuff to be zero, we won't use them. --!
-                           secz_next               = 0.
+                           chapman_next            = 0.
                            night_next              = .true.
                            fperp_next              = 0.
                            wprev                   = 1.0
@@ -1425,8 +1437,8 @@ module ed_met_driver
 
                         else
                            !----- Night time, assign it zero. -----------------------------!
-                           secz_prev                  = 0.
-                           secz_next                  = 0.
+                           chapman_prev               = 0.
+                           chapman_next               = 0.
                            night_prev                 = .true.
                            night_next                 = .true.
                            fperp_prev                 = 0.
@@ -1447,8 +1459,8 @@ module ed_met_driver
                         if (print_radinterp) then
                            call dump_radinfo(cgrid,ipy,mprev,mnext,prevmet_timea           &
                                             ,nextmet_timea,met_frq(iformat,iv),wprev,wnext &
-                                            ,secz_prev,secz_next,fperp_prev,fperp_next     &
-                                            ,night_prev,night_next,'vddsf')
+                                            ,chapman_prev,chapman_next,fperp_prev          &
+                                            ,fperp_next,night_prev,night_next,'vddsf')
                         end if
                         !------------------------------------------------------------------!
                      end do
@@ -1779,10 +1791,12 @@ module ed_met_driver
 
                      do ipy= 1,cgrid%npolygons
                         !------------------------------------------------------------------!
-                        !     Check whether this is day time or night time.  We should     !
-                        ! only do the full interpolation thing during the day, the night   !
-                        ! should have no incoming radiation until we incorporate fireflies !
-                        ! (or a good twilight scheme) in the model.                        !
+                        !     Check whether this is daytime or night/twilight time.  We    !
+                        ! should carry out the sun-angle dependent interpolation only when !
+                        ! there is direct light. Although we check for daytime using the   !
+                        ! actual cosine of the zenith angle, we interpolate irradiance     !
+                        ! using the effective cosine of zenith angle, which prevents near- !
+                        ! singularities close to sunset times.                             !
                         !------------------------------------------------------------------!
                         if (cgrid%cosz(ipy) > cosz_min) then
 
@@ -1792,17 +1806,19 @@ module ed_met_driver
                            !---------------------------------------------------------------!
                            select case (imetavg)
                            case (0)
-                              secz_prev = mean_daysecz(cgrid%lon(ipy),cgrid%lat(ipy)       &
-                                                      ,prevmet_timea,dt_radinterp,0.)
-                              secz_next = mean_daysecz(cgrid%lon(ipy),cgrid%lat(ipy)       &
-                                                      ,nextmet_timea,dt_radinterp,0.)
+                              chapman_prev =                                               &
+                                 mean_chapman(cgrid%lon(ipy),cgrid%lat(ipy),prevmet_timea  &
+                                             ,dt_radinterp,0.,.false.)
+                              chapman_next =                                               &
+                                 mean_chapman(cgrid%lon(ipy),cgrid%lat(ipy),nextmet_timea  &
+                                             ,dt_radinterp,0.,.false.)
                            case default
-                              secz_prev = mean_daysecz(cgrid%lon(ipy),cgrid%lat(ipy)       &
-                                                      ,prevmet_timea,dt_radinterp          &
-                                                      ,met_frq(iformat,iv))
-                              secz_next = mean_daysecz(cgrid%lon(ipy),cgrid%lat(ipy)       &
-                                                      ,nextmet_timea,dt_radinterp          &
-                                                      ,met_frq(iformat,iv))
+                              chapman_prev =                                               &
+                                 mean_chapman(cgrid%lon(ipy),cgrid%lat(ipy),prevmet_timea  &
+                                             ,dt_radinterp,met_frq(iformat,iv),.false.)
+                              chapman_next =                                               &
+                                 mean_chapman(cgrid%lon(ipy),cgrid%lat(ipy),nextmet_timea  &
+                                             ,dt_radinterp,met_frq(iformat,iv),.false.)
                            end select
                            !---------------------------------------------------------------!
 
@@ -1812,8 +1828,8 @@ module ed_met_driver
                            !     Decide whether we want to use the previous or the next    !
                            ! data based on the zenith angle.                               !
                            !---------------------------------------------------------------!
-                           night_prev = secz_prev == 0.
-                           night_next = secz_next == 0.
+                           night_prev = chapman_prev == 0.
+                           night_next = chapman_next == 0.
                            !---------------------------------------------------------------!
 
 
@@ -1837,8 +1853,8 @@ module ed_met_driver
                               ! current cosine of zenith angle.                            !
                               !------------------------------------------------------------!
                               fperp_prev = 0.
-                              fperp_next = cgrid%metinput(ipy)%nbdsf(mnext) * secz_next
-                              cgrid%met(ipy)%nir_beam = fperp_next * cgrid%cosz(ipy)
+                              fperp_next = cgrid%metinput(ipy)%nbdsf(mnext) * chapman_next
+                              cgrid%met(ipy)%nir_beam = fperp_next * cgrid%eff_cosz(ipy)
                            elseif (night_next) then
                               !-----------------------------------------------------------!
                               !     Dusk time, the next time is zero so we only have      !
@@ -1846,22 +1862,22 @@ module ed_met_driver
                               ! the next time using the previous secant and scaling back  !
                               ! with the current cosine of zenith angle.                  !
                               !-----------------------------------------------------------!
-                              fperp_prev = cgrid%metinput(ipy)%nbdsf(mprev) * secz_prev
+                              fperp_prev = cgrid%metinput(ipy)%nbdsf(mprev) * chapman_prev
                               fperp_next = 0.
-                              cgrid%met(ipy)%nir_beam = fperp_prev * cgrid%cosz(ipy)
+                              cgrid%met(ipy)%nir_beam = fperp_prev * cgrid%eff_cosz(ipy)
                            else
                               !----- Daytime, use both previous and next values. ---------!
-                              fperp_next = cgrid%metinput(ipy)%nbdsf(mnext) * secz_next
-                              fperp_prev = cgrid%metinput(ipy)%nbdsf(mprev) * secz_prev
-                              cgrid%met(ipy)%nir_beam = cgrid%cosz(ipy)                    &
+                              fperp_next = cgrid%metinput(ipy)%nbdsf(mnext) * chapman_next
+                              fperp_prev = cgrid%metinput(ipy)%nbdsf(mprev) * chapman_prev
+                              cgrid%met(ipy)%nir_beam = cgrid%eff_cosz(ipy)                &
                                                       * ( fperp_next * wnext               &
                                                         + fperp_prev * wprev )
                            end if
                            !---------------------------------------------------------------!
                         else
                            !----- Night time, assign it zero. -----------------------------!
-                           secz_prev               = 0.
-                           secz_next               = 0.
+                           chapman_prev            = 0.
+                           chapman_next            = 0.
                            night_prev              = .true.
                            night_next              = .true.
                            fperp_prev              = 0.
@@ -1880,8 +1896,8 @@ module ed_met_driver
                         if (print_radinterp) then
                            call dump_radinfo(cgrid,ipy,mprev,mnext,prevmet_timea           &
                                             ,nextmet_timea,met_frq(iformat,iv),wprev,wnext &
-                                            ,secz_prev,secz_next,fperp_prev,fperp_next     &
-                                            ,night_prev,night_next,'nbdsf')
+                                            ,chapman_prev,chapman_next,fperp_prev          &
+                                            ,fperp_next,night_prev,night_next,'nbdsf')
                         end if
                         !------------------------------------------------------------------!
                      end do
@@ -1904,12 +1920,13 @@ module ed_met_driver
 
                      do ipy= 1,cgrid%npolygons
                         !------------------------------------------------------------------!
-                        !     Check whether this is day time or night time.  We should     !
-                        ! only do the full interpolation thing during the day, the night   !
-                        ! should have no incoming radiation until we incorporate fireflies !
-                        ! (or a good twilight scheme) in the model.                        !
+                        !     Check whether this is day/twilight time or night time.  We   !
+                        ! should carry out the sun-angle dependent interpolation only when !
+                        ! there is diffuse light.  Interpolation is done with the          !
+                        ! effective cosine of zenith angle, which should be safe for       !
+                        ! interpolations as long as cosz_min is not way too close to zero. !
                         !------------------------------------------------------------------!
-                        if (cgrid%cosz(ipy) > cosz_min) then
+                        if (cgrid%eff_cosz(ipy) > cosz_min) then
 
                            !---------------------------------------------------------------!
                            !     Define the normalisation factors for the previous and the !
@@ -1917,17 +1934,19 @@ module ed_met_driver
                            !---------------------------------------------------------------!
                            select case (imetavg)
                            case (0)
-                              secz_prev = mean_daysecz(cgrid%lon(ipy),cgrid%lat(ipy)       &
-                                                      ,prevmet_timea,dt_radinterp,0.)
-                              secz_next = mean_daysecz(cgrid%lon(ipy),cgrid%lat(ipy)       &
-                                                      ,nextmet_timea,dt_radinterp,0.)
+                              chapman_prev =                                               &
+                                 mean_chapman(cgrid%lon(ipy),cgrid%lat(ipy),prevmet_timea  &
+                                             ,dt_radinterp,0.,.true.)
+                              chapman_next =                                               &
+                                 mean_chapman(cgrid%lon(ipy),cgrid%lat(ipy),nextmet_timea  &
+                                             ,dt_radinterp,0.,.true.)
                            case default
-                              secz_prev = mean_daysecz(cgrid%lon(ipy),cgrid%lat(ipy)       &
-                                                      ,prevmet_timea,dt_radinterp          &
-                                                      ,met_frq(iformat,iv))
-                              secz_next = mean_daysecz(cgrid%lon(ipy),cgrid%lat(ipy)       &
-                                                      ,nextmet_timea,dt_radinterp          &
-                                                      ,met_frq(iformat,iv))
+                              chapman_prev =                                               &
+                                 mean_chapman(cgrid%lon(ipy),cgrid%lat(ipy),prevmet_timea  &
+                                             ,dt_radinterp,met_frq(iformat,iv),.true.)
+                              chapman_next =                                               &
+                                 mean_chapman(cgrid%lon(ipy),cgrid%lat(ipy),nextmet_timea  &
+                                             ,dt_radinterp,met_frq(iformat,iv),.true.)
                            end select
                            !---------------------------------------------------------------!
 
@@ -1937,8 +1956,8 @@ module ed_met_driver
                            !     Decide whether we want to use the previous or the next    !
                            ! data based on the zenith angle.                               !
                            !---------------------------------------------------------------!
-                           night_prev = secz_prev == 0.
-                           night_next = secz_next == 0.
+                           night_prev = chapman_prev == 0.
+                           night_next = chapman_next == 0.
                            !---------------------------------------------------------------!
 
 
@@ -1962,37 +1981,37 @@ module ed_met_driver
                               ! current cosine of zenith angle.                            !
                               !------------------------------------------------------------!
                               fperp_prev = 0.
-                              fperp_next = cgrid%metinput(ipy)%nddsf(mnext) * secz_next
-                              cgrid%met(ipy)%nir_diffuse = fperp_next * cgrid%cosz(ipy)
+                              fperp_next = cgrid%metinput(ipy)%nddsf(mnext) * chapman_next
+                              cgrid%met(ipy)%nir_diffuse = fperp_next * cgrid%eff_cosz(ipy)
                            elseif (night_next) then
                               !------------------------------------------------------------!
                               !     Dusk time, the next time is zero so we only have       !
                               ! meaningful information for the previous time: we scale the !
                               ! next time using the previous secant and scaling back with  !
-                              ! the current cosine of zenith angle.                        !
+                              ! the current effective cosine of zenith angle.              !
                               !------------------------------------------------------------!
-                              fperp_prev = cgrid%metinput(ipy)%nddsf(mprev) * secz_prev
+                              fperp_prev = cgrid%metinput(ipy)%nddsf(mprev) * chapman_prev
                               fperp_next = 0.
-                              cgrid%met(ipy)%nir_diffuse = fperp_prev * cgrid%cosz(ipy)
+                              cgrid%met(ipy)%nir_diffuse = fperp_prev * cgrid%eff_cosz(ipy)
+                              !------------------------------------------------------------!
                            else
                               !----- Daytime, use both previous and next values. ----------!
-                              fperp_next = cgrid%metinput(ipy)%nddsf(mnext) * secz_next
-                              fperp_prev = cgrid%metinput(ipy)%nddsf(mprev) * secz_prev
-                              cgrid%met(ipy)%nir_diffuse = cgrid%cosz(ipy)                 &
+                              fperp_next = cgrid%metinput(ipy)%nddsf(mnext) * chapman_next
+                              fperp_prev = cgrid%metinput(ipy)%nddsf(mprev) * chapman_prev
+                              cgrid%met(ipy)%nir_diffuse = cgrid%eff_cosz(ipy)             &
                                                          * ( fperp_next * wnext            &
                                                            + fperp_prev * wprev )
                            end if
                            !---------------------------------------------------------------!
                         else
                            !----- Night time, assign it zero. -----------------------------!
-                           secz_prev                  = 0.
-                           secz_next                  = 0.
+                           chapman_prev               = 0.
+                           chapman_next               = 0.
                            night_prev                 = .true.
                            night_next                 = .true.
                            fperp_prev                 = 0.
                            fperp_next                 = 0.
                            cgrid%met(ipy)%nir_diffuse = 0.0
-                           
                            !---------------------------------------------------------------!
                         end if
                         !------------------------------------------------------------------!
@@ -2005,8 +2024,8 @@ module ed_met_driver
                         if (print_radinterp) then
                            call dump_radinfo(cgrid,ipy,mprev,mnext,prevmet_timea           &
                                             ,nextmet_timea,met_frq(iformat,iv),wprev,wnext &
-                                            ,secz_prev,secz_next,fperp_prev,fperp_next     &
-                                            ,night_prev,night_next,'nddsf')
+                                            ,chapman_prev,chapman_next,fperp_prev          &
+                                            ,fperp_next,night_prev,night_next,'nddsf')
                         end if
                         !------------------------------------------------------------------!
                      end do
@@ -2027,10 +2046,12 @@ module ed_met_driver
 
                      do ipy= 1,cgrid%npolygons
                         !------------------------------------------------------------------!
-                        !     Check whether this is day time or night time.  We should     !
-                        ! only do the full interpolation thing during the day, the night   !
-                        ! should have no incoming radiation until we incorporate fireflies !
-                        ! (or a good twilight scheme) in the model.                        !
+                        !     Check whether this is daytime or night/twilight time.  We    !
+                        ! should carry out the sun-angle dependent interpolation only when !
+                        ! there is direct light. Although we check for daytime using the   !
+                        ! actual cosine of the zenith angle, we interpolate irradiance     !
+                        ! using the effective cosine of zenith angle, which prevents near- !
+                        ! singularities close to sunset times.                             !
                         !------------------------------------------------------------------!
                         if (cgrid%cosz(ipy) > cosz_min) then
 
@@ -2040,17 +2061,19 @@ module ed_met_driver
                            !---------------------------------------------------------------!
                            select case (imetavg)
                            case (0)
-                              secz_prev = mean_daysecz(cgrid%lon(ipy),cgrid%lat(ipy)       &
-                                                      ,prevmet_timea,dt_radinterp,0.)
-                              secz_next = mean_daysecz(cgrid%lon(ipy),cgrid%lat(ipy)       &
-                                                      ,nextmet_timea,dt_radinterp,0.)
+                              chapman_prev =                                               &
+                                 mean_chapman(cgrid%lon(ipy),cgrid%lat(ipy),prevmet_timea  &
+                                             ,dt_radinterp,0.,.true.)
+                              chapman_next =                                               &
+                                 mean_chapman(cgrid%lon(ipy),cgrid%lat(ipy),nextmet_timea  &
+                                             ,dt_radinterp,0.,.true.)
                            case default
-                              secz_prev = mean_daysecz(cgrid%lon(ipy),cgrid%lat(ipy)       &
-                                                      ,prevmet_timea,dt_radinterp          &
-                                                      ,met_frq(iformat,iv))
-                              secz_next = mean_daysecz(cgrid%lon(ipy),cgrid%lat(ipy)       &
-                                                      ,nextmet_timea,dt_radinterp          &
-                                                      ,met_frq(iformat,iv))
+                              chapman_prev =                                               &
+                                 mean_chapman(cgrid%lon(ipy),cgrid%lat(ipy),prevmet_timea  &
+                                             ,dt_radinterp,met_frq(iformat,iv),.true.)
+                              chapman_next =                                               &
+                                 mean_chapman(cgrid%lon(ipy),cgrid%lat(ipy),nextmet_timea  &
+                                             ,dt_radinterp,met_frq(iformat,iv),.true.)
                            end select
                            !---------------------------------------------------------------!
 
@@ -2060,8 +2083,8 @@ module ed_met_driver
                            !     Decide whether we want to use the previous or the next    !
                            ! data based on the zenith angle.                               !
                            !---------------------------------------------------------------!
-                           night_prev = secz_prev == 0.
-                           night_next = secz_next == 0.
+                           night_prev = chapman_prev == 0.
+                           night_next = chapman_next == 0.
                            !---------------------------------------------------------------!
 
 
@@ -2085,8 +2108,8 @@ module ed_met_driver
                               ! current cosine of zenith angle.                            !
                               !------------------------------------------------------------!
                               fperp_prev = 0.
-                              fperp_next = cgrid%metinput(ipy)%vbdsf(mnext) * secz_next
-                              cgrid%met(ipy)%par_beam = fperp_next * cgrid%cosz(ipy)
+                              fperp_next = cgrid%metinput(ipy)%vbdsf(mnext) * chapman_next
+                              cgrid%met(ipy)%par_beam = fperp_next * cgrid%eff_cosz(ipy)
                            elseif (night_next) then
                               !------------------------------------------------------------!
                               !     Dusk time, the next time is zero so we only have       !
@@ -2094,22 +2117,22 @@ module ed_met_driver
                               ! next time using the previous secant and scaling back with  !
                               ! the current cosine of zenith angle.                        !
                               !------------------------------------------------------------!
-                              fperp_prev = cgrid%metinput(ipy)%vbdsf(mprev) * secz_prev
+                              fperp_prev = cgrid%metinput(ipy)%vbdsf(mprev) * chapman_prev
                               fperp_next = 0.
-                              cgrid%met(ipy)%par_beam = fperp_prev * cgrid%cosz(ipy)
+                              cgrid%met(ipy)%par_beam = fperp_prev * cgrid%eff_cosz(ipy)
                            else
                               !----- Daytime, use both previous and next values. ----------!
-                              fperp_next = cgrid%metinput(ipy)%vbdsf(mnext) * secz_next
-                              fperp_prev = cgrid%metinput(ipy)%vbdsf(mprev) * secz_prev
-                             cgrid%met(ipy)%par_beam = cgrid%cosz(ipy)                     &
+                              fperp_next = cgrid%metinput(ipy)%vbdsf(mnext) * chapman_next
+                              fperp_prev = cgrid%metinput(ipy)%vbdsf(mprev) * chapman_prev
+                              cgrid%met(ipy)%par_beam = cgrid%eff_cosz(ipy)                &
                                                      * ( fperp_next * wnext                &
-                                                        + fperp_prev * wprev )
+                                                       + fperp_prev * wprev )
                            end if
                            !---------------------------------------------------------------!
                         else
                            !----- Night time, assign it zero. -----------------------------!
-                           secz_prev               = 0.
-                           secz_next               = 0.
+                           chapman_prev            = 0.
+                           chapman_next            = 0.
                            night_prev              = .true.
                            night_next              = .true.
                            fperp_prev              = 0.
@@ -2128,8 +2151,8 @@ module ed_met_driver
                         if (print_radinterp) then
                            call dump_radinfo(cgrid,ipy,mprev,mnext,prevmet_timea           &
                                             ,nextmet_timea,met_frq(iformat,iv),wprev,wnext &
-                                            ,secz_prev,secz_next,fperp_prev,fperp_next     &
-                                            ,night_prev,night_next,'vbdsf')
+                                            ,chapman_prev,chapman_next,fperp_prev          &
+                                            ,fperp_next,night_prev,night_next,'vbdsf')
                         end if
                         !------------------------------------------------------------------!
                      end do
@@ -2151,12 +2174,13 @@ module ed_met_driver
 
                      do ipy= 1,cgrid%npolygons
                         !------------------------------------------------------------------!
-                        !     Check whether this is day time or night time.  We should     !
-                        ! only do the full interpolation thing during the day, the night   !
-                        ! should have no incoming radiation until we incorporate fireflies !
-                        ! (or a good twilight scheme) in the model.                        !
+                        !     Check whether this is day/twilight time or night time.  We   !
+                        ! should carry out the sun-angle dependent interpolation only when !
+                        ! there is diffuse light.  Interpolation is done with the          !
+                        ! effective cosine of zenith angle, which should be safe for       !
+                        ! interpolations as long as cosz_min is not way too close to zero. !
                         !------------------------------------------------------------------!
-                        if (cgrid%cosz(ipy) > cosz_min) then
+                        if (cgrid%eff_cosz(ipy) > cosz_min) then
 
                            !---------------------------------------------------------------!
                            !     Define the normalisation factors for the previous and the !
@@ -2164,17 +2188,19 @@ module ed_met_driver
                            !---------------------------------------------------------------!
                            select case (imetavg)
                            case (0)
-                              secz_prev = mean_daysecz(cgrid%lon(ipy),cgrid%lat(ipy)       &
-                                                      ,prevmet_timea,dt_radinterp,0.)
-                              secz_next = mean_daysecz(cgrid%lon(ipy),cgrid%lat(ipy)       &
-                                                      ,nextmet_timea,dt_radinterp,0.)
+                              chapman_prev =                                               &
+                                 mean_chapman(cgrid%lon(ipy),cgrid%lat(ipy),prevmet_timea  &
+                                             ,dt_radinterp,0.,.true.)
+                              chapman_next =                                               &
+                                 mean_chapman(cgrid%lon(ipy),cgrid%lat(ipy),nextmet_timea  &
+                                             ,dt_radinterp,0.,.true.)
                            case default
-                              secz_prev = mean_daysecz(cgrid%lon(ipy),cgrid%lat(ipy)       &
-                                                      ,prevmet_timea,dt_radinterp          &
-                                                      ,met_frq(iformat,iv))
-                              secz_next = mean_daysecz(cgrid%lon(ipy),cgrid%lat(ipy)       &
-                                                      ,nextmet_timea,dt_radinterp          &
-                                                      ,met_frq(iformat,iv))
+                              chapman_prev =                                               &
+                                 mean_chapman(cgrid%lon(ipy),cgrid%lat(ipy),prevmet_timea  &
+                                             ,dt_radinterp,met_frq(iformat,iv),.true.)
+                              chapman_next =                                               &
+                                 mean_chapman(cgrid%lon(ipy),cgrid%lat(ipy),nextmet_timea  &
+                                             ,dt_radinterp,met_frq(iformat,iv),.true.)
                            end select
                            !---------------------------------------------------------------!
 
@@ -2184,8 +2210,8 @@ module ed_met_driver
                            !     Decide whether we want to use the previous or the next    !
                            ! data based on the zenith angle.                               !
                            !---------------------------------------------------------------!
-                           night_prev = secz_prev == 0.
-                           night_next = secz_next == 0.
+                           night_prev = chapman_prev == 0.
+                           night_next = chapman_next == 0.
                            !---------------------------------------------------------------!
 
 
@@ -2209,8 +2235,8 @@ module ed_met_driver
                               ! current cosine of zenith angle.                            !
                               !------------------------------------------------------------!
                               fperp_prev = 0.
-                              fperp_next = cgrid%metinput(ipy)%vddsf(mnext) * secz_next
-                              cgrid%met(ipy)%par_diffuse = fperp_next * cgrid%cosz(ipy)
+                              fperp_next = cgrid%metinput(ipy)%vddsf(mnext) * chapman_next
+                              cgrid%met(ipy)%par_diffuse = fperp_next * cgrid%eff_cosz(ipy)
                            elseif (night_next) then
                               !------------------------------------------------------------!
                               !     Dusk time, the next time is zero so we only have       !
@@ -2218,22 +2244,22 @@ module ed_met_driver
                               ! next time using the previous secant and scaling back with  !
                               ! the current cosine of zenith angle.                        !
                               !------------------------------------------------------------!
-                              fperp_prev = cgrid%metinput(ipy)%vddsf(mprev) * secz_prev
+                              fperp_prev = cgrid%metinput(ipy)%vddsf(mprev) * chapman_prev
                               fperp_next = 0.
-                              cgrid%met(ipy)%par_diffuse = fperp_prev * cgrid%cosz(ipy)
+                              cgrid%met(ipy)%par_diffuse = fperp_prev * cgrid%eff_cosz(ipy)
                            else
                               !----- Daytime, use both previous and next values. ----------!
-                              fperp_next = cgrid%metinput(ipy)%vddsf(mnext) * secz_next
-                              fperp_prev = cgrid%metinput(ipy)%vddsf(mprev) * secz_prev
-                              cgrid%met(ipy)%par_diffuse = cgrid%cosz(ipy)                 &
+                              fperp_next = cgrid%metinput(ipy)%vddsf(mnext) * chapman_next
+                              fperp_prev = cgrid%metinput(ipy)%vddsf(mprev) * chapman_prev
+                              cgrid%met(ipy)%par_diffuse = cgrid%eff_cosz(ipy)             &
                                                          * ( fperp_next * wnext            &
                                                            + fperp_prev * wprev )
                            end if
                            !---------------------------------------------------------------!
                         else
                            !----- Night time, assign it zero. -----------------------------!
-                           secz_prev                  = 0.
-                           secz_next                  = 0.
+                           chapman_prev               = 0.
+                           chapman_next               = 0.
                            night_prev                 = .true.
                            night_next                 = .true.
                            fperp_prev                 = 0.
@@ -2252,8 +2278,8 @@ module ed_met_driver
                         if (print_radinterp) then
                            call dump_radinfo(cgrid,ipy,mprev,mnext,prevmet_timea           &
                                             ,nextmet_timea,met_frq(iformat,iv),wprev,wnext &
-                                            ,secz_prev,secz_next,fperp_prev,fperp_next     &
-                                            ,night_prev,night_next,'vddsf')
+                                            ,chapman_prev,chapman_next,fperp_prev          &
+                                            ,fperp_next,night_prev,night_next,'vddsf')
                         end if
                         !------------------------------------------------------------------!
                      end do

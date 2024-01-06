@@ -128,7 +128,7 @@ module rk4_driver
                                    ,cmet%par_diffuse,cmet%nir_beam,cmet%nir_diffuse        &
                                    ,cmet%geoht,cpoly%lsl(isi),cpoly%ntext_soil(:,isi)      &
                                    ,cpoly%green_leaf_factor(:,isi),cgrid%lon(ipy)          &
-                                   ,cgrid%lat(ipy),cgrid%cosz(ipy))
+                                   ,cgrid%lat(ipy),cgrid%cosz(ipy),cgrid%eff_cosz(ipy))
             !------------------------------------------------------------------------------!
 
             !------------------------------------------------------------------------------!

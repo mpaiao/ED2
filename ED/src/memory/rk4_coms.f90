@@ -429,6 +429,7 @@ module rk4_coms
       real(kind=8)                    :: lon
       real(kind=8)                    :: lat
       real(kind=8)                    :: cosz
+      real(kind=8)                    :: eff_cosz
    end type rk4sitetype
    !---------------------------------------------------------------------------------------!
 

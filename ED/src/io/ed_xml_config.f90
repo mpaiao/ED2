@@ -194,7 +194,7 @@ recursive subroutine read_ed_xml_config(filename)
   end if
 
 
-  !*******  MET PARAMS
+  !*******  CANOPY AIR PARAMS
   call libxml2f90__ll_selectlist(TRIM(FILENAME))       
   call libxml2f90__ll_selecttag('ACT','config',1) !select upper level tag
   call libxml2f90__ll_exist('DOWN','can_air',ntag)    !get number of met tags
@@ -205,6 +205,37 @@ recursive subroutine read_ed_xml_config(filename)
 
         call getConfigREAL  ('f_bndlyr_init','can_air',i,rval,texist)
         if (texist) f_bndlyr_init = sngloff(rval,tiny_offset)
+        call libxml2f90__ll_selecttag('UP','config',1) !move back up to top level
+
+      end do
+  end if
+
+
+  !*******  CANOPY RADIATION PARAMS
+  call libxml2f90__ll_selectlist(TRIM(FILENAME))       
+  call libxml2f90__ll_selecttag('ACT','config',1) !select upper level tag
+  call libxml2f90__ll_exist('DOWN','can_rad',ntag)    !get number of met tags
+  print*,"CAN_RAD READ FROM FILE ::",ntag
+  if (ntag >= 1) then
+     do i=1,ntag
+        call libxml2f90__ll_selecttag('DOWN','can_rad',i)
+
+        call getConfigREAL  ('fvis_beam_def'      ,'can_rad',i,rval,texist)
+        if (texist) fvis_beam_def       = sngloff(rval,tiny_offset)
+        call getConfigREAL  ('fvis_diff_def'      ,'can_rad',i,rval,texist)
+        if (texist) fvis_diff_def       = sngloff(rval,tiny_offset)
+        call getConfigREAL  ('snow_albedo_vis'    ,'can_rad',i,rval,texist)
+        if (texist) snow_albedo_vis     = sngloff(rval,tiny_offset)
+        call getConfigREAL  ('snow_albedo_nir'    ,'can_rad',i,rval,texist)
+        if (texist) snow_albedo_nir     = sngloff(rval,tiny_offset)
+        call getConfigREAL  ('snow_emiss_tir'     ,'can_rad',i,rval,texist)
+        if (texist) snow_emiss_tir      = sngloff(rval,tiny_offset)
+        call getConfigREAL  ('cosz_min'           ,'can_rad',i,rval,texist)
+        if (texist) cosz_min            = sngloff(rval,tiny_offset)
+        call getConfigREAL  ('rshort_twilight_min','can_rad',i,rval,texist)
+        if (texist) rshort_twilight_min = sngloff(rval,tiny_offset)
+        call getConfigREAL  ('chap_dzen'          ,'can_rad',i,rval,texist)
+        if (texist) chap_dzen           = rval
         call libxml2f90__ll_selecttag('UP','config',1) !move back up to top level
 
       end do
@@ -1804,6 +1835,7 @@ subroutine write_ed_xml_config
   implicit none
 !  integer :: ival
   integer(4) :: i,ival
+  
   character(512) :: xfilout 
 !  integer :: i
 !  character*(*) :: filename
@@ -1861,6 +1893,21 @@ subroutine write_ed_xml_config
         call putConfigREAL  ("f_bndlyr_init"  ,f_bndlyr_init  )
   call libxml2f90_ll_closetag("can_air")
 
+
+
+
+
+  !************   CANOPY RADIATION  *****************
+  call libxml2f90_ll_opentag("can_rad")
+     call putConfigREAL ("fvis_beam_def"       , fvis_beam_def       )
+     call putConfigREAL ("fvis_diff_def"       , fvis_diff_def       )
+     call putConfigREAL ("snow_albedo_vis"     , snow_albedo_vis     )
+     call putConfigREAL ("snow_albedo_nir"     , snow_albedo_nir     )
+     call putConfigREAL ("snow_emiss_tir"      , snow_emiss_tir      )
+     call putConfigREAL ("cosz_min"            , cosz_min            )
+     call putConfigREAL ("rshort_twilight_min" , rshort_twilight_min )
+     call putConfigREAL8("chap_dzen"           , chap_dzen           )
+  call libxml2f90_ll_closetag("can_read")
 
 
 

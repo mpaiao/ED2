@@ -16,7 +16,8 @@ module radiate_driver
                                        , patchtype             ! ! structure
       use ed_para_coms          , only : nthreads              ! ! intent(in)
       use canopy_radiation_coms , only : cosz_min              & ! intent(in)
-                                       , rshort_twilight_min   ! ! intent(in)
+                                       , rshort_twilight_min   & ! intent(in)
+                                       , find_eff_cosz         ! ! intent(in)
       use consts_coms           , only : pio180                ! ! intent(in)
       use grid_coms             , only : nzg                   & ! intent(in)
                                        , nzs                   ! ! intent(in)
@@ -59,7 +60,8 @@ module radiate_driver
          polyloop: do ipy = 1,cgrid%npolygons
 
             !----- Find the solar zenith angle [cosz] -------------------------------------!
-            cgrid%cosz(ipy) = ed_zen(cgrid%lon(ipy),cgrid%lat(ipy),current_time)
+            cgrid%cosz    (ipy) = ed_zen(cgrid%lon(ipy),cgrid%lat(ipy),current_time)
+            cgrid%eff_cosz(ipy) = find_eff_cosz(cgrid%cosz(ipy))
             !------------------------------------------------------------------------------!
 
             cpoly => cgrid%polygon(ipy)
@@ -80,18 +82,21 @@ module radiate_driver
                          * (mod(current_time%time + cgrid%lon(ipy) / 15. + 24., 24.) - 12.)
                sloperad  = cpoly%slope(isi)  * pio180
                aspectrad = cpoly%aspect(isi) * pio180
-               call angle_of_incid(cpoly%cosaoi(isi),cgrid%cosz(ipy),hrangl                &
+               call angle_of_incid(cpoly%cosaoi(isi),cgrid%eff_cosz(ipy),hrangl            &
                                   ,sloperad,aspectrad)
                !---------------------------------------------------------------------------!
 
 
                !---------------------------------------------------------------------------!
-               !    Find the two logicals, that will tell which part of the day we are at  !
-               ! least.                                                                    !
+               !    Find the two logicals, that will tell whether the time exceeds the     !
+               ! (lower) thresholds for twilight and daytime.                              !
                !---------------------------------------------------------------------------!
-               daytime  = cpoly%cosaoi(isi) > cosz_min .and.                               &
+               daytime  = cgrid%cosz    (ipy)   > cosz_min             .and.               &
+                          cpoly%cosaoi  (isi)   > cosz_min             .and.               &
                           cpoly%met(isi)%rshort > rshort_twilight_min
-               twilight = cpoly%met(isi)%rshort > rshort_twilight_min
+               twilight = cgrid%eff_cosz(ipy)   > cosz_min             .and.               &
+                          cpoly%cosaoi  (isi)   > cosz_min             .and.               &
+                          cpoly%met(isi)%rshort > rshort_twilight_min
                !---------------------------------------------------------------------------!
 
 
@@ -110,8 +115,8 @@ module radiate_driver
                !---------------------------------------------------------------------------!
                maxcohort = 1
                do ipa = 1,csite%npatches
-                  cpatch=>csite%patch(ipa)
-                  if ( cpatch%ncohorts>maxcohort ) maxcohort = cpatch%ncohorts
+                  cpatch => csite%patch(ipa)
+                  if ( cpatch%ncohorts > maxcohort ) maxcohort = cpatch%ncohorts
                end do
                !---------------------------------------------------------------------------!
 

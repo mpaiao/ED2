@@ -122,7 +122,7 @@ module hybrid_driver
                 ,cpoly%lsl(isi),cpoly%ntext_soil(:,isi)     &
                 ,cpoly%green_leaf_factor(:,isi)             &
                 ,cgrid%lon(ipy),cgrid%lat(ipy)              &
-                ,cgrid%cosz(ipy))
+                ,cgrid%cosz(ipy),cgrid%eff_cosz(ipy))
 
 
 

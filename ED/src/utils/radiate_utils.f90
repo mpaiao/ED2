@@ -66,7 +66,7 @@ module radiate_utils
          !---------------------------------------------------------------------------------!
          !     Re-calculate the diffuse shortwave radiation using the SiB method.          !
          !---------------------------------------------------------------------------------!
-         call short2diff_sib(cgrid%met(ipy)%rshort,cgrid%cosz(ipy)                         &
+         call short2diff_sib(cgrid%met(ipy)%rshort,cgrid%cosz(ipy),cgrid%eff_cosz(ipy)     &
                             ,cgrid%met(ipy)%rshort_diffuse)
          rshort_beam = cgrid%met(ipy)%rshort - cgrid%met(ipy)%rshort_diffuse
          cgrid%met(ipy)%nir_diffuse = fnir_diff_def * cgrid%met(ipy)%rshort_diffuse
@@ -82,6 +82,7 @@ module radiate_utils
          call short_bdown_weissnorman(cgrid%met(ipy)%rshort                                &
                                      ,cgrid%met(ipy)%prss                                  &
                                      ,cgrid%cosz(ipy)                                      &
+                                     ,cgrid%eff_cosz(ipy)                                      &
                                      ,cgrid%met(ipy)%par_beam                              &
                                      ,cgrid%met(ipy)%par_diffuse                           &
                                      ,cgrid%met(ipy)%nir_beam                              &
@@ -135,6 +136,7 @@ module radiate_utils
          !---------------------------------------------------------------------------------!
          call short_bdown_clearidx(cgrid%met(ipy)%rshort                                   &
                                   ,cgrid%cosz(ipy)                                         &
+                                  ,cgrid%eff_cosz(ipy)                                     &
                                   ,cgrid%met(ipy)%par_beam                                 &
                                   ,cgrid%met(ipy)%par_diffuse                              &
                                   ,cgrid%met(ipy)%nir_beam                                 &
@@ -164,12 +166,13 @@ module radiate_utils
    ! convert the radiation from BRAMS.  In the future, we should use the values that come  !
    ! from the radiation schemes.                                                           !
    !---------------------------------------------------------------------------------------!
-   subroutine short2diff_sib(rshort_tot,cosz,rshort_diff)
+   subroutine short2diff_sib(rshort_tot,cosz,eff_cosz,rshort_diff)
       use canopy_radiation_coms, only : cosz_min  ! ! intent(in)
       implicit none
       !----- Arguments. -------------------------------------------------------------------!
       real, intent(in)    :: rshort_tot  ! Surface incident shortwave radiation
       real, intent(in)    :: cosz        ! Cosine of the zenith distance
+      real, intent(in)    :: eff_cosz    ! Effective cosine of the zenith distance
       real, intent(out)   :: rshort_diff ! Surface incident diffuse shortwave radiation.
       !----- Local variables. -------------------------------------------------------------!
       real                :: cloud
@@ -185,8 +188,8 @@ module radiate_utils
 
       if (cosz > cosz_min) then
 
-         cloud       = min(1.,max(0.,(c5 * cosz - rshort_tot) / (c4 * cosz)))
-         difrat      = min(1.,max(0.,0.0604 / ( cosz -0.0223 ) + 0.0683))
+         cloud       = min(1.,max(0.,(c5 * eff_cosz - rshort_tot) / (c4 * eff_cosz)))
+         difrat      = min(1.,max(0.,0.0604 / ( eff_cosz -0.0223 ) + 0.0683))
 
          difrat      = difrat + ( 1. - difrat ) * cloud
          vnrat       = ( c1 - cloud*c2 ) / ( ( c1 - cloud*c3 ) + ( c1 - cloud*c2 ))
@@ -214,8 +217,8 @@ module radiate_utils
    ! Weiss, A., J. M. Norman, 1985: Partitioning solar radiation into direct and diffuse,  !
    !     visible and near-infrared components.  Agric. For. Meteorol., 34, 205-213. (WN85) !
    !---------------------------------------------------------------------------------------!
-   subroutine short_bdown_weissnorman(rshort_full,atm_prss,cosz,par_beam,par_diff,nir_beam &
-                                     ,nir_diff,rshort_diff)
+   subroutine short_bdown_weissnorman(rshort_full,atm_prss,cosz,eff_cosz,par_beam,par_diff &
+                                     ,nir_beam,nir_diff,rshort_diff)
       use consts_coms          , only : solar         & ! intent(in)
                                       , prefsea       & ! intent(in)
                                       , twothirds     ! ! intent(in)
@@ -229,6 +232,7 @@ module radiate_utils
       real, intent(in)    :: rshort_full       ! Incident SW radiation   (total)   [  W/m2]
       real, intent(in)    :: atm_prss          ! Atmospheric pressure              [    Pa]
       real, intent(in)    :: cosz              ! cos(zenith distance)              [   ---]
+      real, intent(in)    :: eff_cosz          ! effective cos(zenith distance)    [   ---]
       real, intent(out)   :: par_beam          ! Incident PAR            (direct ) [  W/m2]
       real, intent(out)   :: par_diff          ! Incident PAR            (diffuse) [  W/m2]
       real, intent(out)   :: nir_beam          ! Incident near-infrared  (direct ) [  W/m2]
@@ -252,8 +256,8 @@ module radiate_utils
       real                :: ratio             ! Ratio between obs. and expected   [   ---]
       real                :: aux_par           ! Auxiliary variable                [   ---]
       real                :: aux_nir           ! Auxiliary variable                [   ---]
-      real                :: secz              ! sec(zenith distance)              [   ---]
-      real                :: log10secz         ! log10[sec(zenith distance)]       [   ---]
+      real                :: chapman           ! Chapman function                  [   ---]
+      real                :: log10chapman      ! log10[Chapman function]           [   ---]
       real                :: w10               ! Minimum Water absorption          [  W/m2]
       !------------------------------------------------------------------------------------!
       !    Local constants.                                                                !
@@ -284,9 +288,12 @@ module radiate_utils
          par_diff     = fvis_diff_def * rshort_diff
          nir_diff     = fnir_diff_def * rshort_diff
       else
-         !----- Save 1/cos(zen), which is the secant.  We will use this several times. ----!
-         secz      = 1. / cosz
-         log10secz = log10(secz)
+         !---------------------------------------------------------------------------------!
+         !     Save the Chapman function, which is defined as 1/eff_cos(zen).  We will use !
+         ! this several times.                                                             !
+         !---------------------------------------------------------------------------------!
+         chapman      = 1. / eff_cosz
+         log10chapman = log10(chapman)
          !---------------------------------------------------------------------------------!
 
 
@@ -300,8 +307,8 @@ module radiate_utils
          ! 3, and 9 of WN85.                                                               !
          !---------------------------------------------------------------------------------!
          par_beam_pot = par_beam_top                                                       &
-                      * exp ( par_beam_expext * (atm_prss / prefsea) * secz) * cosz
-         par_diff_pot = par2diff_sun * (par_beam_top - par_beam_pot) * cosz
+                      * exp ( par_beam_expext * (atm_prss / prefsea) * chapman) * eff_cosz
+         par_diff_pot = par2diff_sun * (par_beam_top - par_beam_pot) * eff_cosz
          par_full_pot = par_beam_pot + par_diff_pot
          !---------------------------------------------------------------------------------!
 
@@ -310,7 +317,8 @@ module radiate_utils
          !---------------------------------------------------------------------------------!
          !     Find the NIR absorption of 10 mm of precipitable water, using WN85 eqn. 6.  !
          !---------------------------------------------------------------------------------!
-         w10 = solar * 10 ** (wn85_06(1) + log10secz * (wn85_06(2) + wn85_06(3)*log10secz))
+         w10 = solar                                                                       &
+             * 10. ** (wn85_06(1) + log10chapman * (wn85_06(2) + wn85_06(3)*log10chapman))
          !---------------------------------------------------------------------------------!
 
 
@@ -320,8 +328,9 @@ module radiate_utils
          ! 4, 5, and 10 of WN85.                                                           !
          !---------------------------------------------------------------------------------!
          nir_beam_pot = ( nir_beam_top                                                     &
-                        * exp ( nir_beam_expext * (atm_prss/prefsea) * secz) - w10 ) * cosz
-         nir_diff_pot = nir2diff_sun * ( nir_beam_top - nir_beam_pot - w10 ) * cosz
+                        * exp ( nir_beam_expext * (atm_prss/prefsea) * chapman) - w10 ) 
+                        * eff_cosz
+         nir_diff_pot = nir2diff_sun * ( nir_beam_top - nir_beam_pot - w10 ) * eff_cosz
          nir_full_pot = nir_beam_pot + nir_diff_pot
          !---------------------------------------------------------------------------------!
 
@@ -405,6 +414,7 @@ module radiate_utils
       !----- Arguments. -------------------------------------------------------------------!
       real, intent(in)    :: rshort_full       ! Incident SW radiation   (total)   [  W/m2]
       real, intent(in)    :: cosz              ! cos(zenith distance)              [   ---]
+      real, intent(in)    :: eff_cosz          ! effective cos(zenith distance)    [   ---]
       real, intent(out)   :: par_beam          ! Incident PAR            (direct ) [  W/m2]
       real, intent(out)   :: par_diff          ! Incident PAR            (diffuse) [  W/m2]
       real, intent(out)   :: nir_beam          ! Incident near-infrared  (direct ) [  W/m2]
@@ -445,7 +455,7 @@ module radiate_utils
          nir_diff     = rshort_diff - par_diff
       else
          !----- Total radiation at the top of the atmosphere [  W/m2], using ED defaults. -!
-         rshort_toa = solar * cosz
+         rshort_toa = solar * eff_cosz
          !---------------------------------------------------------------------------------!
 
 
@@ -490,7 +500,7 @@ module radiate_utils
          ! include this term.                                                              !
          !---------------------------------------------------------------------------------!
          if (apply_bx10_corr) then
-            fdiff = fdiff_1st / ( (1.0-fdiff_1st) * cosz + fdiff_1st)
+            fdiff = fdiff_1st / ( (1.0-fdiff_1st) * eff_cosz + fdiff_1st)
          else
             fdiff = fdiff_1st
          end if
@@ -568,17 +578,17 @@ module radiate_utils
    ! output.                                                                               !
    !---------------------------------------------------------------------------------------!
    subroutine dump_radinfo(cgrid,ipy,mprev,mnext,prevmet_timea,nextmet_timea,met_frq       &
-                          ,wprev,wnext,secz_prev,secz_next,fperp_prev,fperp_next           &
+                          ,wprev,wnext,chapman_prev,chapman_next,fperp_prev,fperp_next     &
                           ,night_prev,night_next,variable)
-      use ed_state_vars        , only : edtype        ! ! structure
-      use ed_max_dims          , only : str_len       ! ! intent(in)
-      use ed_misc_coms         , only : simtime       & ! intent(in)
-                                      , current_time  ! ! intent(in)
-      use met_driver_coms      , only : nbdsf_file    & ! intent(in)
-                                      , nddsf_file    & ! intent(in)
-                                      , vbdsf_file    & ! intent(in)
-                                      , vddsf_file    ! ! intent(in)
-      use canopy_radiation_coms, only : cosz_min      ! ! intent(in)
+      use ed_state_vars        , only : edtype            ! ! structure
+      use ed_max_dims          , only : str_len           ! ! intent(in)
+      use ed_misc_coms         , only : simtime           & ! intent(in)
+                                      , current_time      ! ! intent(in)
+      use met_driver_coms      , only : nbdsf_file        & ! intent(in)
+                                      , nddsf_file        & ! intent(in)
+                                      , vbdsf_file        & ! intent(in)
+                                      , vddsf_file        ! ! intent(in)
+      use canopy_radiation_coms, only : cosz_min          ! ! intent(in)
       implicit none
       !----- Arguments. -------------------------------------------------------------------!
       type(edtype)          , target     :: cgrid
@@ -590,8 +600,8 @@ module radiate_utils
       real                  , intent(in) :: met_frq
       real                  , intent(in) :: wprev
       real                  , intent(in) :: wnext
-      real                  , intent(in) :: secz_prev
-      real                  , intent(in) :: secz_next
+      real                  , intent(in) :: chapman_prev
+      real                  , intent(in) :: chapman_next
       real                  , intent(in) :: fperp_prev
       real                  , intent(in) :: fperp_next
       logical               , intent(in) :: night_prev
@@ -609,8 +619,8 @@ module radiate_utils
       logical                            :: night_now
       logical                            :: itsthere
       !----- Local constants. -------------------------------------------------------------!
-      character(len=18)     , parameter  :: fmth = '(3(a,3x),15(a,1x))'
-      character(len=35)     , parameter  :: fmtd = '(3(a,3x),3(11x,l1,1x),12(f12.3,1x))'
+      character(len=18)     , parameter  :: fmth = '(3(a,3x),16(a,1x))'
+      character(len=35)     , parameter  :: fmtd = '(3(a,3x),3(11x,l1,1x),13(f12.3,1x))'
       character(len=29)     , parameter  :: fmtt = '(2(i2.2,a),i4.4,1x,3(i2.2,a))'
       !----- Locally saved variables, to delete and re-create scratch files. --------------!
       logical               , save       :: first_nbdsf = .true.
@@ -652,11 +662,11 @@ module radiate_utils
             write (unit=87,fmt=fmth)                                                       &
                                   '             WHEN_PREV','              WHEN_NOW'        &
                                  ,'             WHEN_NEXT','  NIGHT_PREV','   NIGHT_NOW'   &
-                                          ,'  NIGHT_NEXT','     MET_FRQ','       WPREV'    &
-                                          ,'       WNEXT','   FLUX_PREV','   SECZ_PREV'    &
-                                          ,'  FPERP_PREV','   FLUX_NEXT','   SECZ_NEXT'    &
-                                          ,'  FPERP_NEXT','    FLUX_NOW','    COSZ_NOW'    &
-                                          ,'   FPERP_NOW'
+                                           ,'  NIGHT_NEXT','     MET_FRQ','       WPREV'   &
+                                           ,'       WNEXT','   FLUX_PREV','CHAPMAN_PREV'   &
+                                           ,'  FPERP_PREV','   FLUX_NEXT','CHAPMAN_NEXT'   &
+                                           ,'  FPERP_NEXT','    FLUX_NOW','    COSZ_NOW'   &
+                                           ,'EFF_COSZ_NOW','   FPERP_NOW'
            close (unit=87,status='keep')
             !------------------------------------------------------------------------------!
 
@@ -691,11 +701,11 @@ module radiate_utils
             write (unit=87,fmt=fmth)                                                       &
                                   '             WHEN_PREV','              WHEN_NOW'        &
                                  ,'             WHEN_NEXT','  NIGHT_PREV','   NIGHT_NOW'   &
-                                          ,'  NIGHT_NEXT','     MET_FRQ','       WPREV'    &
-                                          ,'       WNEXT','   FLUX_PREV','   SECZ_PREV'    &
-                                          ,'  FPERP_PREV','   FLUX_NEXT','   SECZ_NEXT'    &
-                                          ,'  FPERP_NEXT','    FLUX_NOW','    COSZ_NOW'    &
-                                          ,'   FPERP_NOW'
+                                           ,'  NIGHT_NEXT','     MET_FRQ','       WPREV'   &
+                                           ,'       WNEXT','   FLUX_PREV','CHAPMAN_PREV'   &
+                                           ,'  FPERP_PREV','   FLUX_NEXT','CHAPMAN_NEXT'   &
+                                           ,'  FPERP_NEXT','    FLUX_NOW','    COSZ_NOW'   &
+                                           ,'EFF_COSZ_NOW','   FPERP_NOW'
             close (unit=87,status='keep')
             !------------------------------------------------------------------------------!
 
@@ -729,11 +739,11 @@ module radiate_utils
             write (unit=87,fmt=fmth)                                                       &
                                   '             WHEN_PREV','              WHEN_NOW'        &
                                  ,'             WHEN_NEXT','  NIGHT_PREV','   NIGHT_NOW'   &
-                                          ,'  NIGHT_NEXT','     MET_FRQ','       WPREV'    &
-                                          ,'       WNEXT','   FLUX_PREV','   SECZ_PREV'    &
-                                          ,'  FPERP_PREV','   FLUX_NEXT','   SECZ_NEXT'    &
-                                          ,'  FPERP_NEXT','    FLUX_NOW','    COSZ_NOW'    &
-                                          ,'   FPERP_NOW'
+                                           ,'  NIGHT_NEXT','     MET_FRQ','       WPREV'   &
+                                           ,'       WNEXT','   FLUX_PREV','CHAPMAN_PREV'   &
+                                           ,'  FPERP_PREV','   FLUX_NEXT','CHAPMAN_NEXT'   &
+                                           ,'  FPERP_NEXT','    FLUX_NOW','    COSZ_NOW'   &
+                                           ,'EFF_COSZ_NOW','   FPERP_NOW'
             close (unit=87,status='keep')
             !------------------------------------------------------------------------------!
 
@@ -768,11 +778,11 @@ module radiate_utils
             write (unit=87,fmt=fmth)                                                       &
                                   '             WHEN_PREV','              WHEN_NOW'        &
                                  ,'             WHEN_NEXT','  NIGHT_PREV','   NIGHT_NOW'   &
-                                          ,'  NIGHT_NEXT','     MET_FRQ','       WPREV'    &
-                                          ,'       WNEXT','   FLUX_PREV','   SECZ_PREV'    &
-                                          ,'  FPERP_PREV','   FLUX_NEXT','   SECZ_NEXT'    &
-                                          ,'  FPERP_NEXT','    FLUX_NOW','    COSZ_NOW'    &
-                                          ,'   FPERP_NOW'
+                                           ,'  NIGHT_NEXT','     MET_FRQ','       WPREV'   &
+                                           ,'       WNEXT','   FLUX_PREV','CHAPMAN_PREV'   &
+                                           ,'  FPERP_PREV','   FLUX_NEXT','CHAPMAN_NEXT'   &
+                                           ,'  FPERP_NEXT','    FLUX_NOW','    COSZ_NOW'   &
+                                           ,'EFF_COSZ_NOW','   FPERP_NOW'
             close (unit=87,status='keep')
             !------------------------------------------------------------------------------!
 
@@ -797,7 +807,7 @@ module radiate_utils
                              ,nextmet_timea%year,nextmet_timea%hour,'.',nextmet_timea%min  &
                              ,'.',nextmet_timea%sec,'UTC'
       fperp_now = fperp_prev * wprev + fperp_next * wnext
-      night_now = cgrid%cosz(ipy) <= cosz_min
+      night_now = cgrid%eff_cosz(ipy) <= cosz_min
       !------------------------------------------------------------------------------------!
 
 
@@ -806,8 +816,9 @@ module radiate_utils
       !------------------------------------------------------------------------------------!
       open(unit=87,file=trim(thisfile),status='old',action='write',position='append')
       write(unit=87,fmt=fmtd) when_prev,when_now,when_next,night_prev,night_now,night_next &
-                             ,met_frq,wprev,wnext,flux_prev,secz_prev,fperp_prev,flux_next &
-                             ,secz_next,fperp_next,flux_now,cgrid%cosz(ipy),fperp_now
+                             ,met_frq,wprev,wnext,flux_prev,chapman_prev,fperp_prev        &
+                             ,flux_next,chapman_next,fperp_next,flux_now,cgrid%cosz(ipy)   &
+                             ,cgrid%eff_cosz(ipy),fperp_now
       close(unit=87,status='keep')
       !------------------------------------------------------------------------------------!
       return
@@ -824,37 +835,38 @@ module radiate_utils
    !=======================================================================================!
    !     This subroutine calculates angle of incidence based on local slope and aspect.    !
    !---------------------------------------------------------------------------------------!
-   subroutine angle_of_incid(aoi,cosz,solar_hour_aspect,slope,terrain_aspect)
+   subroutine angle_of_incid(aoi,eff_cosz,solar_hour_aspect,slope,terrain_aspect)
+      use consts_coms, only : tiny_offset ! ! intent(in)
       implicit none
       !----- Arguments. -------------------------------------------------------------------!
-      real, intent(in)  :: cosz              ! Cosine of zenithal angle
+      real, intent(in)  :: eff_cosz          ! Effective cosine of zenithal angle
       real, intent(in)  :: slope             ! Terrain slope
       real, intent(in)  :: solar_hour_aspect ! horizontal location of the sun defined with
                                              !    the same reference as terrain aspect.
       real, intent(in)  :: terrain_aspect    ! Terrain aspect
       real, intent(out) :: aoi               ! Angle of incidence
       !----- Local variables. -------------------------------------------------------------!
-      real(kind=8)      :: cosz8     ! Double prec. counterpart of cosz
-      real(kind=8)      :: sinz8     ! Sine of zenithal angle
-      real(kind=8)      :: slope8    ! Double prec. counterpart of slope
-      real(kind=8)      :: sh_asp8   ! Double prec. counterpart of solar_hour_aspect
-      real(kind=8)      :: terr_asp8 ! Double prec. counterpart of terrain_aspect
-      real(kind=8)      :: aoi8      ! Double prec. counterpart of aoi
-      !----- Local parameters. ------------------------------------------------------------!
-      real(kind=8), parameter :: tiny_offset=1.d-20
+      real(kind=8)      :: eff_cosz8         ! Double prec. counterpart of eff_cosz
+      real(kind=8)      :: eff_sinz8         ! Effective sine of zenithal angle
+      real(kind=8)      :: slope8            ! Double prec. counterpart of slope
+      real(kind=8)      :: sh_asp8           ! Double prec. counterpart of solar_hour_aspect
+      real(kind=8)      :: terr_asp8         ! Double prec. counterpart of terrain_aspect
+      real(kind=8)      :: aoi8              ! Double prec. counterpart of aoi
       !----- External functions. ----------------------------------------------------------!
       real        , external  :: sngloff
       !------------------------------------------------------------------------------------!
 
-      cosz8     = dble(cosz)
-      sinz8     = sqrt(1.d0-cosz8*cosz8)
-      slope8    = dble(slope)
-      sh_asp8   = dble(solar_hour_aspect)
-      terr_asp8 = dble(terrain_aspect)
-      if (cosz8 < 0.d0) then
+      eff_cosz8     = dble(eff_cosz)
+      eff_sinz8     = sqrt(1.d0-eff_cosz8*eff_cosz8)
+      slope8        = dble(slope)
+      sh_asp8       = dble(solar_hour_aspect)
+      terr_asp8     = dble(terrain_aspect)
+      if (eff_cosz8 <= 0.d0) then
          aoi8 = 0.d0
       else
-         aoi8 = max(0.d0, cosz8*dcos(slope8) + sinz8*dsin(slope8)*dcos(sh_asp8-terr_asp8))
+         aoi8 = eff_cosz8 * dcos(slope8)                                                   &
+              + eff_sinz8 * dsin(slope8) * dcos(sh_asp8-terr_asp8)
+         aoi8 = max(0.d0, aoi8)
       end if
 
       aoi = sngloff(aoi8,tiny_offset)
@@ -961,31 +973,35 @@ module radiate_utils
 
    !=======================================================================================!
    !=======================================================================================!
-   !     This function computes the average secant of the daytime zenith angle.  In case   !
-   ! the period of integration is that accounts for the zenith angle is 0. or less than    !
-   ! one time step, then the average is the actual value.  Night-time periods are ignored  !
-   ! and if there is no daytime value, then we set it to 0.                                !
+   !     This function computes the average Chapman function (secant of the daytime        !
+   ! effective zenith angle).  When the period of integration is less than one time step,  !
+   ! then the average is the actual value.  Night-time periods are ignored and if there is !
+   ! no daytime value, then we set it to 0. Twilight may or may not be accounted for,      !
+   ! depending on the add_twilight flag.                                                   !
    !---------------------------------------------------------------------------------------!
-   real function mean_daysecz(plon,plat,whena,dt,tmax)
+   real function mean_chapman(plon,plat,whena,dt,tmax,add_twilight)
       use update_derived_utils , only : update_model_time_dm ! ! sub-routine
       use ed_misc_coms         , only : simtime              ! ! structure
-      use canopy_radiation_coms, only : cosz_min             ! ! intent(in)
+      use canopy_radiation_coms, only : cosz_min             & ! intent(in)
+                                      , find_eff_cosz        ! ! sub-routine
       implicit none
       !------ Arguments. ------------------------------------------------------------------!
-      real(kind=4) , intent(in) :: plon
-      real(kind=4) , intent(in) :: plat
-      type(simtime), intent(in) :: whena
-      real(kind=4) , intent(in) :: dt
-      real(kind=4) , intent(in) :: tmax
+      real(kind=4) , intent(in) :: plon              ! Longitude
+      real(kind=4) , intent(in) :: plat              ! Latitude
+      type(simtime), intent(in) :: whena             ! Current time
+      real(kind=4) , intent(in) :: dt                ! Time step
+      real(kind=4) , intent(in) :: tmax              ! Maximum time
+      logical      , intent(in) :: add_twilight      ! Add twilight times to the average?
       !------ Local variables. ------------------------------------------------------------!
-      type(simtime)             :: now          ! Current time
-      integer                   :: is           ! Step counter
-      integer                   :: nsteps       ! Number of steps to perform the average
-      real                      :: dtfit        ! Delta-t that nicely fits within tmax
-      real                      :: dtnow        ! Delta-t for this time
-      real                      :: cosz         ! Declination
-      real                      :: daytot       ! Total time that was daytime
-      real                      :: mean_daycosz ! Average cosine of zenith angle
+      type(simtime)             :: now               ! Current time
+      integer                   :: is                ! Step counter
+      integer                   :: nsteps            ! # of steps to perform the average
+      real                      :: dtfit             ! Delta-t that nicely fits within tmax
+      real                      :: dtnow             ! Delta-t for this time
+      real                      :: cosz              ! Cosine of zenith angle
+      real                      :: eff_cosz          ! Effective cosine of zenith angle
+      real                      :: daytot            ! Total time that was daytime
+      real                      :: mean_eff_cosz     ! Average eff. cosine of zenith angle
       !------------------------------------------------------------------------------------!
 
 
@@ -995,12 +1011,13 @@ module radiate_utils
       !------------------------------------------------------------------------------------!
       if (dt >= tmax) then
          !----- Less than one time, no average necessary. ---------------------------------!
-         cosz = ed_zen(plon,plat,whena)
-         if (cosz > cosz_min) then
-            mean_daysecz = 1.0 / cosz
+         cosz     = ed_zen(plon,plat,whena)
+         eff_cosz = find_eff_cosz(cosz)
+         if ( ( cosz > cosz_min) .or. (add_twilight .and. eff_cosz > cosz_min) ) then
+            mean_chapman = 1.0 / eff_cosz
          else
             !----- Night-time, set the mean to zero. --------------------------------------!
-            mean_daysecz = 0.0
+            mean_chapman = 0.0
          end if
 
       else
@@ -1012,8 +1029,8 @@ module radiate_utils
          dtfit  = tmax / real(nsteps)
          !---------------------------------------------------------------------------------!
 
-         mean_daycosz = 0.0
-         daytot       = 0.0
+         mean_eff_cosz = 0.0
+         daytot           = 0.0
          do is=1,nsteps
             !----- Get the current time. --------------------------------------------------!
             now   = whena
@@ -1021,12 +1038,13 @@ module radiate_utils
             call update_model_time_dm(now,dtnow)
 
             !----- Get the cosine of the zenith angle. ------------------------------------!
-            cosz = ed_zen(plon,plat,now)
+            cosz     = ed_zen(plon,plat,now)
+            eff_cosz = find_eff_cosz(cosz)
 
             !----- Add to the integral only if it this value is valid. --------------------!
-            if (cosz > cosz_min) then
-               mean_daycosz = mean_daycosz + dtfit * cosz 
-               daytot       = daytot       + dtfit
+            if ( ( cosz > cosz_min) .or. (add_twilight .and. eff_cosz > cosz_min) ) then
+               mean_eff_cosz = mean_eff_cosz + dtfit * eff_cosz
+               daytot        = daytot        + dtfit
             end if
             !------------------------------------------------------------------------------!
          end do
@@ -1037,17 +1055,17 @@ module radiate_utils
          !---------------------------------------------------------------------------------!
          !     Find the normalisation factor.                                              !
          !---------------------------------------------------------------------------------!
-         if (daytot > 0.0 .and. mean_daycosz > 0.0) then
-            mean_daycosz = mean_daycosz / daytot
-            mean_daysecz = 1.0 / mean_daycosz
+         if (daytot > 0.0 .and. mean_eff_cosz > 0.0) then
+            mean_eff_cosz = mean_eff_cosz / daytot
+            mean_chapman  = 1.0 / mean_eff_cosz
          else
-            mean_daysecz = 0.0
+            mean_chapman = 0.0
          end if
          !---------------------------------------------------------------------------------!
       end if
 
       return
-   end function mean_daysecz
+   end function mean_chapman
    !=======================================================================================!
    !=======================================================================================!
 end module radiate_utils
