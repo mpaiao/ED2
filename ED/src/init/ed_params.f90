@@ -7305,13 +7305,13 @@ subroutine init_can_rad_params()
                                     , wood_emiss_tir              & ! intent(out)
                                     , fvis_beam_def               & ! intent(out)
                                     , fvis_diff_def               & ! intent(out)
-                                    , fnir_beam_def               & ! intent(out)
-                                    , fnir_diff_def               & ! intent(out)
                                     , snow_albedo_vis             & ! intent(out)
                                     , snow_albedo_nir             & ! intent(out)
                                     , snow_emiss_tir              & ! intent(out)
                                     , rshort_twilight_min         & ! intent(out)
-                                    , cosz_min                    ! ! intent(out)
+                                    , cosz_min                    & ! intent(out)
+                                    , use_huestis_eff_cosz        & ! intent(out)
+                                    , dzen_ref                    ! ! intent(out)
    use pft_coms              , only : is_grass                    & ! intent(in)
                                     , is_tropical                 & ! intent(in)
                                     , is_conifer                  ! ! intent(in)
@@ -7496,18 +7496,26 @@ subroutine init_can_rad_params()
    ! Also rshort_twilight_min provides an extra threshold for when twilight conditions are !
    ! met or exceeded.                                                                      !
    !---------------------------------------------------------------------------------------!
-   cosz_min            = cos(89.9*pio180) ! cos(89.5*pio180)
+   cosz_min            = cos(89.95*pio180) ! cos(89.5*pio180)
    rshort_twilight_min = 0.5
    !---------------------------------------------------------------------------------------!
 
 
+   !---------------------------------------------------------------------------------------!
+   !    Flag to determine whether or not to use the modified Chapman function to find the  !
+   ! "effective" cosine of zenith angle that accounts for the Earth's curvature (and so    !
+   ! it allows solving twilight irradiance).  To fall back to ED-2.2 default, set this     !
+   ! flag to .false.                                                                       !
+   !---------------------------------------------------------------------------------------!
+   use_huestis_eff_cosz = .true.
+   !---------------------------------------------------------------------------------------!
 
 
    !---------------------------------------------------------------------------------------!
    !     This variable is the resolution (in degrees) for deriving the look-up table for   !
    ! the modified Chapman's function.                                                      !
    !---------------------------------------------------------------------------------------!
-   dzen_ref = 5.0d-2
+   dzen_ref = 1.0d-2
    !---------------------------------------------------------------------------------------!
 
 
@@ -8303,7 +8311,7 @@ subroutine init_derived_params_after_xml()
                                    , fnir_diff_def             & ! intent(out)
                                    , cosz_min8                 & ! intent(out)
                                    , nzen_ref                  & ! intent(out)
-                                   , zend_ref                  & ! intent(out)
+                                   , zen_ref                   & ! intent(out)
                                    , huestis_ref               & ! intent(out)
                                    , leaf_scatter_vis          & ! intent(out)
                                    , leaf_backscatter_vis      & ! intent(out)
@@ -9024,10 +9032,10 @@ subroutine init_derived_params_after_xml()
    !     Assign the dimensions for the modified Chapman function look-up table, and        !
    ! set the reference zenith angles and modified Chapman function values.                 !
    !---------------------------------------------------------------------------------------!
-   nzen_ref = ceiling( 1.80d2 / dzen_ref)
-   allocate(zend_ref   (nzen_ref))
+   nzen_ref = 1 + ceiling( 1.80d2 / dzen_ref)
+   allocate(zen_ref    (nzen_ref))
    allocate(huestis_ref(nzen_ref))
-   call set_huestis_lut(nzen_ref,dzen_ref,zend_ref,huestis_ref)
+   call set_huestis_lut()
    !---------------------------------------------------------------------------------------!
 
 

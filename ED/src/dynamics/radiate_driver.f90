@@ -16,6 +16,7 @@ module radiate_driver
                                        , patchtype             ! ! structure
       use ed_para_coms          , only : nthreads              ! ! intent(in)
       use canopy_radiation_coms , only : cosz_min              & ! intent(in)
+                                       , use_huestis_eff_cosz  & ! intent(in)
                                        , rshort_twilight_min   & ! intent(in)
                                        , find_eff_cosz         ! ! intent(in)
       use consts_coms           , only : pio180                ! ! intent(in)
@@ -91,12 +92,16 @@ module radiate_driver
                !    Find the two logicals, that will tell whether the time exceeds the     !
                ! (lower) thresholds for twilight and daytime.                              !
                !---------------------------------------------------------------------------!
-               daytime  = cgrid%cosz    (ipy)   > cosz_min             .and.               &
-                          cpoly%cosaoi  (isi)   > cosz_min             .and.               &
-                          cpoly%met(isi)%rshort > rshort_twilight_min
-               twilight = cgrid%eff_cosz(ipy)   > cosz_min             .and.               &
-                          cpoly%cosaoi  (isi)   > cosz_min             .and.               &
-                          cpoly%met(isi)%rshort > rshort_twilight_min
+               if (use_huestis_eff_cosz) then
+                  daytime  = cgrid%cosz    (ipy)   > cosz_min             .and.            &
+                             cpoly%met(isi)%rshort > rshort_twilight_min
+                  twilight = cpoly%cosaoi  (isi)   > cosz_min             .and.            &
+                             cpoly%met(isi)%rshort > rshort_twilight_min
+               else
+                  daytime  = cpoly%cosaoi  (isi)   > cosz_min             .and.            &
+                             cpoly%met(isi)%rshort > rshort_twilight_min
+                  twilight = cpoly%met(isi)%rshort > rshort_twilight_min
+               end if
                !---------------------------------------------------------------------------!
 
 

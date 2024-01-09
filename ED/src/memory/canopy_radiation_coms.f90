@@ -310,12 +310,14 @@ module canopy_radiation_coms
    !---------------------------------------------------------------------------------------!
    !     Define variables for computing the modified Chapman function.                     !
    !---------------------------------------------------------------------------------------!
+   !----- Use the modified Chapman (.true. means yes, .false. sets eff_cosz = cosz). ------!
+   logical                                 :: use_huestis_eff_cosz
    !----- Zenith angle resolution of the look-up table for the Chapman function. ----------!
    real(kind=8)                            :: dzen_ref
    !----- Dimension of the look-up table bins. --------------------------------------------!
    integer                                 :: nzen_ref
    !----- Reference zenith angles for the Chapman function. -------------------------------!
-   real(kind=8), dimension(:), allocatable :: zend_ref
+   real(kind=8), dimension(:), allocatable :: zen_ref
    !----- Reference values for the modified Chapman function (Huestis et al. 2001). -------!
    real(kind=8), dimension(:), allocatable :: huestis_ref
    !---------------------------------------------------------------------------------------!
@@ -478,7 +480,7 @@ module canopy_radiation_coms
    !       attenuation. J. Quant. Spectrosc. Radiat. Transf., 69: 709-721.                 !
    !       doi:10.1016/S0022-4073(00)00107-2                                               !
    !---------------------------------------------------------------------------------------!
-   subroutine set_huestis_lut(nzen,dzen,zend,huestis)
+   subroutine set_huestis_lut()
       use consts_coms, only : erad       & ! intent(in)
                             , ehgt       & ! intent(in)
                             , pio1808    & ! intent(in)
@@ -487,22 +489,17 @@ module canopy_radiation_coms
                             , lnexp_max8 ! ! intent(in)
 
       implicit none
-      !----- Arguments. -------------------------------------------------------------------!
-      integer                      , intent(in)  :: nzen    ! Number of bins
-      real(kind=8)                 , intent(in)  :: dzen    ! Bin width
-      real(kind=8), dimension(nzen), intent(out) :: zend    ! Reference zenith angle
-      real(kind=8), dimension(nzen), intent(out) :: huestis ! Modified Chapman function
       !----- Local variables. -------------------------------------------------------------!
       real(kind=8) :: xcurve       ! Curvature ratio
       real(kind=8) :: lambda       ! Integrating element for zenith angles
       real(kind=8) :: dlambda      ! Integrating width for zenith angles
-      real(kind=8) :: sin_zend     ! Sine of zend
+      real(kind=8) :: sin_zen      ! Sine of zen
       real(kind=8) :: sin_lambda   ! Sine of lambda
       real(kind=8) :: cos_lambda   ! Cosine of lambda
       real(kind=8) :: ln_kernel    ! Natural logarithm of the kernel
       real(kind=8) :: kernel       ! Kernel
-      real(kind=8) :: integ_kernel ! Integral of the kernel from 0 to the current angle.
-      integer      :: i            ! Row counter
+      real(kind=8) :: integ_kern   ! Integral of the kernel from 0 to the current angle.
+      integer      :: i            ! Row    counter
       integer      :: j            ! Column counter
       !------------------------------------------------------------------------------------!
 
@@ -517,63 +514,80 @@ module canopy_radiation_coms
       !------------------------------------------------------------------------------------!
       !      Define the reference zenith angles.                                           !
       !------------------------------------------------------------------------------------!
-      do i=1,nzen
-         zend    (i) = min(1.80d2, dzen * dble(i-1) )
+      do i=1,nzen_ref
+         zen_ref(i) = min(1.80d2, dzen_ref * dble(i-1) )
       end do
       !------------------------------------------------------------------------------------!
 
 
       !------------------------------------------------------------------------------------!
-      !      Initialise integrator and the modified Chapman function for the first         !
-      ! element, which should be always 1.                                                 !
+      !      Initialise the modified Chapman function for the first element, which should  !
+      ! be always 1.                                                                       !
       !------------------------------------------------------------------------------------!
-      integ_kern = 0.d0
-      huestis(1) = 1.d0
+      integ_kern     = 0.d0
+      huestis_ref(1) = 1.d0
       !------------------------------------------------------------------------------------!
 
 
       !------------------------------------------------------------------------------------!
-      !      Integrate kernel for the first bin. We use a staggered approach for computing !
-      ! the kernels and deriving the modified Chapman function evaluation.                 !
+      !      Integrate kernel. We use a staggered approach for computing the kernels and   !
+      ! deriving the modified Chapman function evaluation.                                 !
       !------------------------------------------------------------------------------------!
-      do i=2,nzen
-         !----- Find the mid points for integrand, and the trigonometric functions. -------!
-         lambda     = 5.d-1 * ( zend(i-1) + zend(i) )
-         dlambda    = zend(i) - zend(i-1)
-         sin_zend   = sin( zend(i) * pio1808 )
-         sin_lambda = sin( lambda  * pio1808 )
-         cos_lambda = cos( lambda  * pio1808 )
+      i_loop: do i=2,nzen_ref
+
+         !---------------------------------------------------------------------------------!
+         !     Find the zenith of the reference angle, and initialise integrator.          !
+         !---------------------------------------------------------------------------------!
+         integ_kern = 0.d0
+         sin_zen    = sin( zen_ref(i) * pio1808 )
          !---------------------------------------------------------------------------------!
 
 
-
          !---------------------------------------------------------------------------------!
-         !     Find kernel. When the sine of lambda approaches zero, the kernel function   !
-         ! becomes undefined, so we use the limit values instead, as our goal is to        !
-         ! integrate the function.  Also, we cap the natural logarithm of the kernel to    !
-         ! avoid floating point exceptions (though it should be safe with double           !
-         ! precision).                                                                     !
+         !     Integrate kernel.                                                           !
          !---------------------------------------------------------------------------------!
-         if ( abs(sin_lambda) < tiny_num8 ) then
-            kernel    = 0.d0
-         elseif (abs(1.d0+cos_lambda) < tiny_num8) then
-            kernel    = exp(lnexp_max8)
-         else
-            ln_kernel = xcurve * ( 1.d0 - sin_zend / sin_lambda )
-            ln_kernel = max(lnexp_min8,min(lnexp_max8,ln_kernel))
-            kernel    = exp(ln_kernel) / ( 1.d0 + cos_lambda )
-         end if
-         !---------------------------------------------------------------------------------!
+         j_loop: do j=2,i
+            !----- Find the mid points for integrand, and the trigonometric functions. ----!
+            lambda     = 5.d-1 * ( zen_ref(j-1) + zen_ref(j) )
+            dlambda    = zen_ref(j) - zen_ref(j-1)
+            sin_lambda = sin( lambda * pio1808 )
+            cos_lambda = cos( lambda * pio1808 )
+            !------------------------------------------------------------------------------!
 
 
 
+            !------------------------------------------------------------------------------!
+            !     Find kernel. When the sine of lambda approaches zero, the kernel         !
+            ! function becomes undefined, so we use the limit values instead, as our goal  !
+            ! is to integrate the function.  Also, we cap the natural logarithm of the     !
+            ! kernel to avoid floating point exceptions (though it should be safe with     !
+            ! double precision).                                                           !
+            !------------------------------------------------------------------------------!
+            if ( abs(sin_lambda) < tiny_num8 ) then
+               kernel    = 0.d0
+            elseif (abs(1.d0+cos_lambda) < tiny_num8) then
+               kernel    = exp(lnexp_max8)
+            else
+               ln_kernel = xcurve * ( 1.d0 - sin_zen / sin_lambda )
+               ln_kernel = max(lnexp_min8,min(lnexp_max8,ln_kernel))
+               kernel    = exp(ln_kernel) / ( 1.d0 + cos_lambda )
+            end if
+            !------------------------------------------------------------------------------!
+
+
+            !------------------------------------------------------------------------------!
+            !     Update the kernel integral.
+            !------------------------------------------------------------------------------!
+            integ_kern = integ_kern + kernel * dlambda * pio1808
+            !------------------------------------------------------------------------------!
+         end do j_loop
+
          !---------------------------------------------------------------------------------!
-         !     Update the kernel integral and find the modified Chapman function.          !
+         !     Find the modified Chapman function at zen = zen_ref(i).                     !
          !---------------------------------------------------------------------------------!
-         integ_kern = integ_kern + kernel * dlambda_ref * pio1808
-         huestis(i) = min( exp(lnexp_max8), 1.d0 + xcurve*sin(zend*pio1808) * integ_kern)
+         huestis_ref(i) = min( exp(lnexp_max8), 1.d0 + xcurve * sin_zen * integ_kern)
          !---------------------------------------------------------------------------------!
-      end do
+      end do i_loop
       !------------------------------------------------------------------------------------!
 
       return
@@ -593,8 +607,8 @@ module canopy_radiation_coms
    ! cosine of the zenith angle.                                                           !
    !---------------------------------------------------------------------------------------!
    real(kind=4) function find_eff_cosz(cosz)
-      use consts_coms, only : pio1808     & ! intent(in)
-                            , tiny_offset ! ! intent(in)
+      use consts_coms, only : pio1808  & ! intent(in)
+                            , tiny_num ! ! intent(in)
       implicit none
       !----- Arguments. -------------------------------------------------------------------!
       real(kind=4), intent(in ) :: cosz
@@ -610,34 +624,47 @@ module canopy_radiation_coms
       !------------------------------------------------------------------------------------!
 
 
-
-      !----- Find the zenith angle and the nearest look-up table points. ------------------!
-      zen   = acos( dble(cosz) ) / pio1808
-      iprev = max(1       ,floor  ( zen / dzen_ref ))
-      inext = min(nzen_ref,ceiling( zen / dzen_ref ))
       !------------------------------------------------------------------------------------!
+      !    Check whether to actually find the effective cosine of the zenith angle or just !
+      ! use the actual one.                                                                !
+      !------------------------------------------------------------------------------------!
+      if (use_huestis_eff_cosz) then
+
+         !----- Find the zenith angle and the nearest look-up table points. ---------------!
+         zen   = acos( dble(cosz) ) / pio1808
+         iprev = max(1       ,floor  ( zen / dzen_ref ))
+         inext = min(nzen_ref,ceiling( zen / dzen_ref ))
+         !---------------------------------------------------------------------------------!
 
 
-      !------------------------------------------------------------------------------------!
-      !     Retrieve either the exact value from the look-up table (when the zenith        !
-      ! angle matches a value in the look-up table or when both values of the modified     !
-      ! Chapman function are identical) or log-linearly interpolate the values.            !
-      !------------------------------------------------------------------------------------!
-      if (huestis(iprev) == huestis(inext)) then
-         chapman  = huestis_ref(iprev)
+         !---------------------------------------------------------------------------------!
+         !     Retrieve either the exact value from the look-up table (when the zenith     !
+         ! angle matches a value in the look-up table or when both values of the modified  !
+         ! Chapman function are identical) or log-linearly interpolate the values.         !
+         !---------------------------------------------------------------------------------!
+         if (huestis_ref(iprev) == huestis_ref(inext)) then
+            chapman  = huestis_ref(iprev)
+         else
+            pwr_next = ( zen - zen_ref(iprev) ) / ( zen_ref(inext) - zen_ref(iprev))
+            pwr_prev = 1.d0 - pwr_next
+            chapman  = huestis_ref(iprev) ** pwr_prev * huestis_ref(inext) ** pwr_next
+         end if
+         !---------------------------------------------------------------------------------!
+
+
+         !---------------------------------------------------------------------------------!
+         !     The effective cosine of the zenith angle is the inverse of the Chapman      !
+         ! function.                                                                       !
+         !---------------------------------------------------------------------------------!
+         find_eff_cosz = sngloff( 1.d0 / chapman, tiny_num)
+         !---------------------------------------------------------------------------------!
       else
-         pwr_next = ( zen - zen_ref(iprev) ) / ( zen_ref(inext) - zen_ref(iprev))
-         pwr_prev = 1.d0 - pwr_next
-         chapman  = huestis_ref(iprev) ** pwr_prev * huestis_ref(inext) ** pwr_next
+         !---------------------------------------------------------------------------------!
+         !     Do not use the effective cosine of the zenith angle.                        !
+         !---------------------------------------------------------------------------------!
+         find_eff_cosz = cosz
+         !---------------------------------------------------------------------------------!
       end if
-      !------------------------------------------------------------------------------------!
-
-
-      !------------------------------------------------------------------------------------!
-      !     The effective cosine of the zenith angle is the inverse of the Chapman         !
-      ! function.                                                                          !
-      !------------------------------------------------------------------------------------!
-      find_eff_cosz = sngloff( 1.d0 / chapman, tiny_num)
       !------------------------------------------------------------------------------------!
 
       return

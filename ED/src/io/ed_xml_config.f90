@@ -220,22 +220,24 @@ recursive subroutine read_ed_xml_config(filename)
      do i=1,ntag
         call libxml2f90__ll_selecttag('DOWN','can_rad',i)
 
-        call getConfigREAL  ('fvis_beam_def'      ,'can_rad',i,rval,texist)
-        if (texist) fvis_beam_def       = sngloff(rval,tiny_offset)
-        call getConfigREAL  ('fvis_diff_def'      ,'can_rad',i,rval,texist)
-        if (texist) fvis_diff_def       = sngloff(rval,tiny_offset)
-        call getConfigREAL  ('snow_albedo_vis'    ,'can_rad',i,rval,texist)
-        if (texist) snow_albedo_vis     = sngloff(rval,tiny_offset)
-        call getConfigREAL  ('snow_albedo_nir'    ,'can_rad',i,rval,texist)
-        if (texist) snow_albedo_nir     = sngloff(rval,tiny_offset)
-        call getConfigREAL  ('snow_emiss_tir'     ,'can_rad',i,rval,texist)
-        if (texist) snow_emiss_tir      = sngloff(rval,tiny_offset)
-        call getConfigREAL  ('cosz_min'           ,'can_rad',i,rval,texist)
-        if (texist) cosz_min            = sngloff(rval,tiny_offset)
-        call getConfigREAL  ('rshort_twilight_min','can_rad',i,rval,texist)
-        if (texist) rshort_twilight_min = sngloff(rval,tiny_offset)
-        call getConfigREAL  ('chap_dzen'          ,'can_rad',i,rval,texist)
-        if (texist) chap_dzen           = rval
+        call getConfigREAL  ('fvis_beam_def'       ,'can_rad',i,rval,texist)
+        if (texist) fvis_beam_def        = sngloff(rval,tiny_offset)
+        call getConfigREAL  ('fvis_diff_def'       ,'can_rad',i,rval,texist)
+        if (texist) fvis_diff_def        = sngloff(rval,tiny_offset)
+        call getConfigREAL  ('snow_albedo_vis'     ,'can_rad',i,rval,texist)
+        if (texist) snow_albedo_vis      = sngloff(rval,tiny_offset)
+        call getConfigREAL  ('snow_albedo_nir'     ,'can_rad',i,rval,texist)
+        if (texist) snow_albedo_nir      = sngloff(rval,tiny_offset)
+        call getConfigREAL  ('snow_emiss_tir'      ,'can_rad',i,rval,texist)
+        if (texist) snow_emiss_tir       = sngloff(rval,tiny_offset)
+        call getConfigREAL  ('cosz_min'            ,'can_rad',i,rval,texist)
+        if (texist) cosz_min             = sngloff(rval,tiny_offset)
+        call getConfigREAL  ('rshort_twilight_min' ,'can_rad',i,rval,texist)
+        if (texist) rshort_twilight_min  = sngloff(rval,tiny_offset)
+        call getConfigINT   ('use_huestis_eff_cosz','can_rad',i,ival,texist)
+        if (texist) use_huestis_eff_cosz = ival == 1
+        call getConfigREAL  ('dzen_ref'            ,'can_rad',i,rval,texist)
+        if (texist) dzen_ref             = rval
         call libxml2f90__ll_selecttag('UP','config',1) !move back up to top level
 
       end do
@@ -1906,7 +1908,13 @@ subroutine write_ed_xml_config
      call putConfigREAL ("snow_emiss_tir"      , snow_emiss_tir      )
      call putConfigREAL ("cosz_min"            , cosz_min            )
      call putConfigREAL ("rshort_twilight_min" , rshort_twilight_min )
-     call putConfigREAL8("chap_dzen"           , chap_dzen           )
+     if (use_huestis_eff_cosz) then
+        ival = 1
+     else
+        ival = 0
+     end if
+     call putConfigINT  ("use_huestis_eff_cosz", ival                )
+     call putConfigREAL8("dzen_ref"            , dzen_ref            )
   call libxml2f90_ll_closetag("can_read")
 
 

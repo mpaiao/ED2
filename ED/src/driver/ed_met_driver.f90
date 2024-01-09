@@ -1387,7 +1387,7 @@ module ed_met_driver
                            case default
                               chapman_prev =                                               &
                                  mean_chapman(cgrid%lon(ipy),cgrid%lat(ipy),prevmet_timea  &
-                                             ,dt_radinterp,met_frq(iformat,iv))
+                                             ,dt_radinterp,met_frq(iformat,iv),.true.)
                            end select
                            !---------------------------------------------------------------!
 

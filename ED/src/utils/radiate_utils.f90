@@ -328,7 +328,7 @@ module radiate_utils
          ! 4, 5, and 10 of WN85.                                                           !
          !---------------------------------------------------------------------------------!
          nir_beam_pot = ( nir_beam_top                                                     &
-                        * exp ( nir_beam_expext * (atm_prss/prefsea) * chapman) - w10 ) 
+                        * exp ( nir_beam_expext * (atm_prss/prefsea) * chapman) - w10 )    &
                         * eff_cosz
          nir_diff_pot = nir2diff_sun * ( nir_beam_top - nir_beam_pot - w10 ) * eff_cosz
          nir_full_pot = nir_beam_pot + nir_diff_pot
@@ -404,8 +404,8 @@ module radiate_utils
    !     of two competing plant species.  Int. J. Biometeorol. 54, 283-295.                !
    !     doi:10.1007/s00484-009-0279-3 (BX10).                                             !
    !---------------------------------------------------------------------------------------!
-   subroutine short_bdown_clearidx(rshort_full,cosz,par_beam,par_diff,nir_beam,nir_diff    &
-                                  ,rshort_diff)
+   subroutine short_bdown_clearidx(rshort_full,cosz,eff_cosz,par_beam,par_diff,nir_beam    &
+                                  ,nir_diff,rshort_diff)
       use consts_coms          , only : solar         & ! intent(in)
                                       , lnexp_min     & ! intent(in)
                                       , lnexp_max     ! ! intent(in)
@@ -836,7 +836,7 @@ module radiate_utils
    !     This subroutine calculates angle of incidence based on local slope and aspect.    !
    !---------------------------------------------------------------------------------------!
    subroutine angle_of_incid(aoi,eff_cosz,solar_hour_aspect,slope,terrain_aspect)
-      use consts_coms, only : tiny_offset ! ! intent(in)
+      use rk4_coms, only : tiny_offset ! ! intent(in)
       implicit none
       !----- Arguments. -------------------------------------------------------------------!
       real, intent(in)  :: eff_cosz          ! Effective cosine of zenithal angle
