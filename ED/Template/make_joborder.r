@@ -16,12 +16,11 @@ graphics.off()
 #------------------------------------------------------------------------------------------#
 #------------------------------------------------------------------------------------------#
 here       = getwd()                                  # Current directory
-srcdir     = c("/prj/prjidfca/marcosl/Util/Rsc"       # Possible paths with libraries
-              ,"/prj/bramsolam/marcos.longo/Util/Rsc" #    R will select the first one that
-              ,"/n/home00/mlongo/Util/Rsc"            #    is found, or issue an error
-              ,"/Users/mlongo/Util/Rsc"               #    message in case none of them
-              ,"/home/mlongo/Util/Rsc"                #    exist.
-              )#end c                                 #
+srcdir     = file.path(path.expand("~"),"Util","Rsc") # Possible paths with libraries
+                                                      #    R will select the first one that
+                                                      #    is found, or issue an error
+                                                      #    message in case none of them
+                                                      #    exist.
 outfile    = file.path(here,"joborder.txt")           # Job order
 defjob     = FALSE                                    # Generate the default job order?
 append.job = FALSE                                    # Append job? (FALSE means new file)

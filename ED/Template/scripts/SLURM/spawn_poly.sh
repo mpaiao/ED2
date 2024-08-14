@@ -2475,7 +2475,7 @@ do
                echo " IAGE:     ${iage}"
                echo " ISIZEPFT: ${isizepft}"
                echo " INITMODE: ${initmode}"
-               echo "This IATA cannot be initiealised with these settings!"
+               echo "This IATA cannot be initialised with these settings!"
                exit 59
                ;;
             esac
