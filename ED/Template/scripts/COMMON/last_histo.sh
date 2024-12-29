@@ -10,10 +10,10 @@ here=""                                        # Main path
 diskthere=""                                   # Disk where the output files are
 joborder="${here}/joborder.txt"                # File with the job instructions
 bzip2="/bin/gzip -9"                           # Program to compress files (with options)
-checkhourly="y"                                # Check hourly files.
-checkstatus="y"                                # Check status before compressing
+checkhourly=""                                 # Check hourly files.
+checkstatus=""                                 # Check status before compressing
 #------ Calculator. -----------------------------------------------------------------------#
-ccc="${HOME}/Util/calc.sh"  # Calculator
+ccc="${HOME}/util/calc.sh"  # Calculator
 #------ # of history files to keep (in odyssey's world, always keep more than one). -------#
 retain=3
 #------------------------------------------------------------------------------------------#
@@ -47,11 +47,20 @@ daymax=(0 31 28 31 30 31 30 31 31 30 31 30 31)
 
 
 
-#----- This script is normally ran with crontab.  Make sure the main path is set. ---------#
-if [ "x${here}" == "x" ]
+#------------------------------------------------------------------------------------------#
+#     Look for variables that may nThis script is normally ran with crontab.  Make sure the main path is set. ---------#
+#------------------------------------------------------------------------------------------#
+bad=0
+if [[ "x${here}"        == "x" ]] || [[ "x${checkhourly}" == "x" ]] || 
+   [[ "x${checkstatus}" == "x" ]]
 then
-   echo " here = ${here} "
-   echo " Set up variable here before running email_reset.sh"
+   echo "------------------------------------------------------------"
+   echo " here        = ${here}"
+   echo " checkhourly = ${checkhourly}"
+   echo " checkstatus = ${checkstatus}"
+   echo " None of the variables above should be empty."
+   echo " Please check last_histo.sh settings."
+   echo "------------------------------------------------------------"
    exit 92
 fi
 #------------------------------------------------------------------------------------------#
@@ -84,7 +93,7 @@ do
    namehere=$(basename ${diskhere})
    diskhere=$(dirname ${diskhere})
 done
-if [ "x${diskthere}" == "x" ]
+if [[ "x${diskthere}" == "x" ]] || [[ "x${diskthere}" == "x${here}" ]]
 then
    there=${here}
 else
@@ -92,6 +101,27 @@ else
 fi
 #------------------------------------------------------------------------------------------#
 
+
+
+#------------------------------------------------------------------------------------------#
+#     Find the extention of the compressed file.                                           #
+#------------------------------------------------------------------------------------------#
+case ${bzip2} in
+*gzip*) 
+   ezip="gz"
+   ;;
+*bzip2*)
+   ezip="bz2"
+   ;;
+*compress*)
+   ezip="Z"
+   ;;
+*)
+   echo " Compressing tool (${bzip2}) is not recognised."
+   exit 1
+   ;;
+esac
+#------------------------------------------------------------------------------------------#
 
 
 
@@ -118,128 +148,129 @@ do
    # latitude.                                                                             #
    #---------------------------------------------------------------------------------------#
    oi=$(head -${line} ${joborder} | tail -1)
-   polyname=$(echo ${oi}     | awk '{print $1  }')
-   polyiata=$(echo ${oi}     | awk '{print $2  }')
-   polylon=$(echo ${oi}      | awk '{print $3  }')
-   polylat=$(echo ${oi}      | awk '{print $4  }')
-   yeara=$(echo ${oi}        | awk '{print $5  }')
-   montha=$(echo ${oi}       | awk '{print $6  }')
-   datea=$(echo ${oi}        | awk '{print $7  }')
-   timea=$(echo ${oi}        | awk '{print $8  }')
-   yearz=$(echo ${oi}        | awk '{print $9  }')
-   monthz=$(echo ${oi}       | awk '{print $10 }')
-   datez=$(echo ${oi}        | awk '{print $11 }')
-   timez=$(echo ${oi}        | awk '{print $12 }')
-   initmode=$(echo ${oi}     | awk '{print $13 }')
-   iscenario=$(echo ${oi}    | awk '{print $14 }')
-   isizepft=$(echo ${oi}     | awk '{print $15 }')
-   iage=$(echo ${oi}         | awk '{print $16 }')
-   imaxcohort=$(echo ${oi}   | awk '{print $17 }')
-   polyisoil=$(echo ${oi}    | awk '{print $18 }')
-   polyntext=$(echo ${oi}    | awk '{print $19 }')
-   polysand=$(echo ${oi}     | awk '{print $20 }')
-   polyclay=$(echo ${oi}     | awk '{print $21 }')
-   polyslsoc=$(echo ${oi}    | awk '{print $22 }')
-   polyslph=$(echo ${oi}     | awk '{print $23 }')
-   polyslcec=$(echo ${oi}    | awk '{print $24 }')
-   polysldbd=$(echo ${oi}    | awk '{print $25 }')
-   polydepth=$(echo ${oi}    | awk '{print $26 }')
-   polyslhydro=$(echo ${oi}  | awk '{print $27 }')
-   polysoilbc=$(echo ${oi}   | awk '{print $28 }')
-   polysldrain=$(echo ${oi}  | awk '{print $29 }')
-   polycol=$(echo ${oi}      | awk '{print $30 }')
-   slzres=$(echo ${oi}       | awk '{print $31 }')
-   queue=$(echo ${oi}        | awk '{print $32 }')
-   metdriver=$(echo ${oi}    | awk '{print $33 }')
-   dtlsm=$(echo ${oi}        | awk '{print $34 }')
-   monyrstep=$(echo ${oi}    | awk '{print $35 }')
-   iphysiol=$(echo ${oi}     | awk '{print $36 }')
-   vmfactc3=$(echo ${oi}     | awk '{print $37 }')
-   vmfactc4=$(echo ${oi}     | awk '{print $38 }')
-   mphototrc3=$(echo ${oi}   | awk '{print $39 }')
-   mphototec3=$(echo ${oi}   | awk '{print $40 }')
-   mphotoc4=$(echo ${oi}     | awk '{print $41 }')
-   bphotoblc3=$(echo ${oi}   | awk '{print $42 }')
-   bphotonlc3=$(echo ${oi}   | awk '{print $43 }')
-   bphotoc4=$(echo ${oi}     | awk '{print $44 }')
-   kwgrass=$(echo ${oi}      | awk '{print $45 }')
-   kwtree=$(echo ${oi}       | awk '{print $46 }')
-   gammac3=$(echo ${oi}      | awk '{print $47 }')
-   gammac4=$(echo ${oi}      | awk '{print $48 }')
-   d0grass=$(echo ${oi}      | awk '{print $49 }')
-   d0tree=$(echo ${oi}       | awk '{print $50 }')
-   alphac3=$(echo ${oi}      | awk '{print $51 }')
-   alphac4=$(echo ${oi}      | awk '{print $52 }')
-   klowco2=$(echo ${oi}      | awk '{print $53 }')
-   decomp=$(echo ${oi}       | awk '{print $54 }')
-   rrffact=$(echo ${oi}      | awk '{print $55 }')
-   growthresp=$(echo ${oi}   | awk '{print $56 }')
-   lwidthgrass=$(echo ${oi}  | awk '{print $57 }')
-   lwidthbltree=$(echo ${oi} | awk '{print $58 }')
-   lwidthnltree=$(echo ${oi} | awk '{print $59 }')
-   q10c3=$(echo ${oi}        | awk '{print $60 }')
-   q10c4=$(echo ${oi}        | awk '{print $61 }')
-   h2olimit=$(echo ${oi}     | awk '{print $62 }')
-   imortscheme=$(echo ${oi}  | awk '{print $63 }')
-   ddmortconst=$(echo ${oi}  | awk '{print $64 }')
-   cbrscheme=$(echo ${oi}    | awk '{print $65 }')
-   isfclyrm=$(echo ${oi}     | awk '{print $66 }')
-   icanturb=$(echo ${oi}     | awk '{print $67 }')
-   ubmin=$(echo ${oi}        | awk '{print $68 }')
-   ugbmin=$(echo ${oi}       | awk '{print $69 }')
-   ustmin=$(echo ${oi}       | awk '{print $70 }')
-   gamm=$(echo ${oi}         | awk '{print $71 }')
-   gamh=$(echo ${oi}         | awk '{print $72 }')
-   tprandtl=$(echo ${oi}     | awk '{print $73 }')
-   ribmax=$(echo ${oi}       | awk '{print $74 }')
-   atmco2=$(echo ${oi}       | awk '{print $75 }')
-   thcrit=$(echo ${oi}       | awk '{print $76 }')
-   smfire=$(echo ${oi}       | awk '{print $77 }')
-   ifire=$(echo ${oi}        | awk '{print $78 }')
-   fireparm=$(echo ${oi}     | awk '{print $79 }')
-   ipercol=$(echo ${oi}      | awk '{print $80 }')
-   runoff=$(echo ${oi}       | awk '{print $81 }')
-   imetrad=$(echo ${oi}      | awk '{print $82 }')
-   ibranch=$(echo ${oi}      | awk '{print $83 }')
-   icanrad=$(echo ${oi}      | awk '{print $84 }')
-   ihrzrad=$(echo ${oi}      | awk '{print $85 }')
-   crown=$(echo   ${oi}      | awk '{print $86 }')
-   ltransvis=$(echo ${oi}    | awk '{print $87 }')
-   lreflectvis=$(echo ${oi}  | awk '{print $88 }')
-   ltransnir=$(echo ${oi}    | awk '{print $89 }')
-   lreflectnir=$(echo ${oi}  | awk '{print $90 }')
-   orienttree=$(echo ${oi}   | awk '{print $91 }')
-   orientgrass=$(echo ${oi}  | awk '{print $92 }')
-   clumptree=$(echo ${oi}    | awk '{print $93 }')
-   clumpgrass=$(echo ${oi}   | awk '{print $94 }')
-   igoutput=$(echo ${oi}     | awk '{print $95 }')
-   ivegtdyn=$(echo ${oi}     | awk '{print $96 }')
-   ihydro=$(echo ${oi}       | awk '{print $97 }')
-   istemresp=$(echo ${oi}    | awk '{print $98 }')
-   istomata=$(echo ${oi}     | awk '{print $99 }')
-   iplastic=$(echo ${oi}     | awk '{print $100}')
-   icarbonmort=$(echo ${oi}  | awk '{print $101}')
-   ihydromort=$(echo ${oi}   | awk '{print $102}')
-   igndvap=$(echo ${oi}      | awk '{print $103}')
-   iphen=$(echo ${oi}        | awk '{print $104}')
-   iallom=$(echo ${oi}       | awk '{print $105}')
-   ieconomics=$(echo ${oi}   | awk '{print $106}')
-   igrass=$(echo ${oi}       | awk '{print $107}')
-   ibigleaf=$(echo ${oi}     | awk '{print $108}')
-   integscheme=$(echo ${oi}  | awk '{print $109}')
-   nsubeuler=$(echo ${oi}    | awk '{print $110}')
-   irepro=$(echo ${oi}       | awk '{print $111}')
-   treefall=$(echo ${oi}     | awk '{print $112}')
-   ianthdisturb=$(echo ${oi} | awk '{print $113}')
-   ianthdataset=$(echo ${oi} | awk '{print $114}')
-   slscale=$(echo ${oi}      | awk '{print $115}')
-   slyrfirst=$(echo ${oi}    | awk '{print $116}')
-   slnyrs=$(echo ${oi}       | awk '{print $117}')
-   bioharv=$(echo ${oi}      | awk '{print $118}')
-   skidarea=$(echo ${oi}     | awk '{print $119}')
-   skidsmall=$(echo ${oi}    | awk '{print $120}')
-   skidlarge=$(echo ${oi}    | awk '{print $121}')
-   fellingsmall=$(echo ${oi} | awk '{print $122}')
+   polyname=$(echo ${oi}      | awk '{print $1  }')
+   polyiata=$(echo ${oi}      | awk '{print $2  }')
+   polylon=$(echo ${oi}       | awk '{print $3  }')
+   polylat=$(echo ${oi}       | awk '{print $4  }')
+   yeara=$(echo ${oi}         | awk '{print $5  }')
+   montha=$(echo ${oi}        | awk '{print $6  }')
+   datea=$(echo ${oi}         | awk '{print $7  }')
+   timea=$(echo ${oi}         | awk '{print $8  }')
+   yearz=$(echo ${oi}         | awk '{print $9  }')
+   monthz=$(echo ${oi}        | awk '{print $10 }')
+   datez=$(echo ${oi}         | awk '{print $11 }')
+   timez=$(echo ${oi}         | awk '{print $12 }')
+   initmode=$(echo ${oi}      | awk '{print $13 }')
+   iscenario=$(echo ${oi}     | awk '{print $14 }')
+   isizepft=$(echo ${oi}      | awk '{print $15 }')
+   iage=$(echo ${oi}          | awk '{print $16 }')
+   imaxcohort=$(echo ${oi}    | awk '{print $17 }')
+   polyisoil=$(echo ${oi}     | awk '{print $18 }')
+   polyntext=$(echo ${oi}     | awk '{print $19 }')
+   polysand=$(echo ${oi}      | awk '{print $20 }')
+   polyclay=$(echo ${oi}      | awk '{print $21 }')
+   polyslsoc=$(echo ${oi}     | awk '{print $22 }')
+   polyslph=$(echo ${oi}      | awk '{print $23 }')
+   polyslcec=$(echo ${oi}     | awk '{print $24 }')
+   polysldbd=$(echo ${oi}     | awk '{print $25 }')
+   polydepth=$(echo ${oi}     | awk '{print $26 }')
+   polyslhydro=$(echo ${oi}   | awk '{print $27 }')
+   polysoilbc=$(echo ${oi}    | awk '{print $28 }')
+   polysldrain=$(echo ${oi}   | awk '{print $29 }')
+   polycol=$(echo ${oi}       | awk '{print $30 }')
+   slzres=$(echo ${oi}        | awk '{print $31 }')
+   queue=$(echo ${oi}         | awk '{print $32 }')
+   metdriver=$(echo ${oi}     | awk '{print $33 }')
+   dtlsm=$(echo ${oi}         | awk '{print $34 }')
+   monyrstep=$(echo ${oi}     | awk '{print $35 }')
+   iphysiol=$(echo ${oi}      | awk '{print $36 }')
+   vmfactc3=$(echo ${oi}      | awk '{print $37 }')
+   vmfactc4=$(echo ${oi}      | awk '{print $38 }')
+   mphototrc3=$(echo ${oi}    | awk '{print $39 }')
+   mphototec3=$(echo ${oi}    | awk '{print $40 }')
+   mphotoc4=$(echo ${oi}      | awk '{print $41 }')
+   bphotoblc3=$(echo ${oi}    | awk '{print $42 }')
+   bphotonlc3=$(echo ${oi}    | awk '{print $43 }')
+   bphotoc4=$(echo ${oi}      | awk '{print $44 }')
+   kwgrass=$(echo ${oi}       | awk '{print $45 }')
+   kwtree=$(echo ${oi}        | awk '{print $46 }')
+   gammac3=$(echo ${oi}       | awk '{print $47 }')
+   gammac4=$(echo ${oi}       | awk '{print $48 }')
+   d0grass=$(echo ${oi}       | awk '{print $49 }')
+   d0tree=$(echo ${oi}        | awk '{print $50 }')
+   alphac3=$(echo ${oi}       | awk '{print $51 }')
+   alphac4=$(echo ${oi}       | awk '{print $52 }')
+   klowco2=$(echo ${oi}       | awk '{print $53 }')
+   decomp=$(echo ${oi}        | awk '{print $54 }')
+   rrffact=$(echo ${oi}       | awk '{print $55 }')
+   growthresp=$(echo ${oi}    | awk '{print $56 }')
+   lwidthgrass=$(echo ${oi}   | awk '{print $57 }')
+   lwidthbltree=$(echo ${oi}  | awk '{print $58 }')
+   lwidthnltree=$(echo ${oi}  | awk '{print $59 }')
+   q10c3=$(echo ${oi}         | awk '{print $60 }')
+   q10c4=$(echo ${oi}         | awk '{print $61 }')
+   h2olimit=$(echo ${oi}      | awk '{print $62 }')
+   imortscheme=$(echo ${oi}   | awk '{print $63 }')
+   ddmortconst=$(echo ${oi}   | awk '{print $64 }')
+   cbrscheme=$(echo ${oi}     | awk '{print $65 }')
+   isfclyrm=$(echo ${oi}      | awk '{print $66 }')
+   icanturb=$(echo ${oi}      | awk '{print $67 }')
+   ubmin=$(echo ${oi}         | awk '{print $68 }')
+   ugbmin=$(echo ${oi}        | awk '{print $69 }')
+   ustmin=$(echo ${oi}        | awk '{print $70 }')
+   gamm=$(echo ${oi}          | awk '{print $71 }')
+   gamh=$(echo ${oi}          | awk '{print $72 }')
+   tprandtl=$(echo ${oi}      | awk '{print $73 }')
+   ribmax=$(echo ${oi}        | awk '{print $74 }')
+   atmco2=$(echo ${oi}        | awk '{print $75 }')
+   thcrit=$(echo ${oi}        | awk '{print $76 }')
+   smfire=$(echo ${oi}        | awk '{print $77 }')
+   ifire=$(echo ${oi}         | awk '{print $78 }')
+   fireparm=$(echo ${oi}      | awk '{print $79 }')
+   ipercol=$(echo ${oi}       | awk '{print $80 }')
+   runoff=$(echo ${oi}        | awk '{print $81 }')
+   imetrad=$(echo ${oi}       | awk '{print $82 }')
+   ibranch=$(echo ${oi}       | awk '{print $83 }')
+   icanrad=$(echo ${oi}       | awk '{print $84 }')
+   ihrzrad=$(echo ${oi}       | awk '{print $85 }')
+   crown=$(echo   ${oi}       | awk '{print $86 }')
+   ltransvis=$(echo ${oi}     | awk '{print $87 }')
+   lreflectvis=$(echo ${oi}   | awk '{print $88 }')
+   ltransnir=$(echo ${oi}     | awk '{print $89 }')
+   lreflectnir=$(echo ${oi}   | awk '{print $90 }')
+   orienttree=$(echo ${oi}    | awk '{print $91 }')
+   orientgrass=$(echo ${oi}   | awk '{print $92 }')
+   clumptree=$(echo ${oi}     | awk '{print $93 }')
+   clumpgrass=$(echo ${oi}    | awk '{print $94 }')
+   igoutput=$(echo ${oi}      | awk '{print $95 }')
+   ivegtdyn=$(echo ${oi}      | awk '{print $96 }')
+   ihydro=$(echo ${oi}        | awk '{print $97 }')
+   istemresp=$(echo ${oi}     | awk '{print $98 }')
+   istomata=$(echo ${oi}      | awk '{print $99 }')
+   iplastic=$(echo ${oi}      | awk '{print $100}')
+   icarbonmort=$(echo ${oi}   | awk '{print $101}')
+   ihydromort=$(echo ${oi}    | awk '{print $102}')
+   igndvap=$(echo ${oi}       | awk '{print $103}')
+   iphen=$(echo ${oi}         | awk '{print $104}')
+   iallom=$(echo ${oi}        | awk '{print $105}')
+   ieconomics=$(echo ${oi}    | awk '{print $106}')
+   igrass=$(echo ${oi}        | awk '{print $107}')
+   ibigleaf=$(echo ${oi}      | awk '{print $108}')
+   integscheme=$(echo ${oi}   | awk '{print $109}')
+   nsubeuler=$(echo ${oi}     | awk '{print $110}')
+   irepro=$(echo ${oi}        | awk '{print $111}')
+   treefall=$(echo ${oi}      | awk '{print $112}')
+   ianthdisturb=$(echo ${oi}  | awk '{print $113}')
+   ianthdataset=$(echo ${oi}  | awk '{print $114}')
+   slscale=$(echo ${oi}       | awk '{print $115}')
+   slyrfirst=$(echo ${oi}     | awk '{print $116}')
+   slnyrs=$(echo ${oi}        | awk '{print $117}')
+   bioharv=$(echo ${oi}       | awk '{print $118}')
+   skidarea=$(echo ${oi}      | awk '{print $119}')
+   skiddbhthresh=$(echo ${oi} | awk '{print $120}')
+   skidsmall=$(echo ${oi}     | awk '{print $121}')
+   skidlarge=$(echo ${oi}     | awk '{print $122}')
+   fellingsmall=$(echo ${oi}  | awk '{print $123}')
    #---------------------------------------------------------------------------------------
 
 
@@ -324,6 +355,12 @@ do
          rasters=$(/bin/ls -1 ${gfilout}_raster_isi001_????-01.txt | head -${head})
          for rst in ${rasters}
          do
+            zipped="${rst}.${ezip}"
+            if [[ -s ${rst} ]] && [[ -f ${zipped} ]]
+            then
+               echo " - Remove previously compressed file ($(basename ${zipped}))."
+               /bin/rm -f ${zipped}
+            fi
             echo -n "    - Compress: $(basename ${rst})..."
             ${bzip2} ${rst}
             echo " Compressed!"
@@ -341,6 +378,12 @@ do
          ptables=$(/bin/ls -1 ${gfilout}_ptable_isi001_????-01.txt | head -${head})
          for ptb in ${ptables}
          do
+            zipped="${ptb}.${ezip}"
+            if [[ -s ${ptb} ]] && [[ -f ${zipped} ]]
+            then
+               echo " - Remove previously compressed file ($(basename ${zipped}))."
+               /bin/rm -f ${zipped}
+            fi
             echo -n "    - Compress: $(basename ${ptb})..."
             ${bzip2} ${ptb}
             echo " Compressed!"
@@ -444,6 +487,12 @@ do
                qfile=${ffilout}-Q-${yyyy}-${mm}-00-000000-g01.h5
                if [ -s ${qfile} ]
                then
+                  zipped="${qfile}.${ezip}"
+                  if [[ -f ${zipped} ]]
+                  then
+                     echo " - Remove previously compressed file ($(basename ${zipped}))."
+                     /bin/rm -f ${zipped}
+                  fi
                   echo -n "   - Compress file: $(basename ${qfile})..."
                   ${bzip2} ${qfile} 2> /dev/null
                   echo "Zipped!"
@@ -482,6 +531,13 @@ do
                         ifile=${ffilout}-I-${yyyy}-${mm}-${dd}-${hh}0000-g01.h5
                         if [ -s ${ifile} ]
                         then
+                           zipped="${ifile}.${ezip}"
+                           basezip=$(basename ${zipped})
+                           if [[ -f ${zipped} ]]
+                           then
+                              echo " - Remove previously compressed file (${basezip})."
+                              /bin/rm -f ${zipped}
+                           fi
                            echo -n "     * Compress file: $(basename ${ifile})..."
                            ${bzip2} ${ifile} 2> /dev/null
                            echo "Zipped!"

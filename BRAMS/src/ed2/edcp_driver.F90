@@ -11,6 +11,7 @@ subroutine ed_coup_driver()
                                    , edgrid_g              ! ! subroutine
    use ed_init              , only : read_obstime          ! ! subroutine
    use ed_misc_coms         , only : fast_diagnostics      & ! intent(in)
+                                   , current_time          & ! intent(in)
                                    , iyeara                & ! intent(in)
                                    , imontha               & ! intent(in)
                                    , idatea                & ! intent(in)
@@ -49,6 +50,9 @@ subroutine ed_coup_driver()
    use soil_respiration     , only : zero_litter_inputs    ! ! sub-routine
    use fire                 , only : reset_monthly_fire    & ! sub-routine
                                    , reset_yearly_fire     ! ! sub-routine
+#if defined(RAMS_MPI)
+   use mpi
+#endif
 
    implicit none
    !----- Local variables. ----------------------------------------------------------------!
@@ -65,7 +69,7 @@ subroutine ed_coup_driver()
    integer                     :: jd2
    integer                     :: ierr
    integer                     :: igr
-   integer                     :: ping 
+   integer                     :: ping
    logical                     :: new_month
    logical                     :: new_year
    real                        :: wtime1
@@ -74,10 +78,6 @@ subroutine ed_coup_driver()
    real                        :: cputime1
    !----- External function. --------------------------------------------------------------!
    real             , external :: walltime    ! wall time
-   !----- MPI header. ---------------------------------------------------------------------!
-#if defined(RAMS_MPI)
-   include 'mpif.h'
-#endif
    !---------------------------------------------------------------------------------------!
    
    

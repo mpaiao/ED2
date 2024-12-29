@@ -180,9 +180,9 @@ subroutine ed1_fileinfo(text,nfiles,full_list,ntype,type_list,tlon_list,tlat_lis
    use ed_max_dims, only: str_len,maxfiles,maxlist
    implicit none
    !----- Arguments -----------------------------------------------------------------------!
-   character(len=*)                           , intent(in)  :: text   ! Type file extension
-   integer                                    , intent(in)  :: nfiles ! # of input files
-   character(len=str_len), dimension(maxlist) , intent(in)  :: full_list 
+   character(len=*)                           , intent(in)    :: text   ! File extension
+   integer                                    , intent(in)    :: nfiles ! # of input files
+   character(len=str_len), dimension(maxlist) , intent(in)    :: full_list 
    integer                                    , intent(inout) :: ntype
    character(len=str_len), dimension(maxfiles), intent(inout) :: type_list
    real                  , dimension(maxfiles), intent(inout) :: tlon_list, tlat_list
@@ -198,10 +198,19 @@ subroutine ed1_fileinfo(text,nfiles,full_list,ntype,type_list,tlon_list,tlat_lis
    select case(text)
    case ('.site')
       okdot = 4
-   case ('.pss','.css','.txt','.sei','.frd')
+   case ('.sss','.pss','.css','.txt','.sei','.frd')
       okdot = 3
    case ('.lu')
       okdot = 2
+   case default
+      write (unit=*,fmt='(a)'       ) '----------------------------------------------'
+      write (unit=*,fmt='(a)'       ) '   Unrecognised extension for ED1 file style! '
+      write (unit=*,fmt='(a)'       ) '----------------------------------------------'
+      write (unit=*,fmt='(a,1x,a)'  ) ' TEXT           = ',trim(text)
+      write (unit=*,fmt='(a,1x,i12)') ' NFILES         = ',nfiles
+      write (unit=*,fmt='(a,1x,a)'  ) ' FULL_LIST(1st) = ',trim(full_list(1))
+      write (unit=*,fmt='(a)'       ) '----------------------------------------------'
+      call fatal_error('Invalid file extension','ed1_fileinfo','ed_filelist.F90')
    end select
 
 

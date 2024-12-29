@@ -9,6 +9,7 @@ the_end_msg="has finished"
 unknown_msg="status is unknown"
 sigsegv_msg="HAD SEGMENTATION VIOLATION"
 crashed_msg="RK4 PROBLEM"
+hydfail_msg="HYDRODYNAMICS"
 metmiss_msg="DID NOT FIND MET DRIVERS"
 stopped_msg="UNKNOWN REASON"
 fstline_msg="Number of polygons:"
@@ -65,6 +66,7 @@ do
    n_unknown=$(cat ${check_out} | grep "${unknown_msg}" | wc -l)
    n_sigsegv=$(cat ${check_out} | grep "${sigsegv_msg}" | wc -l)
    n_crashed=$(cat ${check_out} | grep "${crashed_msg}" | wc -l)
+   n_hydfail=$(cat ${check_out} | grep "${hydfail_msg}" | wc -l)
    n_metmiss=$(cat ${check_out} | grep "${metmiss_msg}" | wc -l)
    n_stopped=$(cat ${check_out} | grep "${stopped_msg}" | wc -l)
    let n_ongoing=${n_polygon}-${n_the_end}

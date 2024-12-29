@@ -143,7 +143,9 @@ module mortality
    !     This subroutine determines the mortality rates associated with the current        !
    ! disturbance.                                                                          !
    !---------------------------------------------------------------------------------------!
-   subroutine disturbance_mortality(csite,ipa,area_loss,mindbh_harvest,burnt_area)
+   subroutine disturbance_mortality(csite,ipa,area_loss,mindbh_harvest,felling_s_gtharv    &
+                                   ,felling_s_ltharv,skid_dbh_thresh,skid_s_gtharv         &
+                                   ,skid_s_ltharv,burnt_area)
       use ed_state_vars, only : sitetype      & ! structure
                               , patchtype     ! ! structure
       use ed_max_dims  , only : n_pft         & ! intent(in)
@@ -157,6 +159,11 @@ module mortality
       integer                                , intent(in)  :: ipa
       real          , dimension(n_dist_types), intent(in)  :: area_loss
       real          , dimension(n_pft)       , intent(in)  :: mindbh_harvest
+      real          , dimension(n_pft)       , intent(in)  :: felling_s_gtharv
+      real          , dimension(n_pft)       , intent(in)  :: felling_s_ltharv
+      real          , dimension(n_pft)       , intent(in)  :: skid_dbh_thresh
+      real          , dimension(n_pft)       , intent(in)  :: skid_s_gtharv
+      real          , dimension(n_pft)       , intent(in)  :: skid_s_ltharv
       real                                   , intent(in)  :: burnt_area
       !----- Local variables. -------------------------------------------------------------!
       type(patchtype)                        , pointer     :: cpatch
@@ -187,6 +194,8 @@ module mortality
          if (area_loss(new_lu) > tiny_num) then
             do ico=1,cpatch%ncohorts
               f_survival    = survivorship(new_lu,csite%dist_type(ipa),mindbh_harvest      &
+                                          ,felling_s_gtharv,felling_s_ltharv               &
+                                          ,skid_dbh_thresh,skid_s_gtharv,skid_s_ltharv     &
                                           ,burnt_area,cpatch,ico)
               a_factor(ico) = a_factor(ico)                                                &
                             + ( 1.0 - f_survival ) * area_loss(new_lu) / csite%area(ipa)
@@ -233,28 +242,44 @@ module mortality
    !     7. Logging (mechanical damage).                                                   !
    !     8. Cropland.                                                                      !
    !  -- mindbh_harvest: minimum DBH for selective logging.  All trees above threshold     !
-   !                     will be logged in the tree felling patch.                         !
+   !                     will be logged in the tree felling patch unless felling_s_gtharv  !
+   !                     is somehow not zero.                                              !
+   !  -- felling_s_gtharv: survivorship of large trees (dbh >= mindbh_harvest) to tree     !
+   !                       felling (typically 0).                                          !
+   !  -- felling_s_ltharv: survivorship of small trees (dbh < mindbh_harvest) to tree      !
+   !                       felling.                                                        !
+   !  -- skid_dbh_thresh: DBH threshold for considering trees small or large with respect  !
+   !                      to collateral damage caused by the construction of skid trails   !
+   !                      and roads.                                                       !
+   !  -- skid_s_gtharv: survivorship of large trees (dbh >= skid_dbh_thresh) to collateral !
+   !                    damage caused by the construction of skid trails and roads.        !
+   !  -- skid_s_ltharv: survivorship of small trees (dbh < skid_dbh_thresh) to collateral  !
+   !                    damage caused by the construction of skid trails and roads.        !
+   !  -- burnt_area: burnt area (relative to site).                                        !
    !  -- cpatch: current patch.                                                            !
    !  -- ico: index for current cohort.                                                    !
    !---------------------------------------------------------------------------------------!
-   real function survivorship(new_lu,old_lu,mindbh_harvest,burnt_area,cpatch,ico)
+   real function survivorship(new_lu,old_lu,mindbh_harvest,felling_s_gtharv                &
+                             ,felling_s_ltharv,skid_dbh_thresh,skid_s_gtharv,skid_s_ltharv &
+                             ,burnt_area,cpatch,ico)
       use ed_state_vars, only : patchtype                ! ! structure
       use disturb_coms , only : treefall_hite_threshold  ! ! intent(in)
       use pft_coms     , only : treefall_s_ltht          & ! intent(in)
-                              , treefall_s_gtht          & ! intent(in)
-                              , felling_s_gtharv         & ! intent(in)
-                              , felling_s_ltharv         & ! intent(in)
-                              , skid_s_ltharv            & ! intent(in)
-                              , skid_s_gtharv            ! ! intent(in)
+                              , treefall_s_gtht          ! ! intent(in)
       use ed_max_dims  , only : n_pft                    ! ! intent(in)
       use consts_coms  , only : tiny_num                 ! ! intent(in)
       implicit none
       !----- Arguments. -------------------------------------------------------------------!
       type(patchtype)                 , target     :: cpatch
-      real          , dimension(n_pft), intent(in) :: mindbh_harvest
       integer                         , intent(in) :: ico
       integer                         , intent(in) :: new_lu
       integer                         , intent(in) :: old_lu
+      real          , dimension(n_pft), intent(in) :: mindbh_harvest
+      real          , dimension(n_pft), intent(in) :: felling_s_gtharv
+      real          , dimension(n_pft), intent(in) :: felling_s_ltharv
+      real          , dimension(n_pft), intent(in) :: skid_dbh_thresh
+      real          , dimension(n_pft), intent(in) :: skid_s_gtharv
+      real          , dimension(n_pft), intent(in) :: skid_s_ltharv
       real                            , intent(in) :: burnt_area
       !----- Local variables. -------------------------------------------------------------!
       integer                                      :: ipft
@@ -346,11 +371,13 @@ module mortality
          !---------------------------------------------------------------------------------!
       case (7)
          !---------------------------------------------------------------------------------!
-         !     Collateral damage from logging (skid trails, roads).  The damage currently  !
-         ! takes into account the minimum harvest size, because presumably loggers avoid   !
-         ! damaging trees that may be potentially harvested.                               !
+         !     Collateral damage from logging (skid trails, roads).  We assign different   !
+         ! survivorships for small and large trees because loggers avoid large trees when  !
+         ! building trails and roads: it is easier to build skid trails around large trees !
+         ! than felling them just for the trail, and loggers may want to keep the large    !
+         ! trees alive because they may be their harvest in the next logging cycle.        !
          !---------------------------------------------------------------------------------!
-         if (cpatch%dbh(ico) >= mindbh_harvest(ipft)) then
+         if (cpatch%dbh(ico) >= skid_dbh_thresh(ipft)) then
             survivorship = skid_s_gtharv(ipft)
          else
             survivorship = skid_s_ltharv(ipft)

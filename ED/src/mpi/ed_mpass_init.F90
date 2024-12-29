@@ -16,6 +16,7 @@ subroutine ed_masterput_processid(nproc,headnode_num,masterworks,par_run)
                           , recvnum     & ! intent(out)
                           , master_num  & ! intent(out)
                           , machs       ! ! intent(out)
+   use mpi
 #else
    use ed_para_coms, only : nmachs      & ! intent(in)
                           , machsize    & ! intent(in)
@@ -38,7 +39,6 @@ subroutine ed_masterput_processid(nproc,headnode_num,masterworks,par_run)
    integer :: nm
 #if defined(RAMS_MPI)
    integer :: ierr
-   include 'mpif.h'
    !---------------------------------------------------------------------------------------!
 #endif
 
@@ -101,6 +101,7 @@ end subroutine ed_masterput_processid
 !------------------------------------------------------------------------------------------!
 subroutine ed_masterput_nl(par_run)
 #if defined(RAMS_MPI)
+   use mpi
    use ed_para_coms         , only : mainnum                   ! ! intent(in)
    use ed_max_dims          , only : str_len                   & ! intent(in)
                                    , max_poi                   & ! intent(in)
@@ -326,6 +327,7 @@ subroutine ed_masterput_nl(par_run)
                                    , sl_mindbh_harvest         & ! intent(in)
                                    , sl_biomass_harvest        & ! intent(in)
                                    , sl_skid_rel_area          & ! intent(in)
+                                   , sl_skid_dbh_thresh        & ! intent(in)
                                    , sl_skid_s_gtharv          & ! intent(in)
                                    , sl_skid_s_ltharv          & ! intent(in)
                                    , sl_felling_s_ltharv       & ! intent(in)
@@ -371,8 +373,6 @@ subroutine ed_masterput_nl(par_run)
    !----- Local variables. ----------------------------------------------------------------!
    integer             :: ierr
    integer             :: n
-   !------ Pre-compiled options. ----------------------------------------------------------!
-   include 'mpif.h'
 #endif
    !---------------------------------------------------------------------------------------!
 
@@ -591,6 +591,7 @@ subroutine ed_masterput_nl(par_run)
    call MPI_Bcast(sl_mindbh_harvest  ,n_pft,MPI_REAL   ,mainnum,MPI_COMM_WORLD,ierr)
    call MPI_Bcast(sl_biomass_harvest ,    1,MPI_REAL   ,mainnum,MPI_COMM_WORLD,ierr)
    call MPI_Bcast(sl_skid_rel_area   ,    1,MPI_REAL   ,mainnum,MPI_COMM_WORLD,ierr)
+   call MPI_Bcast(sl_skid_dbh_thresh ,    1,MPI_REAL   ,mainnum,MPI_COMM_WORLD,ierr)
    call MPI_Bcast(sl_skid_s_gtharv   ,    1,MPI_REAL   ,mainnum,MPI_COMM_WORLD,ierr)
    call MPI_Bcast(sl_skid_s_ltharv   ,    1,MPI_REAL   ,mainnum,MPI_COMM_WORLD,ierr)
    call MPI_Bcast(sl_felling_s_ltharv,    1,MPI_REAL   ,mainnum,MPI_COMM_WORLD,ierr)
@@ -712,6 +713,7 @@ end subroutine ed_masterput_nl
 !------------------------------------------------------------------------------------------!
 subroutine ed_masterput_met_header(par_run)
 #if defined(RAMS_MPI)
+   use mpi
    use ed_para_coms   , only : mainnum           ! ! intent(in)
    use ed_max_dims    , only : max_met_vars      & ! intent(in)
                              , str_len           ! ! intent(in)
@@ -742,8 +744,6 @@ subroutine ed_masterput_met_header(par_run)
    integer                                     :: nsize
    integer                                     :: f
    integer                                     :: v
-   !------ Pre-compiled options. ----------------------------------------------------------!
-   include 'mpif.h'
    !---------------------------------------------------------------------------------------!
 #endif
 
@@ -808,6 +808,7 @@ end subroutine ed_masterput_met_header
 !==========================================================================================!
 subroutine ed_masterput_poly_dims(par_run,masterworks)
 #if defined(RAMS_MPI)
+   use mpi
    use ed_para_coms  , only : mainnum      ! ! intent(in)
 #endif
    use ed_para_coms  , only : nmachs       & ! intent(in)
@@ -844,7 +845,6 @@ subroutine ed_masterput_poly_dims(par_run,masterworks)
    real                                      :: totalwork
 #if defined(RAMS_MPI)
    integer                                   :: ierr
-   include 'mpif.h'
 #endif
    !---------------------------------------------------------------------------------------!
 
@@ -1113,6 +1113,7 @@ end subroutine ed_masterput_poly_dims
 !------------------------------------------------------------------------------------------!
 subroutine ed_masterput_worklist_info(par_run)
 #if defined(RAMS_MPI)
+   use mpi
    use ed_para_coms , only : machnum               ! ! intent(in)
 #endif
    use ed_max_dims  , only : maxmach
@@ -1145,8 +1146,6 @@ subroutine ed_masterput_worklist_info(par_run)
    integer                                     :: mpiid
    integer        , dimension(:), allocatable  :: iscratch
    real           , dimension(:), allocatable  :: rscratch
-   !------ Pre-compiled options. ----------------------------------------------------------!
-   include 'mpif.h'
 #endif
    !---------------------------------------------------------------------------------------!
 
@@ -1306,6 +1305,7 @@ end subroutine ed_masterput_worklist_info
 !------------------------------------------------------------------------------------------!
 subroutine ed_nodeget_processid(init)
 #if defined(RAMS_MPI)
+   use mpi
    use ed_node_coms, only : master_num & ! intent(out)
                           , mchnum     & ! intent(out)
                           , mynum      & ! intent(out)
@@ -1322,7 +1322,6 @@ subroutine ed_nodeget_processid(init)
    integer, intent(in) :: init
    !----- Local variables. ----------------------------------------------------------------!
 #if defined(RAMS_MPI)
-   include 'mpif.h'
    integer, dimension(MPI_STATUS_SIZE) :: status
 #endif
    integer :: ierr
@@ -1367,6 +1366,7 @@ end subroutine ed_nodeget_processid
 !------------------------------------------------------------------------------------------!
 subroutine ed_nodeget_nl
 #if defined(RAMS_MPI)
+   use mpi
    use ed_node_coms         , only : master_num                ! ! intent(in)
    use ed_max_dims          , only : str_len                   & ! intent(in)
                                    , max_poi                   & ! intent(in)
@@ -1592,6 +1592,7 @@ subroutine ed_nodeget_nl
                                    , sl_mindbh_harvest         & ! intent(out)
                                    , sl_biomass_harvest        & ! intent(out)
                                    , sl_skid_rel_area          & ! intent(out)
+                                   , sl_skid_dbh_thresh        & ! intent(out)
                                    , sl_skid_s_gtharv          & ! intent(out)
                                    , sl_skid_s_ltharv          & ! intent(out)
                                    , sl_felling_s_ltharv       & ! intent(out)
@@ -1631,7 +1632,6 @@ subroutine ed_nodeget_nl
 #endif
    implicit none
 #if defined(RAMS_MPI)
-   include 'mpif.h'
    !----- Local variables. ----------------------------------------------------------------!
    integer :: n
 #endif
@@ -1862,6 +1862,7 @@ subroutine ed_nodeget_nl
    call MPI_Bcast(sl_mindbh_harvest  ,n_pft,MPI_REAL   ,master_num,MPI_COMM_WORLD,ierr)
    call MPI_Bcast(sl_biomass_harvest ,    1,MPI_REAL   ,master_num,MPI_COMM_WORLD,ierr)
    call MPI_Bcast(sl_skid_rel_area   ,    1,MPI_REAL   ,master_num,MPI_COMM_WORLD,ierr)
+   call MPI_Bcast(sl_skid_dbh_thresh ,    1,MPI_REAL   ,master_num,MPI_COMM_WORLD,ierr)
    call MPI_Bcast(sl_skid_s_gtharv   ,    1,MPI_REAL   ,master_num,MPI_COMM_WORLD,ierr)
    call MPI_Bcast(sl_skid_s_ltharv   ,    1,MPI_REAL   ,master_num,MPI_COMM_WORLD,ierr)
    call MPI_Bcast(sl_felling_s_ltharv,    1,MPI_REAL   ,master_num,MPI_COMM_WORLD,ierr)
@@ -1989,6 +1990,7 @@ end subroutine ed_nodeget_nl
 !------------------------------------------------------------------------------------------!
 subroutine ed_nodeget_met_header()
 #if defined(RAMS_MPI)
+   use mpi
    use ed_node_coms   , only : master_num    ! ! intent(in)
    use ed_max_dims    , only : max_met_vars  & ! intent(in)
                              , str_len       ! ! intent(in)
@@ -2012,7 +2014,6 @@ subroutine ed_nodeget_met_header()
 
    implicit none
 #if defined(RAMS_MPI)
-   include 'mpif.h'
    !---- Local variables. -----------------------------------------------------------------!
    integer :: ierr
    integer :: nsize
@@ -2091,6 +2092,7 @@ end subroutine ed_nodeget_met_header
 !==========================================================================================!
 subroutine ed_nodeget_poly_dims
 #if defined(RAMS_MPI)
+   use mpi
    use ed_state_vars, only : gdpy       & ! intent(out)
                            , py_off     ! ! intent(out)
    use ed_node_coms , only : master_num & ! intent(in)
@@ -2105,8 +2107,6 @@ subroutine ed_nodeget_poly_dims
    integer :: ierr
    integer :: ifm
    integer :: nm
-   !------ Pre-compiled options. ----------------------------------------------------------!
-   include 'mpif.h'
    !---------------------------------------------------------------------------------------!
    do ifm=1,ngrids
       do nm=1,nmachs
@@ -2141,15 +2141,12 @@ subroutine ed_nodeget_worklist_info
    use mem_polygons , only : maxsite             ! ! intent(in)
    use ed_node_coms , only : mynum               ! ! intent(in)
 #if defined(RAMS_MPI)
+   use mpi
    use ed_max_dims  , only : maxmach             ! ! intent(in)
    use ed_node_coms , only : master_num          ! ! intent(in)
 #endif
 
    implicit none
-#if defined(RAMS_MPI)
-   !------ Pre-compiled options. ----------------------------------------------------------!
-   include 'mpif.h'
-#endif
    !------ Local variables. ---------------------------------------------------------------!
    integer                             :: npolygons
    integer                             :: ifm

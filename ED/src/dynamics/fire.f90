@@ -133,7 +133,7 @@ module fire
                !---------------------------------------------------------------------------!
                !     Reset the precipitation counter for this month.                       !
                !---------------------------------------------------------------------------!
-               cpoly%avg_monthly_pcpg(imo,isi) = 0.
+               cpoly%avg_monthly_accp(imo,isi) = 0.
                !---------------------------------------------------------------------------!
 
 
@@ -170,8 +170,8 @@ module fire
                !     Find the total rainfall of the past year and reset the counter for    !
                ! this month.                                                               !
                !---------------------------------------------------------------------------!
-               sum_accp                        = sum(cpoly%avg_monthly_pcpg(:,isi))
-               cpoly%avg_monthly_pcpg(imo,isi) = 0.
+               sum_accp                        = sum(cpoly%avg_monthly_accp(:,isi))
+               cpoly%avg_monthly_accp(imo,isi) = 0.
                !---------------------------------------------------------------------------!
 
 
@@ -397,7 +397,7 @@ module fire
                !---------------------------------------------------------------------------!
                !     Reset the precipitation counter for this month.                       !
                !---------------------------------------------------------------------------!
-               cpoly%avg_monthly_pcpg(imo,isi) = 0.
+               cpoly%avg_monthly_accp(imo,isi) = 0.
                !---------------------------------------------------------------------------!
 
 
@@ -563,7 +563,7 @@ module fire
                !---------------------------------------------------------------------------!
                !     Reset the precipitation counter for this month.                       !
                !---------------------------------------------------------------------------!
-               cpoly%avg_monthly_pcpg(imo,isi) = 0.
+               cpoly%avg_monthly_accp(imo,isi) = 0.
                !---------------------------------------------------------------------------!
                !----- Loop over patches. --------------------------------------------------!
                patchloop_4: do ipa=1,csite%npatches
@@ -731,7 +731,7 @@ module fire
                !---------------------------------------------------------------------------!
                !     Reset the precipitation counter for this month.                       !
                !---------------------------------------------------------------------------!
-               cpoly%avg_monthly_pcpg(imo,isi) = 0.
+               cpoly%avg_monthly_accp(imo,isi) = 0.
                !---------------------------------------------------------------------------!
 
             end select

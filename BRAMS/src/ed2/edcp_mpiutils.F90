@@ -186,6 +186,7 @@ subroutine masterput_ednl(mainnum)
                                    , sl_mindbh_harvest          & ! intent(in)
                                    , sl_biomass_harvest         & ! intent(in)
                                    , sl_skid_rel_area           & ! intent(in)
+                                   , sl_skid_dbh_thresh         & ! intent(in)
                                    , sl_skid_s_gtharv           & ! intent(in)
                                    , sl_skid_s_ltharv           & ! intent(in)
                                    , sl_felling_s_ltharv        & ! intent(in)
@@ -238,11 +239,10 @@ subroutine masterput_ednl(mainnum)
                                    , idetailed                  & ! intent(in)
                                    , patch_keep                 ! ! intent(in)
    use fusion_fission_coms  , only : ifusion                    ! ! intent(in)
-   implicit none
-   !----- Standard common blocks. ---------------------------------------------------------!
 #if defined(RAMS_MPI)
-   include 'mpif.h'
+   use mpi
 #endif
+   implicit none
    !----- Arguments. ----------------------------------------------------------------------!
    integer, intent(in) :: mainnum
    !----- Local variables. ----------------------------------------------------------------!
@@ -393,6 +393,7 @@ subroutine masterput_ednl(mainnum)
    call MPI_Bcast(sl_mindbh_harvest  ,n_pft,MPI_REAL   ,mainnum,MPI_COMM_WORLD,ierr)
    call MPI_Bcast(sl_biomass_harvest ,    1,MPI_REAL   ,mainnum,MPI_COMM_WORLD,ierr)
    call MPI_Bcast(sl_skid_rel_area   ,    1,MPI_REAL   ,mainnum,MPI_COMM_WORLD,ierr)
+   call MPI_Bcast(sl_skid_dbh_thresh ,    1,MPI_REAL   ,mainnum,MPI_COMM_WORLD,ierr)
    call MPI_Bcast(sl_skid_s_gtharv   ,    1,MPI_REAL   ,mainnum,MPI_COMM_WORLD,ierr)
    call MPI_Bcast(sl_skid_s_ltharv   ,    1,MPI_REAL   ,mainnum,MPI_COMM_WORLD,ierr)
    call MPI_Bcast(sl_felling_s_ltharv,    1,MPI_REAL   ,mainnum,MPI_COMM_WORLD,ierr)
@@ -720,6 +721,7 @@ subroutine nodeget_ednl(master_num)
                                    , sl_mindbh_harvest          & ! intent(out)
                                    , sl_biomass_harvest         & ! intent(out)
                                    , sl_skid_rel_area           & ! intent(out)
+                                   , sl_skid_dbh_thresh         & ! intent(out)
                                    , sl_skid_s_gtharv           & ! intent(out)
                                    , sl_skid_s_ltharv           & ! intent(out)
                                    , sl_felling_s_ltharv        & ! intent(out)
@@ -772,11 +774,10 @@ subroutine nodeget_ednl(master_num)
                                    , idetailed                  & ! intent(out)
                                    , patch_keep                 ! ! intent(out)
    use fusion_fission_coms  , only : ifusion                    ! ! intent(out)
-   implicit none
-   !----- Standard common blocks. ---------------------------------------------------------!
 #if defined(RAMS_MPI)
-   include 'mpif.h'
+   use mpi
 #endif
+   implicit none
    !----- Arguments. ----------------------------------------------------------------------!
    integer, intent(in) :: master_num
    !----- Local variables. ----------------------------------------------------------------!
@@ -928,6 +929,7 @@ subroutine nodeget_ednl(master_num)
    call MPI_Bcast(sl_mindbh_harvest  ,n_pft,MPI_REAL   ,master_num,MPI_COMM_WORLD,ierr)
    call MPI_Bcast(sl_biomass_harvest ,    1,MPI_REAL   ,master_num,MPI_COMM_WORLD,ierr)
    call MPI_Bcast(sl_skid_rel_area   ,    1,MPI_REAL   ,master_num,MPI_COMM_WORLD,ierr)
+   call MPI_Bcast(sl_skid_dbh_thresh ,    1,MPI_REAL   ,master_num,MPI_COMM_WORLD,ierr)
    call MPI_Bcast(sl_skid_s_gtharv   ,    1,MPI_REAL   ,master_num,MPI_COMM_WORLD,ierr)
    call MPI_Bcast(sl_skid_s_ltharv   ,    1,MPI_REAL   ,master_num,MPI_COMM_WORLD,ierr)
    call MPI_Bcast(sl_felling_s_ltharv,    1,MPI_REAL   ,master_num,MPI_COMM_WORLD,ierr)
