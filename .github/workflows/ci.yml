@@ -6,9 +6,9 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v4
     - name: Install dependencies
-      run: sudo apt-get install -y --no-install-recommends gfortran libhdf5-openmpi-dev libopenmpi-dev
+      run: sudo apt-get install -y --no-install-recommends gfortran libhdf5-openmpi-dev libopenmpi-dev libblas-dev liblapack-dev
     - name: Install ED2
       run: |
         pushd ED/build/shell
@@ -21,58 +21,32 @@ jobs:
         make
         sudo make install
     - name: Upload compiled ED2 binary
-      uses: actions/upload-artifact@v1
+      uses: actions/upload-artifact@v4
       with:
         name: ed2-binary
         path: ed2
 
-  test-umbs-bg:
+  tests:
     needs: build
     runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v1
-    - name: Retrieve compiled binary
-      uses: actions/download-artifact@v1
-      with:
-        name: ed2-binary
-    - name: Install dependencies
-      run: sudo apt-get install -y --no-install-recommends gfortran libhdf5-openmpi-dev libopenmpi-dev
-    - name: Run ED2
-      working-directory: ./EDTS/
-      run: |
-        chmod +x "$GITHUB_WORKSPACE"/ed2-binary/ed2
-        ./run-test.sh umbs.bg "$GITHUB_WORKSPACE/ed2-binary/ed2"
+    strategy:
+      fail-fast: false
+      matrix:
+        name:
+          - umbs.bg
+          - tonzi
+          - tonzi.harvest
 
-  test-tonzi:
-    needs: build
-    runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v4
     - name: Retrieve compiled binary
-      uses: actions/download-artifact@v1
+      uses: actions/download-artifact@v4
       with:
         name: ed2-binary
     - name: Install dependencies
-      run: sudo apt-get install -y --no-install-recommends gfortran libhdf5-openmpi-dev libopenmpi-dev
+      run: sudo apt-get install -y --no-install-recommends gfortran libhdf5-openmpi-dev libopenmpi-dev libblas-dev liblapack-dev
     - name: Run ED2
       working-directory: ./EDTS/
       run: |
-        chmod +x "$GITHUB_WORKSPACE"/ed2-binary/ed2
-        ./run-test.sh tonzi "$GITHUB_WORKSPACE/ed2-binary/ed2"
-
-  test-tonzi-harvest:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v1
-    - name: Retrieve compiled binary
-      uses: actions/download-artifact@v1
-      with:
-        name: ed2-binary
-    - name: Install dependencies
-      run: sudo apt-get install -y --no-install-recommends gfortran libhdf5-openmpi-dev libopenmpi-dev
-    - name: Run ED2
-      working-directory: ./EDTS/
-      run: |
-        chmod +x "$GITHUB_WORKSPACE"/ed2-binary/ed2
-        ./run-test.sh tonzi.harvest "$GITHUB_WORKSPACE/ed2-binary/ed2"
+        chmod +x "$GITHUB_WORKSPACE"/ed_2.2-dbg
+        ./run-test.sh ${{ matrix.name }} "$GITHUB_WORKSPACE/ed_2.2-dbg"

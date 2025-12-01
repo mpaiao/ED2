@@ -8,9 +8,8 @@
 subroutine fatal_error(reason,subr,file)
    use ed_node_coms   , only : nnodetot       & ! intent(in)
                              , mynum          ! ! intent(in)
-
 #if defined(RAMS_MPI)
-use mpi_f08
+   use mpi
 #endif
    implicit none
    !----- Arguments. ----------------------------------------------------------------------!
@@ -21,7 +20,6 @@ use mpi_f08
    logical                      :: parallel
    logical                      :: slavenode
    !---------------------------------------------------------------------------------------!
-
 
 
    !---------------------------------------------------------------------------------------!

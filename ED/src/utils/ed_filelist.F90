@@ -66,9 +66,11 @@ subroutine ed_filelist(fnames,file_prefix,nfile)
 
 
 !----- Use preprocessor tool. Windows require different way to list... --------------------!
-#if defined (PC_NT1)
+#if defined(WINDOWS)
    !---------------------------------------------------------------------------------------!
    ! First change all "/" to "\" so same namelist can be used for Unix/Linux/Windows       !
+   ! Note that ED2 currently does not support Windows machines, but this is kept just in   !
+   ! case someone is ever interested in trying to make the code run in Windows.            !
    !---------------------------------------------------------------------------------------!
    do nc=1,iprelen
       if(file_prefix(nc:nc) == '/') file_prefix(nc:nc)='\'
@@ -198,10 +200,19 @@ subroutine ed1_fileinfo(text,nfiles,full_list,ntype,type_list,tlon_list,tlat_lis
    select case(text)
    case ('.site')
       okdot = 4
-   case ('.pss','.css','.txt')
+   case ('.sss','.pss','.css','.txt')
       okdot = 3
    case ('.lu')
       okdot = 2
+   case default
+      write (unit=*,fmt='(a)'       ) '----------------------------------------------'
+      write (unit=*,fmt='(a)'       ) '   Unrecognised extension for ED1 file style! '
+      write (unit=*,fmt='(a)'       ) '----------------------------------------------'
+      write (unit=*,fmt='(a,1x,a)'  ) ' TEXT           = ',trim(text)
+      write (unit=*,fmt='(a,1x,i12)') ' NFILES         = ',nfiles
+      write (unit=*,fmt='(a,1x,a)'  ) ' FULL_LIST(1st) = ',trim(full_list(1))
+      write (unit=*,fmt='(a)'       ) '----------------------------------------------'
+      call fatal_error('Invalid file extension','ed1_fileinfo','ed_filelist.F90')
    end select
 
 

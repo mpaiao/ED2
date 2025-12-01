@@ -30,6 +30,7 @@ subroutine h5_output(vtype)
                            , stride                & ! intent(in)
                            , globdims              ! ! intent(in)
 #if defined(RAMS_MPI)
+   use mpi
    use ed_node_coms , only : mynum                 & ! intent(in)
                            , nnodetot              & ! intent(in)
                            , recvnum               & ! intent(in)
@@ -48,12 +49,8 @@ subroutine h5_output(vtype)
                            , sitetype              & ! structure
                            , patchtype             & ! structure
                            , gdpy                  ! ! intent(in)
-                           
-                           !------ Include standard common blocks. ------------------------------------------------!
-#if defined(RAMS_MPI)
-    use mpi
-#endif
-  implicit none
+   implicit none
+
    !------ Arguments. ---------------------------------------------------------------------!
    character(len=*)                                 , intent(in) :: vtype
    !------ Local variables. ---------------------------------------------------------------!
@@ -879,8 +876,9 @@ subroutine geth5dims(idim_type,varlen,globid,var_len_global,dsetrank,varn,nrec,i
    !---------------------------------------------------------------------------------------!
 
    select case (idim_type) 
-   case(90,91,92,96) ! No polygon-site-patch or cohort dimension, or single-dim. vector
-      
+   case(90,91,92,96,98,980)
+      ! No polygon-site-patch or cohort dimension, or single-dim. vector
+
       dsetrank = 1
       chnkdims(1) = int(varlen,8)
       chnkoffs(1) = int(globid,8)

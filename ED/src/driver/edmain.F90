@@ -15,9 +15,9 @@
 program main
    !$ use omp_lib
 #if defined(RAMS_MPI)
-  use mpi
+   use mpi
 #endif
-  implicit none
+   implicit none
 
    !---------------------------------------------------------------------------------------!
    !      Local constants.                                                                 !
@@ -52,7 +52,6 @@ program main
    integer, dimension(64)                :: thread_use
    integer, dimension(64)                :: cpu_use
    integer, external                     :: findmycpu
-
    !---------------------------------------------------------------------------------------!
 
 

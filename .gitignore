@@ -34,7 +34,6 @@ RAPP/*/bin/*.mod
 RAPP/*/bin/*.f90
 RAPP/*/bin/*.F90
 RAPP/*/bin/*.c
-
 ed-test
 kiss
 racci
@@ -166,8 +165,6 @@ R-utils/read.q.quick.r
 #Xiangtao Ignores
 ED/build/ed2_gfortran
 ED/build/ed2_ifort
-
-
 # http://www.gnu.org/software/automake
 Makefile.in
 /ar-lib
@@ -177,7 +174,6 @@ Makefile.in
 /ylwrap
 .deps/
 .dirstamp
-
 # http://www.gnu.org/software/autoconf
 autom4te.cache
 /autoscan.log
@@ -197,3 +193,15 @@ autom4te.cache
 /missing
 /stamp-h1
 /Makefile
+#Include.mk ignores (and exceptions)
+ED/build/make/include.mk.*
+!ED/build/make/include.mk.docker.gnu
+!ED/build/make/include.mk.docker.intel
+!ED/build/make/include.mk.gnu
+!ED/build/make/include.mk.intel
+!ED/build/make/include.mk.macos
+!ED/build/make/include.mk.pgi
+!ED/build/make/include.mk.travisci
+#EDTS ignores
+EDTS/ED2IN
+

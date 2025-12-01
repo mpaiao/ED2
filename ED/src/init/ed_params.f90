@@ -525,7 +525,7 @@ subroutine init_decomp_params()
    rh0          = 0.700 ! 0.701 ! 0.425
    rh_q10       = 1.500 ! 1.500 ! 1.893
    rh_p_smoist  = 1.600 ! 0.836 ! 0.606
-   rh_p_oxygen  = 0.600 ! 0.404 ! 0.164
+   rh_p_oxygen  = 0.450 ! 0.404 ! 0.164
    !---------------------------------------------------------------------------------------!
 
 
@@ -984,7 +984,6 @@ subroutine init_physiology_params()
    use detailed_coms  , only : idetailed           ! ! intent(in)
    use ed_misc_coms, only    : ffilout             ! ! intent(in)
    use physiology_coms, only : iphysiol            & ! intent(in)
-                             , klowco2in           & ! intent(in)
                              , c34smin_lint_co2    & ! intent(out)
                              , c34smax_lint_co2    & ! intent(out)
                              , c34smax_gsw         & ! intent(out)
@@ -1042,6 +1041,7 @@ subroutine init_physiology_params()
                              , print_photo_debug   & ! intent(out)
                              , photo_prefix        ! ! intent(out)
    use consts_coms    , only : umol_2_mol          & ! intent(in)
+                             , mol_2_umol          & ! intent(in)
                              , t00                 & ! intent(in)
                              , rmol                & ! intent(in)
                              , mmdoc               & ! intent(in)
@@ -1218,8 +1218,13 @@ subroutine init_physiology_params()
    !    The following parameter is the k coefficient in Foley et al. (1996) that is used   !
    ! to determine the CO2-limited photosynthesis for C4 grasses.  Notice that Foley et al. !
    ! (1996) applied Vm0 so the slope is a function of temperature like in Collatz (1992).  !
+   !                                                                                       !
+   !    The default parameter is taken from Collatz (1992), Table 1, and converted to the  !
+   ! units needed by ED2, so the slope is independent on Vcmax.                            !
+   ! Collatz's PEPCase rate constant for CO2 (kp): 0.7 mol/m2/s.                           !
+   ! Collatz's Maximum Rubisco capacity (Vmax): 39 umol/m2/s.                              !
    !---------------------------------------------------------------------------------------!
-   klowco2      = klowco2in 
+   klowco2      = 0.7 / 39. * mol_2_umol
    !---------------------------------------------------------------------------------------!
 
 
@@ -1525,12 +1530,15 @@ end subroutine init_hydro_coms
 !==========================================================================================!
 !==========================================================================================!
 !    Subroutine that initialises most of the soil parameters.                              !
+!                                                                                          !
+! MLO: This sub-routine formerly initiliased the soil and soil8 tables, but this creates   !
+!      a problem for some HISTORY runs (especially those with multiple sites that modify   !
+!      the default parameters).  The soil table is now initialised in a separate sub-      !
+!      routine (ed_gen_soil_table), after loading HISTORY variables, or right before or    !
+!      right after reading the initial conditions.                                         !
 !------------------------------------------------------------------------------------------!
 subroutine init_soil_coms
-   use detailed_coms  , only : idetailed             ! ! intent(in)
-   use ed_max_dims    , only : str_len               ! ! intent(in)
-   use soil_coms      , only : ed_nstyp              & ! intent(in)
-                             , isoilflg              & ! intent(in)
+   use soil_coms      , only : isoilflg              & ! intent(in)
                              , nslcon                & ! intent(in)
                              , soil_hydro_scheme     & ! intent(in)
                              , slxclay               & ! intent(in)
@@ -1539,11 +1547,17 @@ subroutine init_soil_coms
                              , slph                  & ! intent(in)
                              , slcec                 & ! intent(in)
                              , sldbd                 & ! intent(in)
-                             , soil                  & ! intent(in)
-                             , soil_class            & ! type
+                             , slxkey_ref            & ! intent(out)
+                             , slhydro_ref           & ! intent(out)
+                             , slxclay_ref           & ! intent(out)
+                             , slxsilt_ref           & ! intent(out)
+                             , slxsand_ref           & ! intent(out)
+                             , slsoc_ref             & ! intent(out)
+                             , slph_ref              & ! intent(out)
+                             , slcec_ref             & ! intent(out)
+                             , sldbd_ref             & ! intent(out)
                              , soilcol               & ! intent(in)
                              , soilcol_class         & ! type
-                             , soil8                 & ! intent(out)
                              , water_stab_thresh     & ! intent(out)
                              , snowmin               & ! intent(out)
                              , dewmax                & ! intent(out)
@@ -1564,68 +1578,18 @@ subroutine init_soil_coms
                              , sin_sldrain           & ! intent(out)
                              , sin_sldrain8          & ! intent(out)
                              , hydcond_min           & ! intent(out)
-                             , hydcond_min8          & ! intent(out)
-                             , ed_init_soil          & ! subroutine
-                             , matric_potential      & ! function
-                             , soil_moisture         ! ! function
-   use phenology_coms , only : thetacrit             ! ! intent(in)
-   use disturb_coms   , only : sm_fire               ! ! intent(in)
+                             , hydcond_min8          ! ! intent(out)
    use grid_coms      , only : ngrids                ! ! intent(in)
-   use consts_coms    , only : grav                  & ! intent(in)
-                             , wdns                  & ! intent(in)
-                             , hr_sec                & ! intent(in)
+   use consts_coms    , only : wdns                  & ! intent(in)
                              , day_sec               & ! intent(in)
                              , pio180                & ! intent(in)
                              , pio1808               ! ! intent(in)
 
    implicit none
    !----- Local variables. ----------------------------------------------------------------!
-   integer      :: s                                 ! Soil texture flag
    logical      :: update_slx                        ! Update texture fractions?  [    T|F]
-   logical      :: print_soil_table                  ! Print parameter table?     [    T|F]
-   real(kind=4) :: soilep                            ! Effective porosity (O19)   [  m3/m3]
-   real(kind=4) :: slpot33                           ! Potential for EP   (O19)   [      m]
-   real(kind=4) :: slcons_mmhr                       ! Sat. hydraulic conduct.    [  mm/hr]
-   real(kind=4) :: slcpd_mjm3k                       ! Soil heat capacity         [MJ/m3/K]
-   real(kind=4) :: ksand                             ! k-factor for sand (de Vries model)
-   real(kind=4) :: ksilt                             ! k-factor for silt (de Vries model)
-   real(kind=4) :: kclay                             ! k-factor for clay (de Vries model)
-   real(kind=4) :: kair                              ! k-factor for air  (de Vries model)
-   !----- Initial sand and clay volumetric fractions. -------------------------------------!
-   real(kind=4)    , dimension(ed_nstyp) :: xsand_def ! Default sand fraction      [   0-1]
-   real(kind=4)    , dimension(ed_nstyp) :: xclay_def ! Default clay fraction      [   0-1]
-   !---- Soil texture acronym. ------------------------------------------------------------!
-   character(len=4), dimension(ed_nstyp) :: xkey_def  ! Acronym
    !----- Local constants. ----------------------------------------------------------------!
-   real(kind=4), parameter :: fieldcp_K   =  0.1     ! hydr. cond. at field cap.   [mm/day]
-   real(kind=4), parameter :: residual_K  =  1.e-5   ! minimum hydr. cond. (RS02)  [mm/day]
-   real(kind=4), parameter :: slpots_MPa  = -0.0005  ! Saturation for vG80         [   MPa]
-   real(kind=4), parameter :: slpot33_MPa = -0.033   ! Potential for soilep (O19)  [   MPa]
-   real(kind=4), parameter :: slpotfc_MPa = -0.010   ! Field capacity (TH98)       [   MPa]
-   real(kind=4), parameter :: slpotcp_MPa = -3.1     ! Matric pot. - air dry soil  [   MPa]
-   real(kind=4), parameter :: slpotwp_MPa = -1.5     ! Matric pot. - wilting point [   MPa]
-   real(kind=4), parameter :: sand_hcapv  =  2.128e6 ! Sand vol. heat capacity     [J/m3/K]
-   real(kind=4), parameter :: clay_hcapv  =  2.385e6 ! Clay vol. heat capacity     [J/m3/K]
-   real(kind=4), parameter :: silt_hcapv  =  2.256e6 ! Silt vol. heat capacity (*) [J/m3/K]
-   real(kind=4), parameter :: air_hcapv   =  1.212e3 ! Air vol. heat capacity      [J/m3/K]
-   real(kind=4), parameter :: sand_thcond = 8.80     ! Sand thermal conduct.       [ W/m/K]
-   real(kind=4), parameter :: clay_thcond = 2.92     ! Clay thermal conduct.       [ W/m/K]
-   real(kind=4), parameter :: silt_thcond = 5.87     ! Silt thermal conduct.   (*) [ W/m/K]
-   real(kind=4), parameter :: air_thcond  = 0.025    ! Air thermal conduct.        [ W/m/K]
-   real(kind=4), parameter :: h2o_thcond  = 0.57     ! Water thermal conduct.      [ W/m/K]
-   !------ Name for the parameter table. --------------------------------------------------!
-   character(len=str_len), parameter :: soil_table_fn = 'soil_properties.txt'
-   !---------------------------------------------------------------------------------------!
-   ! (*) If anyone has the heat capacity and thermal conductivity for silt, please feel    !
-   !     free to add it in here, I didn't find any.  Apparently no one knows, and I've     !
-   !     seen in other models that people just assume either the same as sand or the       !
-   !     average.  Here I'm just using halfway.  I think the most important thing is to    !
-   !     take into account the soil and the air, which are the most different.             !
-   !                                                                                       !
-   ! Sand (quartz), clay, air, and water heat capacities and thermal conductivities values !
-   ! are from:                                                                             !
-   !     Monteith and Unsworth, 2008: Environmental Physics.                               !
-   !         Academic Press, Third Edition. Table 15.1, p. 292                             !
+   real(kind=4), parameter :: residual_K  =  1.e-5   ! min. hydr. cond. (RS02)  [mm/day]
    !---------------------------------------------------------------------------------------!
 
 
@@ -1659,24 +1623,24 @@ subroutine init_soil_coms
    !---------------------------------------------------------------------------------------!
 
 
-
-   !---------------------------------------------------------------------------------------!
-   !    Initialise the soil and soil8 structures.                                          !
-   !---------------------------------------------------------------------------------------!
-   call ed_init_soil()
-   !---------------------------------------------------------------------------------------!
-
-
    !---------------------------------------------------------------------------------------!
    !    Removed the hardcoded initialisation of the entire structure.  Instead, we set the !
    ! texture for every class, then use the equations to populate the structure.            !
    !---------------------------------------------------------------------------------------!
-   xsand_def = (/ 0.920, 0.825, 0.660, 0.200, 0.410, 0.590, 0.100, 0.320                   &
-                , 0.520, 0.060, 0.200, 0.200, 0.333, 0.075, 0.100, 0.375, 0.125 /)
-   xclay_def = (/ 0.030, 0.060, 0.110, 0.160, 0.170, 0.270, 0.340, 0.340                   &
-                , 0.420, 0.470, 0.600, 0.200, 0.333, 0.050, 0.800, 0.525, 0.525 /)
-   xkey_def  = (/'  Sa',' LSa',' SaL',' SiL','   L','SaCL','SiCL','  CL'                   &
-                ,' SaC',' SiC','   C','Peat','BdRk','  Si','  CC',' CSa',' CSi' /)
+   slxkey_ref ( :) = (/'  Sa',' LSa',' SaL',' SiL','   L','SaCL','SiCL','  CL'             &
+                      ,' SaC',' SiC','   C','Peat','BdRk','  Si','  CC',' CSa',' CSi' /)
+   slxsand_ref( :) = (/ 0.920, 0.825, 0.660, 0.200, 0.410, 0.590, 0.100, 0.320             &
+                      , 0.520, 0.060, 0.200, 0.200, 0.333, 0.075, 0.100, 0.375, 0.125 /)
+   slxclay_ref( :) = (/ 0.030, 0.060, 0.110, 0.160, 0.170, 0.270, 0.340, 0.340             &
+                      , 0.420, 0.470, 0.600, 0.200, 0.333, 0.050, 0.800, 0.525, 0.525 /)
+   slxsilt_ref( :) = 1. - slxsand_ref(:) - slxclay_ref(:)
+   slhydro_ref( :) = soil_hydro_scheme
+   slhydro_ref(12) = 12
+   slhydro_ref(13) = 13
+   slsoc_ref  ( :) = slsoc
+   slph_ref   ( :) = slph
+   slcec_ref  ( :) = slcec
+   sldbd_ref  ( :) = sldbd
    !---------------------------------------------------------------------------------------!
 
 
@@ -1686,616 +1650,11 @@ subroutine init_soil_coms
    update_slx = any(isoilflg(1:ngrids) == 2) .and. slxclay > 0. .and. slxsand > 0. .and.   &
                 (slxclay + slxsand) <= 1.
    if (update_slx) then
-      xsand_def(nslcon) = slxsand
-      xclay_def(nslcon) = slxclay
-      xkey_def (nslcon) = 'User'
+      slxsand_ref(nslcon) = slxsand
+      slxclay_ref(nslcon) = slxclay
+      slxsilt_ref(nslcon) = 1. - slxsand - slxclay
+      slxkey_ref (nslcon) = 'User'
    end if
-   !---------------------------------------------------------------------------------------!
-
-
-
-   !---------------------------------------------------------------------------------------!
-   !     Assign texture and silt fraction (method-independent).                                          !
-   !---------------------------------------------------------------------------------------!
-   do s=1,ed_nstyp
-      soil(s)%key   = xkey_def(s)
-      soil(s)%xsand = xsand_def(s)
-      soil(s)%xclay = xclay_def(s)
-      soil(s)%xsilt = 1. - xsand_def(s) - xclay_def(s)
-   end do
-   !---------------------------------------------------------------------------------------!
-
-
-
-   !---------------------------------------------------------------------------------------!
-   !     Other soil properties (relevant only when SOIL_HYDRO_SCHEME = 2).                 !
-   !---------------------------------------------------------------------------------------!
-   do s=1,ed_nstyp
-      soil(s)%slsoc = slsoc
-      soil(s)%slph  = slph
-      soil(s)%slcec = slcec
-      soil(s)%sldbd = sldbd
-   end do
-   !---------------------------------------------------------------------------------------!
-
-
-
-   !---------------------------------------------------------------------------------------!
-   !     Calculate method- and texture-dependent properties.  For a general overview,      !
-   ! check (M14).  Additional references correspond to specific parametrisations.          !
-   !                                                                                       !
-   ! References:                                                                           !
-   !                                                                                       !
-   ! Brooks RH , Corey AT. 1964. Hydraulic properties of porous media. Hydrology Papers 3, !
-   !    Colorado State University, Fort Collins, U.S.A (BC64).                             !
-   ! Marthews TR, Quesada CA, Galbraith DR, Malhi Y, Mullins CE, Hodnett MG , Dharssi I.   !
-   !    2014. High-resolution hydraulic parameter maps for surface soils in tropical South !
-   !    America. Geosci. Model Dev. 7: 711-723. doi:10.5194/gmd-7-711-2014 (M14).          !
-   ! Campbell GS. 1974. A simple method for determining unsaturated conductivity from      !
-   !    moisture retention data. Soil Science 117: 311-314.                                !
-   !    doi:10.1097/00010694-197406000-00001 (C74).                                        !
-   ! Cosby BJ, Hornberger GM, Clapp RB , Ginn TR. 1984. A statistical exploration of the   !
-   !    relationships of soil moisture characteristics to the physical properties of       !
-   !    soils. Water Resour. Res. 20: 682-690. doi:10.1029/WR020i006p00682 (C84).          !
-   ! van Genuchten MT. 1980. A closed-form equation for predicting the hydraulic           !
-   !    conductivity of unsaturated soils1. Soil Sci. Soc. Am. J. 44: 892-898.             !
-   !    doi:10.2136/sssaj1980.03615995004400050002x (vG80).                                !
-   ! Hodnett M , Tomasella J. 2002. Marked differences between van Genuchten soil          !
-   !    water-retention parameters for temperate and tropical soils: a new                 !
-   !    water-retention pedo-transfer functions developed for tropical soils. Geoderma     !
-   !    108: 155-180. doi:10.1016/S0016-7061(02)00105-2 (HT02).                            !
-   ! Montzka C, Herbst M, Weihermuller L, Verhoef A , Vereecken H. 2017. A global data set !
-   !    of soil hydraulic properties and sub-grid variability of soil water retention and  !
-   !    hydraulic conductivity curves. Earth Syst. Sci. Data, 9: 529-543.                  !
-   !    doi:10.5194/essd-9-529-2017 (M17).                                                 !
-   ! Mualem Y. 1976. A new model for predicting the hydraulic conductivity of unsaturated  !
-   !    porous media. Water Resour. Res., 12: 513-522. doi:10.1029/WR012i003p00513 (M76).  !
-   ! Ottoni MV, Ottoni Filho TB, Lopes-Assad MLR , Rotunno Filho OC. 2019. Pedotransfer    !
-   !    functions for saturated hydraulic conductivity using a database with temperate and !
-   !    tropical climate soils. J. Hydrol., 575: 1345-1358.                                !
-   !    doi:10.1016/j.jhydrol.2019.05.050 (O19).                                           !
-   ! Romano N , Santini A. 2002. Field. In: Methods of soil analysis: Part 4 physical      !
-   !    methods (eds. Dane JH. & Topp GC.). Soil Science Society of America, Madison, WI,  !
-   !    SSSA Book Series 5.4, chap. 3.3.3, pp. 721--738 (RS02).                            !
-   ! Schaap MG , Leij FJ. 2000. Improved prediction of unsaturated hydraulic conductivity  !
-   !    with the Mualem- van Genuchten model. Soil Sci. Soc. Am. J., 64: 843-851.          !
-   !    doi:10.2136/sssaj2000.643843x (SL00).                                              !
-   ! Tomasella J , Hodnett MG. 1998. Estimating soil water retention characteristics from  !
-   !    limited data in Brazilian Amazonia. Soil Sci. 163: 190-202.                        !
-   !    doi:10.1097/00010694-199803000-00003 (TH98).                                       !
-   !---------------------------------------------------------------------------------------!
-   do s=1,ed_nstyp
-
-      !----- Check soil texture.  Peat and bedrock must be handled separately. ------------!
-      select case (s)
-      case (12)
-         !---------------------------------------------------------------------------------!
-         !     Peat.  We always use BC64-M76 approach.  This modify hydraulic properties   !
-         ! to account for high soil organic content.  This class becomes obsolete for      !
-         ! SOIL_HYDRO_SCHEME=2 because we can account for SOC directly.                    !
-         !                                                                                 !
-         ! MLO - I noticed that most parameters do not correspond to what is implemented   !
-         !       in LEAF3 (as of RAMS-6.0).  I left the LEAF3 values as comments next to   !
-         !       the default values but someone running ED2 for peats should check. I      !
-         !       think the LEAF3 values intuitively make more sense for peat.              !
-         !---------------------------------------------------------------------------------!
-         soil(s)%method = 'BC64'
-
-         !----- Peat, use the default value from LEAF3. -----------------------------------!
-         soil(s)%slcons  =  8.0e-6    ! ED-2.2 2.357930e-6
-         !---------------------------------------------------------------------------------!
-
-         !---- Pore tortuosity factor. Assumed 1 to be consistent with BC64. --------------!
-         soil(s)%sltt = 1.0
-         !---------------------------------------------------------------------------------!
-
-
-         !---------------------------------------------------------------------------------!
-         !     Pore-size distribution factor (slnm, aka lambda) and its inverse (slbs, aka !
-         ! BC64's "b" factor).                                                             !
-         !---------------------------------------------------------------------------------!
-         soil(s)%slbs    =  7.75  ! ED-2.2 6.180000
-         soil(s)%slnm    = 1. / soil(s)%slbs
-         !---------------------------------------------------------------------------------!
-
-
-         !---------------------------------------------------------------------------------!
-         !     Ancillary parameters used for hydraulic conductivity.                       !
-         !---------------------------------------------------------------------------------!
-         soil(s)%slmm = 2. + soil(s)%sltt + 2. * soil(s)%slbs
-         soil(s)%slmu = -1. / soil(s)%slmm
-         !---------------------------------------------------------------------------------!
-
-
-         !----- Saturation potential [m]. -------------------------------------------------!
-         soil(s)%slpots  = -0.356                ! ED-2.2 -0.534564359
-         soil(s)%slpotbp = soil(s)%slpots        ! Bubbling point, assume saturation
-         soil(s)%slpotpo = soil(s)%slpots        ! Porosity, assume saturation
-         soil(s)%malpha  = 1. / soil(s)%slpotbp  ! Inverse of bubbling point (not used)
-         !---------------------------------------------------------------------------------!
-
-
-
-         !----- Soil moisture at saturation [m3/m3]. --------------------------------------!
-         soil(s)%slmsts  =  0.863          ! ED-2.2 0.469200
-         soil(s)%soilbp  =  soil(s)%slmsts ! Assume the same as saturation
-         soil(s)%soilpo  =  soil(s)%slmsts ! Assume the same as saturation
-         !---------------------------------------------------------------------------------!
-
-
-         !---- Field capacity [m3/m3] and potential at field capacity [m]. ----------------!
-         soil(s)%sfldcap = 0.535  ! ED-2.2 0.285709966
-         soil(s)%slpotfc = matric_potential(s,soil(s)%sfldcap)
-         !---------------------------------------------------------------------------------!
-
-
-         !----- Residual moisture [m3/m3].  Ignored in C74 and the default ED2 method. ----!
-         soil(s)%soilre  = 0.
-         !---------------------------------------------------------------------------------!
-
-
-         !----- Heat capacity. ------------------------------------------------------------!
-         soil(s)%slcpd   =  874000.
-         !---------------------------------------------------------------------------------!
-      case (13)
-         !----- Bedrock.  Hydraulics is disabled, only heat capacity is needed. -----------!
-         soil(s)%method  = 'BDRK'
-         soil(s)%slcons  = 0.0
-         soil(s)%sltt    = 0.0
-         soil(s)%slnm    = 1.0
-         soil(s)%slbs    = 1.0
-         soil(s)%slmm    = 1.0
-         soil(s)%slmu    = 1.0
-         soil(s)%malpha  = 0.0
-         soil(s)%slpots  = 0.0
-         soil(s)%slmsts  = 0.0
-         soil(s)%slpotbp = 0.0
-         soil(s)%soilbp  = 0.0
-         soil(s)%slpotpo = 0.0
-         soil(s)%soilpo  = 0.0
-         soil(s)%soilre  = 0.0
-         soil(s)%sfldcap = 0.0
-         soil(s)%slpotfc = 0.0
-         soil(s)%slcpd   = 2130000.
-         !---------------------------------------------------------------------------------!
-      case default
-         !---------------------------------------------------------------------------------!
-         !      Other soils.  Decide on hydraulic parameters based on the method.          !
-         !---------------------------------------------------------------------------------!
-         select case (soil_hydro_scheme)
-         case (0)
-            !------------------------------------------------------------------------------!
-            !     Pedotransfer functions from BC64/M76.  Unless noted otherwise, the       !
-            ! parameters for the functions are from C84, based on measurements in the      !
-            ! United States.                                                               !
-            !------------------------------------------------------------------------------!
-
-
-            !------------------------------------------------------------------------------!
-            !      Hydraulic conductivity at saturation [m/s].                             !
-            !------------------------------------------------------------------------------!
-            soil(s)%slcons  = (10.**(-0.60 + 1.26*soil(s)%xsand - 0.64*soil(s)%xclay))     &
-                            * 0.0254/hr_sec
-            !------------------------------------------------------------------------------!
-
-
-            !---- Flag for method. --------------------------------------------------------!
-            soil(s)%method = 'BC64'
-            !------------------------------------------------------------------------------!
-
-
-            !---- Pore tortuosity factor. Assumed 1 to be consistent with BC64. -----------!
-            soil(s)%sltt = 1.0
-            !------------------------------------------------------------------------------!
-
-
-            !------------------------------------------------------------------------------!
-            !     Pore-size distribution factor (slnm, aka lambda) and its inverse (slbs,  !
-            ! aka BC64's "b" factor).                                                      !
-            !------------------------------------------------------------------------------!
-            soil(s)%slnm = 1. / (3.10 + 15.7*soil(s)%xclay - 0.3*soil(s)%xsand)
-            soil(s)%slbs = 1. / soil(s)%slnm
-            !------------------------------------------------------------------------------!
-
-
-            !------------------------------------------------------------------------------!
-            !     Ancillary parameters used for hydraulic conductivity.                    !
-            !------------------------------------------------------------------------------!
-            soil(s)%slmm = 2. + soil(s)%sltt + 2. * soil(s)%slbs
-            soil(s)%slmu = -1. / soil(s)%slmm
-            !------------------------------------------------------------------------------!
-
-
-            !----- Saturation potential [m]. ----------------------------------------------!
-            soil(s)%slpots  = -1.                                                          &
-                            * (10.**(2.17 - 0.63*soil(s)%xclay - 1.58*soil(s)%xsand)) * 0.01
-            soil(s)%slpotbp = soil(s)%slpots       ! Bubbling point, assume saturation
-            soil(s)%slpotpo = soil(s)%slpots       ! Porosity, assume saturation
-            soil(s)%malpha  = 1. / soil(s)%slpotbp
-            !------------------------------------------------------------------------------!
-
-
-            !----- Soil moisture at saturation (porosity) [m3/m3]. ------------------------!
-            soil(s)%slmsts  = 0.01 * (50.5 - 14.2*soil(s)%xsand - 3.7*soil(s)%xclay)
-            !------------------------------------------------------------------------------!
-
-
-            !----- Bubbling point soil moisture and porosity, assume saturation [m3/m3]. --!
-            soil(s)%soilbp  = soil(s)%slmsts ! Bubbling point
-            soil(s)%soilpo  = soil(s)%slmsts ! Porosity
-            !------------------------------------------------------------------------------!
-
-
-            !----- Residual moisture [m3/m3].  Ignored in C74 and the default ED2 method. -!
-            soil(s)%soilre = 0.0
-            !------------------------------------------------------------------------------!
-
-
-            !------------------------------------------------------------------------------!
-            !      Field capacity is defined based on hydraulic conductivity of 0.1        !
-            ! mm/day, following RS02.                                                      !
-            !------------------------------------------------------------------------------!
-            soil(s)%sfldcap =  soil(s)%slmsts                                              &
-                            *  ( soil(s)%slcons / ( fieldcp_K / ( wdns * day_sec ) ) )     &
-                            ** soil(s)%slmu
-            soil(s)%slpotfc = matric_potential(s,soil(s)%sfldcap)
-            !------------------------------------------------------------------------------!
-
-         case (1)
-            !------------------------------------------------------------------------------!
-            !     Pedotransfer functions from BC64/M76.  Unless noted otherwise, the       !
-            ! parameters for the functions are from TH98, based on measurements in the     !
-            ! Brazilian Amazon.                                                            !
-            !------------------------------------------------------------------------------!
-
-
-
-            !---- Flag for method. --------------------------------------------------------!
-            soil(s)%method = 'BC64'
-            !------------------------------------------------------------------------------!
-
-
-            !------------------------------------------------------------------------------!
-            !      Hydraulic conductivity at saturation [m/s].  Use C84 settings, follow-  !
-            ! ing M14.                                                                     !
-            !------------------------------------------------------------------------------!
-            soil(s)%slcons  = (10.**(-0.60 + 1.26*soil(s)%xsand - 0.64*soil(s)%xclay))     &
-                            * 0.0254/hr_sec
-            !------------------------------------------------------------------------------!
-
-
-            !---- Pore tortuosity factor. Assumed 0.5, following M14. ---------------------!
-            soil(s)%sltt = 0.5
-            !------------------------------------------------------------------------------!
-
-
-            !------------------------------------------------------------------------------!
-            !     Pore-size distribution factor (slnm, aka lambda) and its inverse (slbs,  !
-            ! aka BC64's "b" factor).                                                      !
-            !------------------------------------------------------------------------------!
-            soil(s)%slnm = exp( - 1.197 - 0.417 * soil(s)%xsilt + 0.450 * soil(s)%xclay    &
-                                - 8.940 * soil(s)%xsilt * soil(s)%xclay                    &
-                                + 10.00 * soil(s)%xsilt * soil(s)%xsilt * soil(s)%xclay )
-            soil(s)%slbs = 1./ soil(s)%slnm
-            !------------------------------------------------------------------------------!
-
-
-            !------------------------------------------------------------------------------!
-            !     Ancillary parameters used for hydraulic conductivity.                    !
-            !------------------------------------------------------------------------------!
-            soil(s)%slmm = 2. + soil(s)%sltt + 2. * soil(s)%slbs
-            soil(s)%slmu = -1. / soil(s)%slmm
-            !------------------------------------------------------------------------------!
-
-
-            !----- Saturation potential [m]. ----------------------------------------------!
-            soil(s)%slpots  = -1. / grav                                                   &
-                            * ( 0.285 + 7.33 * soil(s)%xsilt * soil(s)%xsilt               &
-                              - 1.30 * soil(s)%xsilt * soil(s)%xclay                       &
-                              + 3.60 * soil(s)%xsilt * soil(s)%xsilt * soil(s)%xclay )
-            soil(s)%slpotbp = soil(s)%slpots       ! Bubbling point, assume saturation
-            soil(s)%slpotpo = soil(s)%slpots       ! Porosity, assume saturation
-            soil(s)%malpha  = 1. / soil(s)%slpotbp
-            !------------------------------------------------------------------------------!
-
-
-            !----- Soil moisture at saturation (porosity) [m3/m3]. ------------------------!
-            soil(s)%slmsts  = 0.4061  + 0.165 * soil(s)%xsilt + 0.162 * soil(s)%xclay      &
-                            + 1.37e-3 * soil(s)%xsilt * soil(s)%xsilt                      &
-                            + 1.80e-5 * soil(s)%xsilt * soil(s)%xsilt * soil(s)%xclay
-            !------------------------------------------------------------------------------!
-
-
-            !----- Bubbling point soil moisture and porosity, assume saturation [m3/m3]. --!
-            soil(s)%soilbp  = soil(s)%slmsts ! Bubbling point
-            soil(s)%soilpo  = soil(s)%slmsts ! Porosity
-            !------------------------------------------------------------------------------!
-
-
-
-            !----- Residual moisture [m3/m3].  --------------------------------------------!
-            soil(s)%soilre = max( 0.0                                                      &
-                                , - 0.02095 + 0.047 * soil(s)%xsilt                        &
-                                            + 0.431 * soil(s)%xclay                        &
-                                            - 0.00827 * soil(s)%xsilt * soil(s)%xclay )
-            !------------------------------------------------------------------------------!
-
-
-            !------------------------------------------------------------------------------!
-            !      Field capacity is defined based on hydraulic conductivity of 0.1        !
-            ! mm/day, following RS02.                                                      !
-            !------------------------------------------------------------------------------!
-            soil(s)%slpotfc = slpotfc_MPa * 1.e6 / (grav * wdns)
-            soil(s)%sfldcap = soil_moisture(s,soil(s)%slpotfc)
-            !------------------------------------------------------------------------------!
-
-         case (2)
-            !------------------------------------------------------------------------------!
-            !     Pedotransfer functions from vG80/M76.  Unless noted otherwise,           !
-            ! the parameters for the function are from HT02, based on measurements in the  !
-            ! Brazilian Amazon.                                                            !
-            !------------------------------------------------------------------------------!
-
-
-            !---- Flag for method. --------------------------------------------------------!
-            soil(s)%method = 'vG80'
-            !------------------------------------------------------------------------------!
-
-
-            !------------------------------------------------------------------------------!
-            !      Pore tortuosity factor. M14 assumed 0.5, but there is evidence that     !
-            ! this parameter should be regarded as empirical and some studies suggested    !
-            ! that it should be even negative (e.g., SL00 and M17).  We follow SL00 and    !
-            ! assume the parameter to be -1.0.                                             !
-            !------------------------------------------------------------------------------!
-            soil(s)%sltt = -1.0
-            !------------------------------------------------------------------------------!
-
-
-            !------------------------------------------------------------------------------!
-            !     Pore-size distribution factor (slnm, aka lambda) and its inverse (slbs,  !
-            ! aka BC64's "b" factor).                                                      !
-            !------------------------------------------------------------------------------!
-            soil(s)%slnm = exp( 0.62986 - 0.833 * soil(s)%xclay - 0.529 * soil(s)%slsoc    &
-                              + 0.00593 * soil(s)%slph                                     &
-                              + 0.700 * soil(s)%xclay * soil(s)%xclay                      &
-                              - 1.400 * soil(s)%xsand * soil(s)%xsilt                   )
-            soil(s)%slbs = 1./ soil(s)%slnm
-            !------------------------------------------------------------------------------!
-
-
-            !------------------------------------------------------------------------------!
-            !     Ancillary parameters used for hydraulic conductivity.                    !
-            !------------------------------------------------------------------------------!
-            soil(s)%slmm = 1. - 1. / soil(s)%slnm
-            soil(s)%slmu = soil(s)%slnm / (1. - soil(s)%slnm)
-            !------------------------------------------------------------------------------!
-
-
-            !----- Bubbling point potential [m].  Assume equivalent to saturation. --------!
-            soil(s)%slpotbp = -1. / grav                                                   &
-                            * exp(  0.02294 + 3.526 * soil(s)%xsilt                        &
-                                 - 2.440 * soil(s)%slsoc + 0.076 * soil(s)%slcec           &
-                                  + 0.11331 * soil(s)%slph                                 &
-                                  - 1.90000 * soil(s)%xsilt * soil(s)%xsilt      )
-            soil(s)%malpha  = 1. / soil(s)%slpotbp
-            !------------------------------------------------------------------------------!
-
-
-
-            !----- Soil moisture and potential at porosity [m3/m3]. -----------------------!
-            soil(s)%soilpo  = 0.81799 + 0.099 * soil(s)%xclay - 3.142e-4 * soil(s)%sldbd   &
-                            + 0.01800 * soil(s)%slcec + 0.00451 * soil(s)%slph             &
-                            - 0.050 * soil(s)%xsand * soil(s)%xclay
-            soil(s)%slpotpo = matric_potential(s,soil(s)%soilpo)
-            !------------------------------------------------------------------------------!
-
-
-
-            !----- Residual moisture [m3/m3].  --------------------------------------------!
-            soil(s)%soilre = max( 0.0                                                      &
-                                , 0.22733 - 0.164 * soil(s)%xsand + 0.235 * soil(s)%slcec  &
-                                - 0.00831 * soil(s)%slph                                   &
-                                + 0.18 * soil(s)%xclay * soil(s)%xclay                     &
-                                + 0.26 * soil(s)%xsand * soil(s)%xclay                    )
-            !------------------------------------------------------------------------------!
-
-
-
-            !------------------------------------------------------------------------------!
-            !     Soil moisture at "saturation".  The vG80 approach assumes that actual    !
-            ! saturation occurs when soil matric potential is zero, which causes           !
-            ! singularities in many applications.  To prevent FPE errors, we assume that   !
-            ! water potential zero corresponds to porosity (admittedly this is not         !
-            ! entirely accurate), and impose "saturation" for ED-2.2 purposes to be when   !
-            ! matric potential is -0.5 kPa, similar to the highest saturation potential    !
-            ! values obtained through Cosby et al. (1984) parametrisation.                 !
-            !------------------------------------------------------------------------------!
-            soil(s)%slpots = slpots_MPa * 1.e6 / (grav * wdns)
-            soil(s)%slmsts = soil_moisture(s,soil(s)%slpots)
-            !------------------------------------------------------------------------------!
-
-
-
-            !------------------------------------------------------------------------------!
-            !     Soil moisture at bubbling point.  Unlike other schemes, we account for   !
-            ! the differences between bubbling point and porosity.                         !
-            !------------------------------------------------------------------------------!
-            soil(s)%soilbp = soil_moisture(s,soil(s)%slpotbp)
-            !------------------------------------------------------------------------------!
-
-
-
-            !------------------------------------------------------------------------------!
-            !      Field capacity is defined based on hydraulic conductivity of 0.1        !
-            ! mm/day, following RS02.                                                      !
-            !------------------------------------------------------------------------------!
-            soil(s)%slpotfc = slpotfc_MPa * 1.e6 / (grav * wdns)
-            soil(s)%sfldcap = soil_moisture(s,soil(s)%slpotfc)
-            !------------------------------------------------------------------------------!
-
-
-            !------------------------------------------------------------------------------!
-            !      Hydraulic conductivity at saturation [m/s].  Here we follow O19, which  !
-            ! depends upon the "effective porosity" (or difference between actual porosity !
-            ! and soil moisture at -0.033 MPa).                                            !
-            !------------------------------------------------------------------------------!
-            slpot33         = slpot33_MPa * 1.e6 / (grav * wdns)
-            soilep          = max(0.,soil(s)%slmsts - soil_moisture(s,slpot33))
-            soil(s)%slcons  = 19.31 / day_sec * soilep ** 1.948
-            !------------------------------------------------------------------------------!
-         end select
-         !---------------------------------------------------------------------------------!
-
-      end select
-      !------------------------------------------------------------------------------------!
-
-
-
-      !------------------------------------------------------------------------------------!
-      !     Additional derived parameters.                                                 !
-      !------------------------------------------------------------------------------------!
-      select case (s)
-      case (13)
-         !----- Bedrock, do nothing. ------------------------------------------------------!
-         soil(s)%slpotcp  = 0.0
-         soil(s)%slpotwp  = 0.0
-         soil(s)%slpotfr  = 0.0
-         soil(s)%slpotld  = 0.0
-         soil(s)%slpotfc  = 0.0
-         soil(s)%slpotbp  = 0.0
-         soil(s)%slpots   = 0.0
-         soil(s)%slpotpo  = 0.0
-         soil(s)%soilcp   = 0.0
-         soil(s)%soilwp   = 0.0
-         soil(s)%soilfr   = 0.0
-         soil(s)%soilld   = 0.0
-         soil(s)%sfldcap  = 0.0
-         soil(s)%soilbp   = 0.0
-         soil(s)%slmsts   = 0.0
-         soil(s)%soilpo   = 0.0
-         soil(s)%fhydraul = 0.0
-         !---------------------------------------------------------------------------------!
-      case default
-         !----- First guess, use water potential. -----------------------------------------!
-         soil(s)%slpotwp = slpotwp_MPa * 1.e6 / ( grav * wdns )
-         soil(s)%slpotcp = slpotcp_MPa * wdns / grav
-         soil(s)%soilwp  = soil_moisture(s,soil(s)%slpotwp)
-         soil(s)%soilcp  = soil_moisture(s,soil(s)%slpotcp)
-         !----- In case soilcp is less than the residual (very unlikely), recalculate it. -!
-         if (soil(s)%soilcp < soil(s)%soilre) then
-            soil(s)%soilcp  = soil(s)%soilre
-            soil(s)%slpotcp = matric_potential(s,soil(s)%soilcp)
-         end if
-         !----- Because we may have artificially increased soilcp, check soilwp. ----------!
-         if (soil(s)%soilwp < soil(s)%soilcp) then
-            soil(s)%soilwp  = soil(s)%soilcp
-            soil(s)%slpotwp = soil(s)%slpotcp
-         end if
-         !---------------------------------------------------------------------------------!
-
-
-
-
-         !---------------------------------------------------------------------------------!
-         !     Find two remaining properties, that depend on the user choices.             !
-         !                                                                                 !
-         ! SOILLD/SLPOTLD.                                                                 !
-         !    The critical soil moisture below which drought deciduous plants start drop-  !
-         !    ping their leaves.  The sign of input variable THETACRIT matters here.  If   !
-         !    the user gave a positive number (or 0),  then the soil moisture is a         !
-         !    fraction above wilting point.  If it is negative, the value is the potential !
-         !    in MPa.                                                                      !
-         ! SOILFR/SLPOTFR.                                                                 !
-         !    The critical soil moisture below which fires may happen, provided that the   !
-         !    user wants fires, and that there is enough biomass to burn.  The sign of the !
-         !    input variable SM_FIRE matters here.  If the user gave a positive number     !
-         !    (or 0), then the soil moisture is a fraction above dry air soil.  If it is   !
-         !    negative, the value is the potential in MPa.                                 !
-         !---------------------------------------------------------------------------------!
-         !----- Leaf drop. ----------------------------------------------------------------!
-         if (thetacrit >= 0.0) then
-            soil(s)%soilld  = soil(s)%soilwp + thetacrit * (soil(s)%slmsts-soil(s)%soilwp)
-            soil(s)%slpotld = matric_potential(s,soil(s)%soilld)
-         else
-            soil(s)%slpotld = thetacrit * 1.e6 / (grav * wdns)
-            soil(s)%soilld  = soil_moisture(s,soil(s)%slpotld)
-         end if
-         !----- Fire. ---------------------------------------------------------------------!
-         if (sm_fire >= 0.0) then
-            soil(s)%soilfr  = soil(s)%soilcp + sm_fire * (soil(s)%slmsts-soil(s)%soilcp)
-            soil(s)%slpotfr = matric_potential(s,soil(s)%soilfr)
-         else
-            soil(s)%slpotfr = sm_fire * 1.e6 / (grav * wdns)
-            soil(s)%soilfr  = soil_moisture(s,soil(s)%slpotfr)
-         end if
-         !---------------------------------------------------------------------------------!
-
-
-
-
-         !---------------------------------------------------------------------------------!
-         !     Define hydraulic parameter decay, similar to TOPMODEL.  We currently use    !
-         ! the default value of 2.0, following N05's SIMTOP model.                         !
-         !                                                                                 !
-         ! Niu GY, Yang ZL, Dickinson RE , Gulden LE. 2005. A simple TOPMODEL-based runoff !
-         !    parameterization (SIMTOP) for use in global climate models. J. Geophys.      !
-         !    Res.-Atmos., 110: D21106. doi:10.1029/2005JD006111 (N05).                    !
-         !---------------------------------------------------------------------------------!
-         soil(s)%fhydraul = 2.0
-         !---------------------------------------------------------------------------------!
-      end select
-      !------------------------------------------------------------------------------------!
-
-
-
-      !------------------------------------------------------------------------------------!
-      !     Heat capacity (J/m3/K).  Here we take the volume average amongst silt, clay,   !
-      ! and sand, and consider the contribution of air sitting in.  In order to keep it    !
-      ! simple, we assume that the air fraction won't change, although in reality its      !
-      ! contribution should be a function of soil moisture.  Here we use the amount of air !
-      ! in case the soil moisture was halfway between dry air and saturated, so the        !
-      ! error is not too biased.                                                           !
-      !------------------------------------------------------------------------------------!
-      soil(s)%slcpd = (1. - soil(s)%slmsts)                                                &
-                    * ( soil(s)%xsand * sand_hcapv + soil(s)%xsilt * silt_hcapv            &
-                      + soil(s)%xclay * clay_hcapv )                                       &
-                    + 0.5 * ( soil(s)%slmsts - soil(s)%soilcp ) * air_hcapv
-      !------------------------------------------------------------------------------------!
-
-
-      !------------------------------------------------------------------------------------!
-      !      Thermal conductivity is the weighted average of thermal conductivities of all !
-      ! materials, although a further weighting factor due to thermal gradient of          !
-      ! different materials.  We use the de Vries model described at:                      !
-      !                                                                                    !
-      ! Camillo, P., T.J. Schmugge, 1981: A computer program for the simulation of heat    !
-      !     and moisture flow in soils, NASA-TM-82121, Greenbelt, MD, United States.       !
-      !                                                                                    !
-      ! Parlange, M.B., et al., 1998: Review of heat and water movement in field soils,    !
-      !    Soil Till. Res., 47(1-2), 5-10.                                                 !
-      !                                                                                    !
-      !------------------------------------------------------------------------------------!
-      !---- The k-factors, assuming spherical particles. ----------------------------------!
-      ksand = 3. * h2o_thcond / ( 2. * h2o_thcond + sand_thcond )
-      ksilt = 3. * h2o_thcond / ( 2. * h2o_thcond + silt_thcond )
-      kclay = 3. * h2o_thcond / ( 2. * h2o_thcond + clay_thcond )
-      kair  = 3. * h2o_thcond / ( 2. * h2o_thcond +  air_thcond )
-      !---- The conductivity coefficients. ------------------------------------------------!
-      soil(s)%thcond0 = (1. - soil(s)%slmsts )                                             &
-                      * ( ksand * soil(s)%xsand * sand_thcond                              &
-                        + ksilt * soil(s)%xsilt * silt_thcond                              &
-                        + kclay * soil(s)%xclay * clay_thcond )                            &
-                      + soil(s)%slmsts * kair * air_thcond
-      soil(s)%thcond1 = h2o_thcond - kair * air_thcond
-      soil(s)%thcond2 = (1. - soil(s)%slmsts )                                             &
-                      * ( ksand * soil(s)%xsand + ksilt * soil(s)%xsilt                    &
-                        + kclay * soil(s)%xclay                         )                  &
-                      + soil(s)%slmsts * kair
-      soil(s)%thcond3 = 1. - kair
-      !------------------------------------------------------------------------------------!
-
-   end do
    !---------------------------------------------------------------------------------------!
 
 
@@ -2335,52 +1694,6 @@ subroutine init_soil_coms
 
 
 
-   !----- Here we fill soil8, which will be used in Runge-Kutta (double precision). -------!
-   do s=1,ed_nstyp
-      soil8(s)%key      = soil(s)%key
-      soil8(s)%method   = soil(s)%method
-      soil8(s)%xsand    = dble(soil(s)%xsand   )
-      soil8(s)%xsilt    = dble(soil(s)%xsilt   )
-      soil8(s)%xclay    = dble(soil(s)%xclay   )
-      soil8(s)%slsoc    = dble(soil(s)%slsoc   )
-      soil8(s)%slph     = dble(soil(s)%slph    )
-      soil8(s)%slcec    = dble(soil(s)%slcec   )
-      soil8(s)%sldbd    = dble(soil(s)%sldbd   )
-      soil8(s)%soilre   = dble(soil(s)%soilre  )
-      soil8(s)%soilcp   = dble(soil(s)%soilcp  )
-      soil8(s)%soilwp   = dble(soil(s)%soilwp  )
-      soil8(s)%soilfr   = dble(soil(s)%soilfr  )
-      soil8(s)%soilld   = dble(soil(s)%soilld  )
-      soil8(s)%sfldcap  = dble(soil(s)%sfldcap )
-      soil8(s)%soilbp   = dble(soil(s)%soilbp  )
-      soil8(s)%slmsts   = dble(soil(s)%slmsts  )
-      soil8(s)%soilpo   = dble(soil(s)%soilpo  )
-      soil8(s)%slpotcp  = dble(soil(s)%slpotcp )
-      soil8(s)%slpotwp  = dble(soil(s)%slpotwp )
-      soil8(s)%slpotfr  = dble(soil(s)%slpotfr )
-      soil8(s)%slpotld  = dble(soil(s)%slpotld )
-      soil8(s)%slpotfc  = dble(soil(s)%slpotfc )
-      soil8(s)%slpotbp  = dble(soil(s)%slpotbp )
-      soil8(s)%slpots   = dble(soil(s)%slpots  )
-      soil8(s)%slpotpo  = dble(soil(s)%slpotpo )
-      soil8(s)%sltt     = dble(soil(s)%sltt    )
-      soil8(s)%slnm     = dble(soil(s)%slnm    )
-      soil8(s)%slbs     = dble(soil(s)%slbs    )
-      soil8(s)%slmm     = dble(soil(s)%slmm    )
-      soil8(s)%slmu     = dble(soil(s)%slmu    )
-      soil8(s)%malpha   = dble(soil(s)%malpha  )
-      soil8(s)%slcons   = dble(soil(s)%slcons  )
-      soil8(s)%fhydraul = dble(soil(s)%fhydraul)
-      soil8(s)%slcpd    = dble(soil(s)%slcpd   )
-      soil8(s)%thcond0  = dble(soil(s)%thcond0 )
-      soil8(s)%thcond1  = dble(soil(s)%thcond1 )
-      soil8(s)%thcond2  = dble(soil(s)%thcond2 )
-      soil8(s)%thcond3  = dble(soil(s)%thcond3 )
-   end do
-   !---------------------------------------------------------------------------------------!
-
-
-
    !----- Double precision of additional scalar variables. --------------------------------!
    soil_rough8  = dble(soil_rough )
    snow_rough8  = dble(snow_rough )
@@ -2401,70 +1714,6 @@ subroutine init_soil_coms
    sin_sldrain8 = sin(sldrain8 * pio1808)
    !---------------------------------------------------------------------------------------!
 
-   !---------------------------------------------------------------------------------------!
-   !     Decide whether to write the table with the soil properties.                       !
-   !---------------------------------------------------------------------------------------!
-   print_soil_table = btest(idetailed,5)
-   !---------------------------------------------------------------------------------------!
-
-
-   !---------------------------------------------------------------------------------------!
-   !     Print the parameters in case the user wants it.                                   !
-   !---------------------------------------------------------------------------------------!
-   if (print_soil_table) then
-      !----- Open and write header. -------------------------------------------------------!
-      open (unit=26,file=trim(soil_table_fn),status='replace',action='write')
-      write(unit=26,fmt='(38(a,1x))')        'ISOIL',        ' KEY',        'TYPE'         &
-                                     ,'       XSAND','       XSILT','       XCLAY'         &
-                                     ,'       SLSOC','        SLPH','       SLCEC'         &
-                                     ,'       SLDBD','      SOILRE','      SOILCP'         &
-                                     ,'      SOILWP','      SOILFR','      SOILLD'         &
-                                     ,'      SOILFC','      SOILBP','      SOILPO'         &
-                                     ,'     SLPOTCP','     SLPOTWP','     SLPOTFR'         &
-                                     ,'     SLPOTLD','     SLPOTFC','     SLPOTBP'         &
-                                     ,'     SLPOTPO','        SLTT','        SLNM'         &
-                                     ,'        SLBS','        SLMM','        SLMU'         &
-                                     ,'      MALPHA',' SLCONS_MMHR','    FHYDRAUL'         &
-                                     ,' SLCPD_MJm3K','     THCOND0','     THCOND1'         &
-                                     ,'     THCOND2','     THCOND3'
-      !------------------------------------------------------------------------------------!
-
-
-      !------------------------------------------------------------------------------------!
-      !     Loop over soil texture types.                                                  !
-      !------------------------------------------------------------------------------------!
-      do s=1,ed_nstyp
-         !----- For some variables, we use different units to make them more legible. -----!
-         slcons_mmhr = soil(s)%slcons*1000.*hr_sec
-         slcpd_mjm3k = soil(s)%slcpd*0.001
-         !---------------------------------------------------------------------------------!
-
-         !----- Add soil characteristics. -------------------------------------------------!
-         write(unit=26,fmt='(i5,1x,2(a4,1x),35(f12.5,1x))')                                &
-                                      s,adjustr(soil(s)%key),adjustr(soil(s)%method)       &
-                                     ,soil(s)%xsand   ,soil(s)%xsilt   ,soil(s)%xclay      &
-                                     ,soil(s)%slsoc   ,soil(s)%slph    ,soil(s)%slcec      &
-                                     ,soil(s)%sldbd   ,soil(s)%soilre  ,soil(s)%soilcp     &
-                                     ,soil(s)%soilwp  ,soil(s)%soilfr  ,soil(s)%soilld     &
-                                     ,soil(s)%sfldcap ,soil(s)%soilbp  ,soil(s)%slmsts     &
-                                     ,soil(s)%slpotcp ,soil(s)%slpotwp ,soil(s)%slpotfr    &
-                                     ,soil(s)%slpotld ,soil(s)%slpotfc ,soil(s)%slpotbp    &
-                                     ,soil(s)%slpots  ,soil(s)%sltt    ,soil(s)%slnm       &
-                                     ,soil(s)%slbs    ,soil(s)%slmm    ,soil(s)%slmu       &
-                                     ,soil(s)%malpha  ,slcons_mmhr     ,soil(s)%fhydraul   &
-                                     ,slcpd_mjm3k     ,soil(s)%thcond0 ,soil(s)%thcond1    &
-                                     ,soil(s)%thcond2 ,soil(s)%thcond3 
-         !---------------------------------------------------------------------------------!
-      end do
-      !------------------------------------------------------------------------------------!
-
-
-      !----- Close table. -----------------------------------------------------------------!
-      close(unit=26,status='keep')
-      !------------------------------------------------------------------------------------!
-   end if
-   !---------------------------------------------------------------------------------------!
-
    return
 end subroutine init_soil_coms
 !==========================================================================================!
@@ -2483,6 +1732,7 @@ subroutine init_phen_coms
    use phenology_coms, only : thetacrit                & ! intent(in)
                             , retained_carbon_fraction & ! intent(out)
                             , root_phen_factor         & ! intent(out)
+                            , f_psi_xdry               & ! intent(out)
                             , elongf_min               & ! intent(out)
                             , elongf_flush             & ! intent(out)
                             , spot_phen                & ! intent(out)
@@ -2532,6 +1782,14 @@ subroutine init_phen_coms
    ! root_phen_factor < 0.  Non-sensical, currently assume the same as 0.                  !
    !---------------------------------------------------------------------------------------!
    root_phen_factor = 2.0
+   !---------------------------------------------------------------------------------------!
+
+
+
+   !---------------------------------------------------------------------------------------!
+   !      Threshold for shedding all leaves when leaf water potential is very low. .       !
+   !---------------------------------------------------------------------------------------!
+   f_psi_xdry               = 0.95
    !---------------------------------------------------------------------------------------!
 
 
@@ -2962,9 +2220,6 @@ subroutine init_pft_alloc_params()
                              , economics_scheme      & ! intent(in)
                              , ibigleaf              & ! intent(in)
                              , ivegt_dynamics        ! ! intent(in)
-   use canopy_air_coms, only : lwidth_grass          & ! intent(in)
-                             , lwidth_bltree         & ! intent(in)
-                             , lwidth_nltree         ! ! intent(in)
 
    implicit none
    !----- Local variables. ----------------------------------------------------------------!
@@ -3016,13 +2271,13 @@ subroutine init_pft_alloc_params()
    real, dimension(3)    , parameter :: nleaf       = (/ 0.0192512, 0.9749494, 2.5858509 /)
    real, dimension(2)    , parameter :: ncrown_area = (/ 0.1184295, 1.0521197            /)
    !---------------------------------------------------------------------------------------!
-   !   Coefficients for leaf and structural biomass (iallom = 3).  For adult individuals,  !
-   ! we use the pantropical allometric equation from C14 that estimates AGB and the leaf   !
-   ! biomass from an allometric equation derived from F15 data (tropical forest, wild      !
-   ! flowering trees only), and the size- and site-dependent stratified sampling and       !
-   ! aggregation (J17).  Total individual leaf area was fitted, so to get biomass we must  !
-   ! divide by SLA.  The C2B term is added here but is removed when the coefficients are   !
-   ! set.                                                                                  !
+   !   Coefficients for leaf and structural biomass (iallom = 3 or 5).  For adult          !
+   ! individuals, we use the pantropical allometric equation from C14 that estimates AGB   !
+   ! and the leaf biomass from an allometric equation derived from F15 data (tropical      !
+   ! forest, wild flowering trees only), and the size- and site-dependent stratified       !
+   ! sampling and aggregation (J17).  Total individual leaf area was fitted, so to get     !
+   ! biomass we must divide by SLA.  The C2B term is added here but is removed when the    !
+   ! coefficients are set.                                                                 !
    !                                                                                       !
    !  References:                                                                          !
    !                                                                                       !
@@ -3033,7 +2288,7 @@ subroutine init_pft_alloc_params()
    !                                                                                       !
    !   Falster DS, Duursma RA, Ishihara MI, Barneche DR, FitzJohn RG, Vahammar A, Aiba M,  !
    !      Ando M, Anten N, Aspinwall MJ. 2015. BAAD: a biomass and allometry database for  !
-   !      woody plants. Ecology, 96 (5):1445-1445. doi:10.1890/14-1889.1 (F16).            !
+   !      woody plants. Ecology, 96 (5):1445-1445. doi:10.1890/14-1889.1 (F15).            !
    !                                                                                       !
    !   Jucker T, Caspersen J, Chave J, Antin C, Barbier N, Bongers F, Dalponte M,          !
    !      van Ewijk KY, Forrester DI, Haeni M et al. 2017. Allometric equations for        !
@@ -3041,7 +2296,7 @@ subroutine init_pft_alloc_params()
    !      Glob. Change Biol., 23(1):177-190. doi:10.1111/gcb.13388 (J17).                  !
    !                                                                                       !
    !---------------------------------------------------------------------------------------!
-   real, dimension(2)    , parameter :: c14f15_bl_xx  = (/ 0.46769540,0.6410495 /)
+   real, dimension(2)    , parameter :: c14f15_bl_xx  = (/ 0.23384770,0.6410495 /)
    real, dimension(3)    , parameter :: c14f15_la_wd  = (/-0.5874,0.5679,0.5476 /)
    real, dimension(3)    , parameter :: c14f15_ht_xx  = (/0.5709,-0.1007,0.6734 /)
    real, dimension(2)    , parameter :: c14f15_bs_tf  = (/ 0.06080334,1.0044785 /)
@@ -3315,9 +2570,10 @@ subroutine init_pft_alloc_params()
 
    !---------------------------------------------------------------------------------------!
    !   KIM: ED1/ED2 codes and Moorcroft et al. had the incorrect ratio.                    !
-   !   MLO: The ratio is corrected only for tropical PFTs using iallom=3.  To extend this  !
-   !        fix to other PFTs, one must refit parameters for other tissues (e.g. bdead),   !
-   !        so the total AGB is consistent with the original allometric equation for AGB.  !
+   !   MLO: The ratio is corrected only for tropical PFTs using iallom = 3 or 5.  To       !
+   !        extend this fix to other PFTs, one must refit parameters for other tissues     !
+   !        (e.g. bdead), so the total AGB is consistent with the original allometric      !
+   !        equation for AGB.                                                              !
    !                                                                                       !
    !        For the PFTs that were updated, we combine the pipe model with the data from   !
    !        CA08 and shape parameter from F16 to derive the ratio.                         !
@@ -3354,7 +2610,7 @@ subroutine init_pft_alloc_params()
    !                                                                                       !
    !---------------------------------------------------------------------------------------!
    select case (iallom)
-   case (3)
+   case (3,5)
       do ipft=1,n_pft
          if (is_liana(ipft)) then
             !------------------------------------------------------------------------------!
@@ -3467,12 +2723,18 @@ subroutine init_pft_alloc_params()
    !                                                                                       !
    !    The root fraction (Y) above depth D cm for a cohort with max rooting depth as      !
    !  D_max (cm) can be calculated as:                                                     !
-   !  Y = 1. - (root_beta) ** (D / D_max)                                                  !
    !                                                                                       !
-   !    Suggested values range from 0.0001 to 0.01.                                        !
+   !  Y = ( 1. - (root_beta) ** (D / D_max) ) / (1 - root_beta)                            !
+   !                                                                                       !
+   !                                                                                       !
+   !  MLO (2020-10-27): I added the denominator (1 - root_beta) to ensure that Y at        !
+   !                    D=D_max is always 1, regardless of the value of root_beta, as      !
+   !                    long as root_beta < 1.                                             !
+   !                                                                                       !
+   !    Suggested values range from 0.0001 to 0.1.                                         !
    !                                                                                       !
    !---------------------------------------------------------------------------------------!
-   root_beta(:)   =   0.01
+   root_beta(:)   =   0.1
    !---------------------------------------------------------------------------------------!
 
 
@@ -3500,8 +2762,8 @@ subroutine init_pft_alloc_params()
 
    !---------------------------------------------------------------------------------------!
    !     Set bark thickness and carbon allocation to bark.  This is currently done only    !
-   ! for tropical trees when IALLOM=3, because all biomass pools must be corrected to      !
-   ! ensure that total aboveground biomass is consistent with the allometric equations.    !
+   ! for tropical trees when IALLOM = 3 or 5, because all biomass pools must be corrected  !
+   ! to ensure that total aboveground biomass is consistent with the allometric equations. !
    ! This may and should be changed in the future.                                         !
    !                                                                                       !
    ! References:                                                                           !
@@ -3531,7 +2793,7 @@ subroutine init_pft_alloc_params()
    ! qbark - ratio between leaf biomass and bark biomass per unit height.                  !
    !---------------------------------------------------------------------------------------!
    select case (iallom)
-   case (3)
+   case (3,5)
       !------ New allometry, use estimate based on M01. -----------------------------------!
       b1Xs(:) = 0.315769481
       !------------------------------------------------------------------------------------!
@@ -3626,17 +2888,17 @@ subroutine init_pft_alloc_params()
             !----- hgt_ref is their "Hmax". -----------------------------------------------!
             hgt_ref(ipft) = 61.7
             !------------------------------------------------------------------------------!
-        case (3)
+        case (3,5)
             !------------------------------------------------------------------------------!
             !     Allometric equation based on the fitted curve using the Sustainable      !
             ! Landscapes data set (L16) and the size- and site-dependent stratified        !
-            ! sampling and aggregation (J17).  This relationship is fitted using           !
-            ! Standardised Major Axis (SMA) so the same parameters can be used for         !
-            ! y=f(x) and x=f(y).  This is particularly useful when initialising the model  !
-            ! with airborne lidar data.  Because it would be extremely cumbersome to       !
-            ! derive a SMA-based regression based on Weibull function, we use a log-linear !
-            ! relationship.  The maximum height is based on the 99% quantile of all trees  !
-            ! measured by the SL team.                                                     !
+            ! sampling and aggregation (J17), as described in (L20).  This relationship is !
+            ! fitted using Standardised Major Axis (SMA) so the same parameters can be     !
+            ! used for y=f(x) and x=f(y).  This is particularly useful when initialising   !
+            ! the model with airborne lidar data (L20).  Because it would be extremely     !
+            ! cumbersome to derive a SMA-based regression based on Weibull function, we    !
+            ! use a log-linear relationship.  The maximum height is based on the 99%       !
+            ! quantile of all trees measured by the SL team.                               !
             !                                                                              !
             ! References:                                                                  !
             !                                                                              !
@@ -3650,6 +2912,11 @@ subroutine init_pft_alloc_params()
             !    biomass variability across intact and degraded forests in the Brazilian   !
             !    Amazon.  Global Biogeochem. Cycles, 30(11):1639-1660.                     !
             !    doi:10.1002/2016GB005465 (L16).                                           !
+            !                                                                              !
+            ! Longo M, Saatchi SS, Keller M, Bowman KW, Ferraz A, Moorcroft PR, Morton D,  !
+            !    Bonal D, Brando P, Burban B et al. 2020. Impacts of degradation on water, !
+            !    energy, and carbon cycling of the Amazon tropical forests. J. Geophys.    !
+            !    Res.-Biogeosci., 125: e2020JG005677. doi:10.1029/2020JG005677 (L20).      !
             !------------------------------------------------------------------------------!
             b1Ht   (ipft) = 1.139963
             b2Ht   (ipft) = 0.564899
@@ -3717,7 +2984,7 @@ subroutine init_pft_alloc_params()
    !    Minimum and maximum height allowed for each cohort.                                !
    !---------------------------------------------------------------------------------------!
    select case (iallom)
-   case (3,4)
+   case (3,4,5)
       !------------------------------------------------------------------------------------!
       !    This value corresponds to the 99% quantile of all trees measured by the         !
       ! Sustainable Landscapes.                                                            !
@@ -3812,13 +3079,15 @@ subroutine init_pft_alloc_params()
             b1Ca(ipft) = exp(ncrown_area(1))
             b2Ca(ipft) = ncrown_area(2)
             !------------------------------------------------------------------------------!
-         case (3,4)
+         case (3,4,5)
             !------------------------------------------------------------------------------!
             !     Allometry using the Sustainable Landscapes data.                         !
             !------------------------------------------------------------------------------!
             !                                                                              !
-            !    Longo, M. et al.  Carbon Debt and Recovery time of degraded forests in    !
-            !       the Amazon. Environ. Res. Lett., in prep.                              !
+            ! Longo M, Saatchi SS, Keller M, Bowman KW, Ferraz A, Moorcroft PR, Morton D,  !
+            !    Bonal D, Brando P, Burban B et al. 2020. Impacts of degradation on water, !
+            !    energy, and carbon cycling of the Amazon tropical forests. J. Geophys.    !
+            !    Res.-Biogeosci., 125: e2020JG005677. doi:10.1029/2020JG005677 (L20).      !
             !                                                                              !
             !    Equation was derived from forest inventory measurements carried out at    !
             ! multiple locations in the Brazilian Amazon, and fitted using a               !
@@ -3861,11 +3130,13 @@ subroutine init_pft_alloc_params()
    ! Poorter L., L. Bongers, F. Bongers, 2006: Architecture of 54 moist-forest tree        !
    !     species: traits, trade-offs, and functional groups. Ecology, 87, 1289-1301.       !
    !                                                                                       !
-   !    For iallom = 3, we use the allometric equation based on the Sustainable Landscapes !
-   ! data set.                                                                             !
+   !    For iallom = 3 or 5, we use the allometric equation based on the Sustainable       !
+   ! Landscapes data set.                                                                  !
    !                                                                                       !
-   !    Longo, M. et al. Carbon Debt and Recovery time of degraded forests in the Amazon,  !
-   !       in prep.                                                                        !
+   ! Longo M, Saatchi SS, Keller M, Bowman KW, Ferraz A, Moorcroft PR, Morton D, Bonal D,  !
+   !    Brando P, Burban B et al. 2020. Impacts of degradation on water, energy, and       !
+   !    carbon cycling of the Amazon tropical forests. J. Geophys. Res.-Biogeosci., 125:   !
+   !    e2020JG005677. doi:10.1029/2020JG005677 (L20).                                     !
    !                                                                                       !
    !    Equation was derived from forest inventory measurements carried out at multiple    !
    ! locations in the Brazilian Amazon, and fitted using a heteroscedastic least           !
@@ -3885,7 +3156,7 @@ subroutine init_pft_alloc_params()
       elseif (is_tropical(ipft)) then
          !----- Tropical PFTs: check allometry settings. ----------------------------------!
          select case (iallom)
-         case (3,4)
+         case (3,4,5)
             b1Cl(ipft) = 0.29754
             b2Cl(ipft) = 1.0324
          case default
@@ -3913,9 +3184,9 @@ subroutine init_pft_alloc_params()
    !     Parameters for DBH -> Bleaf allometry.                                            !
    !                                                                                       !
    !   IALLOM = 0,1,2  --  Bleaf = b1Bl * DBH^b2Bl                                         !
-   !   IALLOM = 3      --  Bleaf = b1Bl * (DBH*DBH*Height)^b2Bl                            !
-   !   IALLOM = 4      --  leaf_A= b1Bl * (DBH*DBH*Height)^b2Bl                            !
-   !                       b1Bl is a fucntion of wood density                              !
+   !   IALLOM = 3,4,5  --  leaf_A= b1Bl * (DBH*DBH*Height)^b2Bl                            !
+   !                       b1Bl is a function of wood density (IALLOM=4 only).             !
+   !                       For IALLOM=3,4,5, leaf biomass will depend on SLA.              !
    !                                                                                       !
    !   The coefficients and thresholds depend on the PFT and allometric equations.  In     !
    ! addition to the coefficients, we define the dbh point that defines adult cohorts as   !
@@ -3955,33 +3226,43 @@ subroutine init_pft_alloc_params()
             b1Bl (ipft) = C2B * exp(nleaf(1)) * rho(ipft) / nleaf(3)
             b2Bl (ipft) = nleaf(2)
             !------------------------------------------------------------------------------!
-        case (3) 
+        case (3,5) 
             !------------------------------------------------------------------------------!
-            !    Allometry based on the BAAD data based (F15).  We only used leaves from   !
-            ! wild tropical, flowering trees, and applied a stratified sample by DBH class !
-            ! and location and cross-validation, following (J17).                          !
+            !    Allometry based on the BAAD data based (F15) and described in (L20).  We  !
+            ! only used leaves from wild tropical, flowering trees, and applied a          !
+            ! stratified sample by DBH class and location and cross-validation, following  !
+            ! (J17).                                                                       !
             !                                                                              !
             ! References:                                                                  !
+            !                                                                              !
+            ! Falster DS, Duursma RA, Ishihara MI, Barneche DR, FitzJohn RG, Vahammar A,   !
+            !    Aiba M, Ando M, Anten N, Aspinwall MJ. 2015. BAAD: a biomass and          !
+            !    allometry database for woody plants. Ecology, 96 (5):1445-1445.           !
+            !    doi:10.1890/14-1889.1 (F15).                                              !
             !                                                                              !
             ! Jucker T, Caspersen J, Chave J, Antin C, Barbier N, Bongers F, Dalponte M,   !
             !    van Ewijk KY, Forrester DI, Haeni M et al. 2017. Allometric equations for !
             !    integrating remote sensing imagery into forest monitoring programmes.     !
             !    Glob. Change Biol., 23(1):177-190. doi:10.1111/gcb.13388 (J17).           !
             !                                                                              !
-            ! Longo M, Keller M, dos-Santos MN, Leitold V, Pinage ER, Baccini A,           !
-            !    Saatchi S, Nogueira EM, Batistella M , Morton DC. 2016. Aboveground       !
-            !    biomass variability across intact and degraded forests in the Brazilian   !
-            !    Amazon.  Global Biogeochem. Cycles, 30(11):1639-1660.                     !
-            !    doi:10.1002/2016GB005465 (L16).                                           !
+            ! Longo M, Saatchi SS, Keller M, Bowman KW, Ferraz A, Moorcroft PR, Morton D,  !
+            !    Bonal D, Brando P, Burban B et al. 2020. Impacts of degradation on water, !
+            !    energy, and carbon cycling of the Amazon tropical forests. J. Geophys.    !
+            !    Res.-Biogeosci., 125: e2020JG005677. doi:10.1029/2020JG005677 (L20).      !
             !------------------------------------------------------------------------------!
-            b1Bl(ipft) = c14f15_bl_xx(1) / SLA(ipft) ! XX --> MLO: should ther be a C2B here given c14f15_bl_xx is in m2 (?) and SLA is m2/kgC
+            b1Bl(ipft) = c14f15_bl_xx(1)
             b2Bl(ipft) = c14f15_bl_xx(2)
             !------------------------------------------------------------------------------!
         case (4)
             !------------------------------------------------------------------------------!
             !    Allometry based on the BAAD data based (F15).  We only used leaves from   !
             ! wild tropical, note that b1Bl has the unit of m2 leaf under this scenario    !
-            ! and will be converted to leaf carbon using SLA in size2bl
+            ! and will be converted to leaf carbon using SLA in size2bl.                   !
+            !                                                                              !
+            ! Falster DS, Duursma RA, Ishihara MI, Barneche DR, FitzJohn RG, Vahammar A,   !
+            !    Aiba M, Ando M, Anten N, Aspinwall MJ. 2015. BAAD: a biomass and          !
+            !    allometry database for woody plants. Ecology, 96 (5):1445-1445.           !
+            !    doi:10.1890/14-1889.1 (F15).                                              !
             !------------------------------------------------------------------------------!
             b1Bl(ipft) = exp( c14f15_la_wd(1) + c14f15_la_wd(2) * log(rho(ipft)))
             b2Bl(ipft) = c14f15_la_wd(3)
@@ -4034,7 +3315,7 @@ subroutine init_pft_alloc_params()
    !   Bdead = {                                                                           !
    !           { b1Bs_large * DBH^b2Bl_large  , if dbh > dbh_crit                          !
    !                                                                                       !
-   !   IALLOM = 3, 4                                                                       !
+   !   IALLOM = 3, 4, 5                                                                    !
    !                                                                                       !
    !   Bdead = b1Bs_small * (DBH^2 * Height) ^ b2Bs_small                                  !
    !                                                                                       !
@@ -4097,7 +3378,7 @@ subroutine init_pft_alloc_params()
             b1Bs_large (ipft) = C2B * exp(ndead_large(1)) * rho(ipft) / ndead_large(3)
             b2Bs_large (ipft) = ndead_large(2)
             !------------------------------------------------------------------------------!
-         case (3,4)
+         case (3,4,5)
             !------------------------------------------------------------------------------!
             ! Trees:   set parameters based on Chave et al. (2014).                        !
             ! Grasses: set numbers to small values, too keep bdead at a minimum but still  !
@@ -4238,7 +3519,7 @@ subroutine init_pft_alloc_params()
    !    WAI parameters, the choice depends on IALLOM.                                      !
    !---------------------------------------------------------------------------------------!
    select case (iallom)
-   case (3,4)
+   case (3,4,5)
       !------------------------------------------------------------------------------------!
       !    WAI is defined as a fraction of (potential) LAI.   This is just a refit of      !
       ! allometry 2 but using DBH*DBH*Height as predictor for consistency.                 !
@@ -4393,7 +3674,7 @@ subroutine init_pft_alloc_params()
                      , +0.4223014                                                          &
                      , is_tropical(:) .and. (.not. is_liana(:)) )
       !------------------------------------------------------------------------------------!
-   case (4)
+   case (4,5)
       !------------------------------------------------------------------------------------!
       !    Test allometry based on excavation data in Panama based on  H.                  !
       !    Multiply it by 2 so that a 40 m tree can get access to water below 5m depth     !
@@ -4423,11 +3704,6 @@ subroutine init_pft_alloc_params()
    !    Hydrological niche segregation defines forest structure and drought tolerance      !
    !    strategies in a seasonal Amazonian forest. J. Ecol., in press.                     !
    !    doi:10.1111/1365-2745.13022 (B18).                                                 !
-   !                                                                                       !
-   ! Longo M, Keller M, dos-Santos MN, Leitold V, Pinage ER, Baccini A, Saatchi S,         !
-   !    Nogueira EM, Batistella M , Morton DC. 2016. Aboveground biomass variability       !
-   !    across intact and degraded forests in the Brazilian Amazon.  Global Biogeochem.    !
-   !    Cycles, 30(11):1639-1660. doi:10.1002/2016GB005465 (L16).                          !
    !---------------------------------------------------------------------------------------!
    d18O_ref(:) = -5.356
    b1d18O  (:) = 0.0516
@@ -4482,8 +3758,8 @@ subroutine init_pft_alloc_params()
 
 
    !----- Leaf width [m].  This controls the boundary layer conductance. ------------------!
-   leaf_width(:) = merge( lwidth_grass                                                     &
-                        , merge(lwidth_nltree,lwidth_bltree,is_conifer(:))                 &
+   leaf_width(:) = merge( 0.05                                                             &
+                        , merge(0.05,0.10,is_conifer(:))                                   &
                         , is_grass(:) )
    !---------------------------------------------------------------------------------------!
 
@@ -4611,24 +3887,7 @@ subroutine init_pft_photo_params()
                              , umol_2_mol                & ! intent(in)
                              , yr_sec                    ! ! intent(in)
    use physiology_coms, only : iphysiol                  & ! intent(in)
-                             , vmfact_c3                 & ! intent(in)
-                             , vmfact_c4                 & ! intent(in)
-                             , mphoto_trc3               & ! intent(in)
-                             , mphoto_tec3               & ! intent(in)
-                             , mphoto_c4                 & ! intent(in)
-                             , bphoto_blc3               & ! intent(in)
-                             , bphoto_nlc3               & ! intent(in)
-                             , bphoto_c4                 & ! intent(in)
-                             , gamma_c3                  & ! intent(in)
-                             , gamma_c4                  & ! intent(in)
-                             , d0_grass                  & ! intent(in)
-                             , d0_tree                   & ! intent(in)
-                             , alpha_c3                  & ! intent(in)
-                             , alpha_c4                  & ! intent(in)
-                             , kw_grass                  & ! intent(in)
-                             , kw_tree                   & ! intent(in)
-                             , q10_c3                    & ! intent(in)
-                             , q10_c4                    & ! intent(in)
+                             , h2o_plant_lim             & ! intent(in)
                              , tphysref                  ! ! intent(in)
    implicit none
    !---------------------------------------------------------------------------------------!
@@ -4672,7 +3931,7 @@ subroutine init_pft_photo_params()
 
 
    !----- Critical VPD, for stomata closure due to dry air. -------------------------------!
-   D0(:) = merge(d0_grass,d0_tree,is_grass(:))
+   D0(:) = merge(0.016,0.016,is_grass(:))
    !---------------------------------------------------------------------------------------!
 
 
@@ -4716,12 +3975,35 @@ subroutine init_pft_photo_params()
    !---------------------------------------------------------------------------------------!
    select case (iphysiol)
    case (0,2)
-      !----- Default parameters (Moorcroft et al. 2001; Longo 2014). ----------------------!
+      !------------------------------------------------------------------------------------!
+      !  Default parameters (M01/M09/L19).                                                 !
+      !                                                                                    !
+      ! Longo M, Knox RG, Medvigy DM, Levine NM, Dietze MC, Kim Y, Swann ALS, Zhang K,     !
+      !    Rollinson CR, Bras RL et al. 2019. The biophysics, ecology, and biogeochemistry !
+      !    of functionally diverse, vertically and horizontally heterogeneous ecosystems:  !
+      !    the Ecosystem Demography model, version 2.2 -- part 1: Model description.       !
+      !    Geosci. Model Dev., 12: 4309-4346. doi:10.5194/gmd-12-4309-2019 (L19).          !
+      !                                                                                    !
+      ! Medvigy DM, Wofsy SC, Munger JW, Hollinger DY , Moorcroft PR. 2009. Mechanistic    !
+      !    scaling of ecosystem function and dynamics in space and time: Ecosystem         !
+      !    demography model version 2. J. Geophys. Res.-Biogeosci., 114: G01002.           !
+      !    doi:10.1029/2008JG000812 (M09).                                                 !
+      !                                                                                    !
+      ! Moorcroft PR, Hurtt GC , Pacala SW. 2001. A method for scaling vegetation          !
+      !    dynamics: The Ecosystem Demography model (ED). Ecol. Monogr., 71: 557-586.      !
+      !    doi:10.1890/0012- 9615(2001)071[0557:AMFSVD]2.0.CO;2 (M01).                     !
+      !------------------------------------------------------------------------------------!
       vm_hor(:) = 3000.
-      vm_q10(:) = merge(q10_c4,q10_c3,photosyn_pathway(:) == 4)
+      vm_q10(:) = merge(2.21,2.21,photosyn_pathway(:) == 4)
       !------------------------------------------------------------------------------------!
    case (1,3)
-      !----- Use values from von Caemmerer (2000). ----------------------------------------!
+      !------------------------------------------------------------------------------------!
+      !  Use values from vC00.                                                             !
+      !                                                                                    !
+      ! von Caemmerer S. 2000. Biochemical models of leaf photosynthesis. No. 2 in         !
+      !    Techniques in Plant Sciences. CSIRO Publishing, Collingwood, VIC, Australia.    !
+      !    doi:10.1006/anbo.2000.1296 (vC00).                                              !
+      !------------------------------------------------------------------------------------!
       vm_hor(:) = 58520. * tphysref / (rmol * (t00+25.))
       vm_q10(:) = 2.21
       !------------------------------------------------------------------------------------!
@@ -4850,8 +4132,7 @@ subroutine init_pft_photo_params()
    ! factor.  This will work even for plants whose Vm0 is not an explicit function of SLA  !
    ! (i.e. when vm0_v1 is 0), as long as SLA itself is not 0 (and it shouldn't be).        !
    !---------------------------------------------------------------------------------------!
-   Vm0(:) = vm0_v0(:) * SLA(:) ** vm0_v1(:)                                                &
-          * ssfact * merge(vmfact_c4,vmfact_c3,photosyn_pathway(:) == 4)
+   Vm0(:) = vm0_v0(:) * SLA(:) ** vm0_v1(:) * ssfact
    !---------------------------------------------------------------------------------------!
 
 
@@ -4936,23 +4217,23 @@ subroutine init_pft_photo_params()
       if (is_grass(ipft) .and. (photosyn_pathway(ipft) == 3)) then
          a_pft     = a_c3grss
          b_pft     = b_c3grss
-         gamma_pft = gamma_c3
+         gamma_pft = 0.015
       elseif (is_grass(ipft)) then
          a_pft     = a_c4grss
          b_pft     = b_c4grss
-         gamma_pft = gamma_c4
+         gamma_pft = 0.025
       elseif (is_conifer(ipft)) then
          a_pft     = a_needle
          b_pft     = b_needle
-         gamma_pft = gamma_c3
+         gamma_pft = 0.015
       elseif (is_tropical(ipft)) then
          a_pft     = a_bltrop
          b_pft     = b_bltrop
-         gamma_pft = gamma_c3
+         gamma_pft = 0.015
       else
          a_pft     = a_bltemp
          b_pft     = b_bltemp
-         gamma_pft = gamma_c3
+         gamma_pft = 0.015
       end if
       !------------------------------------------------------------------------------------!
 
@@ -5030,22 +4311,23 @@ subroutine init_pft_photo_params()
    !---------------------------------------------------------------------------------------!
    !    The slope factor of the stomatal conductance (the "m" term in L95).                !
    !---------------------------------------------------------------------------------------!
-   stomatal_slope(:) = merge( mphoto_trc3, mphoto_tec3                                     &
+   stomatal_slope(:) = merge( 8.0                                                          &
+                            , 7.2                                                          &
                             , (is_tropical(:) .or. is_grass(:)) .and. (.not. is_conifer(:)))
-   stomatal_slope(:) = merge( mphoto_c4,stomatal_slope(:),photosyn_pathway(:) == 4)
+   stomatal_slope(:) = merge( 4.0,stomatal_slope(:),photosyn_pathway(:) == 4)
    !---------------------------------------------------------------------------------------!
 
 
 
    !----- Define the residual stomatal conductance (aka the b term, given in umol/m2/s). --!
-   cuticular_cond(:) = merge( bphoto_c4                                                    &
-                            , merge(bphoto_nlc3,bphoto_blc3,is_conifer(:))                 &
+   cuticular_cond(:) = merge( 10000.                                                       &
+                            , merge(1000.,10000.,is_conifer(:))                            &
                             , photosyn_pathway(:) == 4 )
    !---------------------------------------------------------------------------------------!
 
 
    !------ Set quantum yield fraction. ----------------------------------------------------!
-   quantum_efficiency(:) = merge(alpha_c4,alpha_c3,photosyn_pathway(:) == 4)
+   quantum_efficiency(:) = merge(0.040,0.080,photosyn_pathway(:) == 4)
    !---------------------------------------------------------------------------------------!
 
 
@@ -5062,11 +4344,30 @@ subroutine init_pft_photo_params()
 
 
    !---------------------------------------------------------------------------------------!
-   !     The KW parameter. Medvigy et al. (2009) and Moorcroft et al. (2001), and the      !
-   ! namelist, give the number in m2/yr/kg_C_root.  Here we must convert it to             !
-   !  m2/s/kg_C_root.                                                                      !
+   !     The KW parameter. The numbers inside the "merge" command are provided in          !
+   ! m2/yr/kg_C_root to be consistent with M09 and M01, but these are immediately          !
+   ! converted to m2/s/kg_C_root.  In case h2o_plant_lim is set to 5 (L20), the default    !
+   ! values are substantially lower due to a different formulation of the water supply     !
+   ! function.                                                                             !
+   !                                                                                       !
+   ! References:                                                                           !
+   !                                                                                       !
+   ! Medvigy DM, Wofsy SC, Munger JW, Hollinger DY , Moorcroft PR. 2009. Mechanistic       !
+   !    scaling of ecosystem function and dynamics in space and time: Ecosystem demography !
+   !    model version 2. J. Geophys. Res.-Biogeosci., 114: G01002.                         !
+   !    doi:10.1029/2008JG000812 (M09).                                                    !
+   !                                                                                       !
+   ! Moorcroft PR, Hurtt GC , Pacala SW. 2001. A method for scaling vegetation dynamics:   !
+   !    The Ecosystem Demography model (ED). Ecol. Monogr., 71: 557–586.                   !
+   !    doi:10.2307/3100036 (M01).                                                         !
+   !                                                                                       !
    !---------------------------------------------------------------------------------------!
-   water_conductance(:) = merge(kw_grass,kw_tree,is_grass(:)) / yr_sec
+   select case (h2o_plant_lim)
+   case (5)
+      water_conductance(:) = merge( 25., 20.,is_grass(:)) / yr_sec
+   case default
+      water_conductance(:) = merge(900.,600.,is_grass(:)) / yr_sec
+   end select
    !---------------------------------------------------------------------------------------!
 
 
@@ -5096,9 +4397,7 @@ end subroutine init_pft_photo_params
 subroutine init_pft_resp_params()
    use ed_max_dims    , only : n_pft                     & ! intent(in)
                              , undef_real                ! ! intent(in)
-   use physiology_coms, only : iphysiol                  & ! intent(in)
-                             , rrffact                   & ! intent(in)
-                             , growthresp                ! ! intent(in)
+   use physiology_coms, only : iphysiol                  ! ! intent(in)
    use pft_coms       , only : is_tropical               & ! intent(in)
                              , is_grass                  & ! intent(in)
                              , is_conifer                & ! intent(in)
@@ -5139,7 +4438,7 @@ subroutine init_pft_resp_params()
    !     GPP:Growth respiration ratio.                                                     !
    !---------------------------------------------------------------------------------------!
    growth_resp_factor(:) = merge(0.4503    ,merge(onethird,0.0,is_grass(:)),is_conifer (:))
-   growth_resp_factor(:) = merge(growthresp,          growth_resp_factor(:),is_tropical(:))
+   growth_resp_factor(:) = merge(0.3000,              growth_resp_factor(:),is_tropical(:))
    !---------------------------------------------------------------------------------------!
 
 
@@ -5218,7 +4517,7 @@ subroutine init_pft_resp_params()
    ! names already in use in c2n factors.                                                  !
    !---------------------------------------------------------------------------------------!
    select case (iallom)
-   case (2,3,4)
+   case (2,3,4,5)
       !------------------------------------------------------------------------------------!
       !   For tropical leaves/fine roots, assume the metabolic/structural ratio obtained   !
       ! by B17.  For grasses and temperate plants, use B17 equation and R96 values for     !
@@ -5264,16 +4563,16 @@ subroutine init_pft_resp_params()
 
    !---------------------------------------------------------------------------------------!
    !    This variable sets the contribution of roots to respiration at the reference       !
-   ! temperature of 15C.  Its units is umol_CO2/kg_fine_roots/s.                           !
+   ! temperature of 15C.  Units: umol_CO2/kg_fine_roots/s.                                 !
    !---------------------------------------------------------------------------------------!
    select case (iphysiol)
    case (0,1)
       !----- Arrhenius function. ----------------------------------------------------------!
-      root_respiration_factor(:) = 0.528 * rrffact
+      root_respiration_factor(:) = 0.528
       !------------------------------------------------------------------------------------!
    case (2,3)
       !----- Q10 function. ----------------------------------------------------------------!
-      root_respiration_factor(:) = 0.2455212 * rrffact
+      root_respiration_factor(:) = 0.2455212
       !------------------------------------------------------------------------------------!
    end select
    !---------------------------------------------------------------------------------------!
@@ -5342,10 +4641,6 @@ subroutine init_pft_mort_params()
                              , fire_s_max                 & ! intent(out)
                              , fire_s_inter               & ! intent(out)
                              , fire_s_slope               & ! intent(out)
-                             , felling_s_ltharv           & ! intent(out)
-                             , felling_s_gtharv           & ! intent(out)
-                             , skid_s_ltharv              & ! intent(out)
-                             , skid_s_gtharv              & ! intent(out)
                              , plant_min_temp             & ! intent(out)
                              , frost_mort                 ! ! intent(out)
    use consts_coms ,    only : t00                        & ! intent(in)
@@ -5356,9 +4651,6 @@ subroutine init_pft_mort_params()
                              , economics_scheme           ! ! intent(in)
    use disturb_coms,    only : include_fire               & ! intent(in)
                              , time2canopy                & ! intent(in)
-                             , sl_skid_s_gtharv           & ! intent(in)
-                             , sl_skid_s_ltharv           & ! intent(in)
-                             , sl_felling_s_ltharv        & ! intent(in)
                              , treefall_disturbance_rate  ! ! intent(in)
    use physiology_coms, only : carbon_mortality_scheme    & ! intent(in)
                              , hydraulic_mortality_scheme ! ! intent(in)
@@ -5368,11 +4660,10 @@ subroutine init_pft_mort_params()
    real                   :: aquad
    real                   :: bquad
    real                   :: cquad
-   real                   :: discr
    real                   :: lambda_ref
    real                   :: lambda_eff
-   real                   :: leff_neg
-   real                   :: leff_pos
+   real                   :: leff_one
+   real                   :: leff_two
    real, dimension(n_pft) :: rho_use
    integer                :: ipft
    !----- Local constants for C18 mortality (see below). ----------------------------------!
@@ -5391,6 +4682,8 @@ subroutine init_pft_mort_params()
                                                        !    near-extinction but not so 
                                                        !    high that it would be 
                                                        !    difficult to display in output
+   real, parameter        :: discard      = huge(1.0)  ! Meaningless value for discarding
+                                                       !    a root of the quadratic solver.
    !---------------------------------------------------------------------------------------!
 
 
@@ -5647,23 +4940,55 @@ subroutine init_pft_mort_params()
          ! instead, we will wait until the patch age is older than time2canopy.  We want,  !
          ! however, to make the mean patch age to be 1/treefall_disturbance_rate.  The     !
          ! equation below can be retrieved by integrating the steady-state probability     !
-         ! distribution function.  The equation is quadratic and the discriminant will     !
-         ! never be zero and the treefall_disturbance_rate will be always positive because !
-         ! the values of time2canopy and treefall_disturbance_rate have already been       !
-         ! tested in ed_opspec.F90.                                                        !
+         ! distribution function.                                                          !
          !---------------------------------------------------------------------------------!
          aquad    = time2canopy * time2canopy * lambda_ref  - 2. * time2canopy
          bquad    = 2. * time2canopy * lambda_ref - 2.
          cquad    = 2. * lambda_ref
-         !------ Find the discriminant. ---------------------------------------------------!
-         discr    = bquad * bquad - 4. * aquad * cquad
-         leff_neg = - 0.5 * (bquad - sqrt(discr)) / aquad
-         leff_pos = - 0.5 * (bquad + sqrt(discr)) / aquad
          !---------------------------------------------------------------------------------!
-         !      Use the maximum value, but don't let the value to be too large otherwise   !
-         ! the negative exponential will cause underflow.                                  !
+
+
+         !------ Solve the quadratic equation. --------------------------------------------!
+         call solve_quadratic(aquad,bquad,cquad,discard,leff_one,leff_two)
          !---------------------------------------------------------------------------------!
-         lambda_eff = min(lnexp_max,max(leff_neg,leff_pos))
+
+
+         !---------------------------------------------------------------------------------!
+         !      The discriminant should be always positive and the                         !
+         ! treefall_disturbance_rate will be always positive because the values of         !
+         ! time2canopy and treefall_disturbance_rate have already been tested in           !
+         ! ed_opspec.F90.  In any case, we add a check in here to ensure at least one of   !
+         ! the solutions is valid.                                                         !
+         !---------------------------------------------------------------------------------!
+         if ( ( leff_one /= discard ) .or. ( leff_two /= discard ) ) then
+            !------------------------------------------------------------------------------!
+            !      Use the maximum value, but don't let the value to be too large other-   !
+            ! wise the negative exponential will cause underflow.                          !
+            !------------------------------------------------------------------------------!
+            lambda_eff = min(lnexp_max,max(leff_one,leff_two))
+            !---------------------------------------------------------------------------------!
+         else
+            !----- Broadcast the bad news. ------------------------------------------------!
+            write(unit=*,fmt='(a)'          ) ''
+            write(unit=*,fmt='(a)'          ) ''
+            write(unit=*,fmt='(a)'          ) '==========================================='
+            write(unit=*,fmt='(a)'          ) '==========================================='
+            write(unit=*,fmt='(a)'          ) '   Discriminant is negative.'
+            write(unit=*,fmt='(a)'          ) '-------------------------------------------'
+            write(unit=*,fmt='(a,1x,f12.5)' ) 'TIME2CANOPY = ', time2canopy
+            write(unit=*,fmt='(a,1x,f12.5)' ) 'LAMBA_REF   = ', lambda_ref
+            write(unit=*,fmt='(a,1x,es12.5)') 'A           = ', aquad
+            write(unit=*,fmt='(a,1x,es12.5)') 'B           = ', bquad
+            write(unit=*,fmt='(a,1x,es12.5)') 'C           = ', cquad
+            write(unit=*,fmt='(a,1x,es12.5)') 'DISCR       = ', bquad*bquad-4.*aquad*cquad
+            write(unit=*,fmt='(a)'          ) '==========================================='
+            write(unit=*,fmt='(a)'          ) '==========================================='
+            write(unit=*,fmt='(a)'          ) ''
+            write(unit=*,fmt='(a)'          ) ''
+            call fatal_error(' Negative discriminant when seeking effective lambda.'       &
+                            ,'init_pft_mort_params','ed_params.f90')
+            !------------------------------------------------------------------------------!
+         end if
          !---------------------------------------------------------------------------------!
       else
          lambda_eff = lambda_ref
@@ -5732,18 +5057,6 @@ subroutine init_pft_mort_params()
       treefall_s_ltht(:) = merge(0.25,0.10,is_grass(:))
       !------------------------------------------------------------------------------------!
    end select
-   !---------------------------------------------------------------------------------------!
-
-
-
-   !---------------------------------------------------------------------------------------!
-   !      Felling survivorship fraction, and survivorship to collateral damage due to      !
-   ! logging.                                                                              !
-   !---------------------------------------------------------------------------------------!
-   felling_s_gtharv(:) = merge(0.70,0.00               ,is_grass(:))
-   felling_s_ltharv(:) = merge(0.70,sl_felling_s_ltharv,is_grass(:))
-   skid_s_gtharv   (:) = merge(1.00,sl_skid_s_gtharv   ,is_grass(:))
-   skid_s_ltharv   (:) = merge(1.00,sl_skid_s_ltharv   ,is_grass(:))
    !---------------------------------------------------------------------------------------!
 
 
@@ -6480,11 +5793,12 @@ end subroutine init_pft_spheat_params
 !   This subroutine sets up some PFT and leaf dependent properties.                        !
 !------------------------------------------------------------------------------------------!
 subroutine init_pft_phen_params()
-   use phenology_coms , only : iphen_scheme         ! ! intent(in)
    use ed_misc_coms   , only : igrass               ! ! intent(in)
+   use physiology_coms, only : plant_hydro_scheme   ! ! intent(in)
    use pft_coms       , only : phenology            & ! intent(out)
                              , is_grass             & ! intent(in)
                              , is_conifer           & ! intent(in)
+                             , is_savannah          & ! intent(in)
                              , is_tropical          & ! intent(in)
                              , high_psi_threshold   & ! intent(out)
                              , low_psi_threshold    & ! intent(out)
@@ -6500,8 +5814,36 @@ subroutine init_pft_phen_params()
 
 
    !---------------------------------------------------------------------------------------!
-   !     Tree phenology is the same for both cases, but in the new grass allometry they    !
-   ! must be evergreens.                                                                   !
+   !     Default tree phenology. The following codes are used.                             !
+   !                                                                                       !
+   ! 0 - Evergreen                                                                         !
+   ! 1 - Drought deciduous (M01 scheme, hard abscission and flushing).                     !
+   ! 2 - Cold deciduous (B00 scheme).                                                      !
+   ! 3 - Light-controlled (K12).                                                           !
+   ! 4 - Semi-deciduous (L19 scheme, abscission and flushing can be partial).              !
+   ! 5 - Semi-deciduous (partial abscission and flushing controlled by plant hydraulics).  !
+   ! 6 - Hydraulic semi-deciduous combined with light-controlled.                          !
+   !                                                                                       !
+   ! References:                                                                           !
+   !                                                                                       !
+   ! Botta A, Viovy N, Ciais P, Friedlingstein P , Monfray P. 2000. A global prognostic    !
+   !    scheme of leaf onset using satellite data. Glob. Change Biol., 6: 709-725.         !
+   !    doi:10.1046/j.1365-2486.2000.00362.x (B00).                                        !
+   !                                                                                       !
+   ! Kim Y, Knox RG, Longo M, Medvigy D, Hutyra LR, Pyle EH, Wofsy SC, Bras RL , Moorcroft !
+   !    PR. 2012. Seasonal carbon dynamics and water fluxes in an Amazon rainforest. Glob. !
+   !    Change Biol., 18: 1322–1334. doi:10.1111/j.1365-2486.2011.02629.x (K12).           !
+   !                                                                                       !
+   ! Longo M, Knox RG, Medvigy DM, Levine NM, Dietze MC, Kim Y, Swann ALS, Zhang K,        !
+   !    Rollinson CR, Bras RL et al . 2019. The biophysics, ecology, and biogeochemistry   !
+   !    of functionally diverse, vertically and horizontally heterogeneous ecosystems: the !
+   !    Ecosystem Demography model, version 2.2 – part 1: Model description. Geosci. Model !
+   !    Dev., 12: 4309–4346. doi:10.5194/gmd-12-4309-2019 (L19).                           !
+   !                                                                                       !
+   ! Moorcroft PR, Hurtt GC , Pacala SW. 2001. A method for scaling vegetation dynamics:   !
+   !    The Ecosystem Demography model (ED). Ecol. Monogr., 71: 557-586.                   !
+   !    doi:10.2307/3100036 (M01).                                                         !
+   !                                                                                       !
    !---------------------------------------------------------------------------------------!
    do ipft=1,n_pft
       if (is_conifer(ipft)) then  ! Conifers. Currently they are always evergreen
@@ -6510,33 +5852,24 @@ subroutine init_pft_phen_params()
          phenology(ipft) = 0
       elseif (.not. (is_tropical(ipft) .or. is_grass(ipft)) ) then ! Cold deciduous
          phenology(ipft) = 2
-      else
-         !----- Lianas, Tropical broadleaf trees, and old-scheme (aka bonsai) grasses. ----!
-         select case (iphen_scheme)
-         case (-1) ! Assume that they are all evergreen
+      elseif (is_tropical(ipft)) then
+         if (is_savannah(ipft) .or. is_grass(ipft)) then
+            !------------------------------------------------------------------------------!
+            !     Savannahs and tropical grasses are by default set to be semi-deciduous.  !
+            ! The scheme is set depending on plant hydraulics.                             !
+            !------------------------------------------------------------------------------!
+            select case (plant_hydro_scheme)
+            case (1,2)
+               phenology(ipft) = 5
+            case default
+               phenology(ipft) = 4
+            end select
+            !------------------------------------------------------------------------------!
+         else
+            !----- Other trees and lianas are assumed evergreen. --------------------------!
             phenology(ipft) = 0
-         case (0,1) ! Old drought-deciduous scheme 
-            phenology(ipft) = 1
-         case (2)   ! New drought-deciduous scheme
-            phenology(ipft) = 4
-         case (3)
             !------------------------------------------------------------------------------!
-            !     Environmental Light phenology scheme.                                    !
-            !                                                                              !
-            ! Kim, Y., R. G. Knox, M. Longo, D. Medvigy, L. R. Hutyra, E. H. Pyle,         !
-            !    S. C. Wofsy, R. L. Bras, and P. R. Moorcroft. Seasonal carbon dynamics    !
-            !    and water fluxes in an Amazon rainforest. Glob. Change Biol.,             !
-            !    18(4):1322-1334, Apr 2012. doi:10.1111/j.1365-2486.2011.02629.x.          !
-            !------------------------------------------------------------------------------!
-            phenology(ipft) = 3
-            !------------------------------------------------------------------------------!
-         case (4)
-            !------------------------------------------------------------------------------!
-            !   Xiangtao Xu's plant-hydraulics-driven drought phenology.                   !
-            !------------------------------------------------------------------------------!
-            phenology(ipft) = 5
-            !------------------------------------------------------------------------------!
-         end select
+         end if
          !---------------------------------------------------------------------------------!
       end if
       !------------------------------------------------------------------------------------!
@@ -6550,6 +5883,8 @@ subroutine init_pft_phen_params()
    ! set it to be 0 otherwise (default)                                                    !
    !---------------------------------------------------------------------------------------!
    storage_reflush_times(:) = merge(2.0,0.0,phenology(:) == 5)
+   !---------------------------------------------------------------------------------------!
+
 
    !---------------------------------------------------------------------------------------!
    !     Phenology-related parameters for phenology(ipft) = 5.                             !
@@ -6755,20 +6090,18 @@ end subroutine init_pft_repro_params
 !    This subroutine will assign some canopy air related parameters.                       !
 !------------------------------------------------------------------------------------------!
 subroutine init_can_air_params()
+   use ed_max_dims    , only : undef_real            ! ! intent(in)
    use consts_coms    , only : onethird              & ! intent(in)
                              , twothirds             & ! intent(in)
                              , onesixth              & ! intent(in)
                              , vonk                  ! ! intent(in)
    use pft_coms       , only : hgt_min               ! ! intent(in)
-   use rk4_coms       , only : tiny_offset           ! ! intent(in)
-   use canopy_air_coms, only : psim8                 & ! function
-                             , psih8                 & ! function
-                             , ugbmin                & ! intent(in)
-                             , ubmin                 & ! intent(in)
-                             , ustmin                & ! intent(in)
-                             , gamm                  & ! intent(in)
-                             , gamh                  & ! intent(in)
-                             , tprandtl              & ! intent(in)
+   use canopy_air_coms, only : ugbmin                & ! intent(inout)
+                             , ubmin                 & ! intent(inout)
+                             , ustmin                & ! intent(inout)
+                             , gamm                  & ! intent(inout)
+                             , gamh                  & ! intent(inout)
+                             , tprandtl              & ! intent(inout)
                              , vh2vr                 & ! intent(out)
                              , vh2dh                 & ! intent(out)
                              , ribmax                & ! intent(out)
@@ -6778,16 +6111,11 @@ subroutine init_can_air_params()
                              , gbhmos_min            & ! intent(out)
                              , gbhmos_min8           & ! intent(out)
                              , veg_height_min        & ! intent(out)
-                             , veg_height_min8       & ! intent(out)
                              , minimum_canopy_depth  & ! intent(out)
-                             , minimum_canopy_depth8 & ! intent(out)
                              , exar                  & ! intent(out)
                              , covr                  & ! intent(out)
                              , exar8                 & ! intent(out)
                              , ez                    & ! intent(out)
-                             , ustmin8               & ! intent(out)
-                             , ugbmin8               & ! intent(out)
-                             , ubmin8                & ! intent(out)
                              , ez8                   & ! intent(out)
                              , vh2vr8                & ! intent(out)
                              , vh2dh8                & ! intent(out)
@@ -6851,8 +6179,6 @@ subroutine init_can_air_params()
                              , zetac_shi             & ! intent(out)
                              , zetac_umi16           & ! intent(out)
                              , zetac_uhi13           & ! intent(out)
-                             , psimc_um              & ! intent(out)
-                             , psihc_uh              & ! intent(out)
                              , zd98_a                & ! intent(out)
                              , zd98_b                & ! intent(out)
                              , zd98_emax             & ! intent(out)
@@ -6861,10 +6187,6 @@ subroutine init_can_air_params()
                              , csh8                  & ! intent(out)
                              , dl798                 & ! intent(out)
                              , beta_s8               & ! intent(out)
-                             , gamm8                 & ! intent(out)
-                             , gamh8                 & ! intent(out)
-                             , ribmax8               & ! intent(out)
-                             , tprandtl8             & ! intent(out)
                              , abh918                & ! intent(out)
                              , bbh918                & ! intent(out)
                              , cbh918                & ! intent(out)
@@ -6889,8 +6211,6 @@ subroutine init_can_air_params()
                              , zetac_shi8            & ! intent(out)
                              , zetac_umi168          & ! intent(out)
                              , zetac_uhi138          & ! intent(out)
-                             , psimc_um8             & ! intent(out)
-                             , psihc_uh8             & ! intent(out)
                              , zd98_a8               & ! intent(out)
                              , zd98_b8               & ! intent(out)
                              , zd98_emax8            & ! intent(out)
@@ -6938,6 +6258,44 @@ subroutine init_can_air_params()
    !----- External functions. -------------------------------------------------------------!
    real   , external :: cbrt
    real   , external :: sngloff
+   !---------------------------------------------------------------------------------------!
+
+
+
+
+   !---------------------------------------------------------------------------------------!
+   !     These variables are initialised here only when running ED2 without coupling with  !
+   ! BRAMS. Otherwise they are defined through the namelist so they are consistent with    !
+   ! the RAMSIN namelist settings.                                                         !
+   !                                                                                       !
+   !     The following variables control the minimum values of various velocities in the   !
+   ! canopy.  This is needed to avoid the air to be extremely still, or to avoid singular- !
+   ! ities.  When defining the values, keep in mind that UBMIN >= UGBMIN >= USTMIN.        !
+   !                                                                                       !
+   ! UBMIN       -- minimum wind speed at the top of the canopy air space           [ m/s] !
+   ! UGBMIN      -- minimum wind speed at the leaf level                            [ m/s] !
+   ! USTMIN      -- minimum friction velocity, u*, in m/s.                          [ m/s] !
+   !                                                                                       !
+   !     These variables are used to control the similarity theory model.  For the meaning !
+   ! of these parameters, check Beljaars and Holtslag (1991, J. Appl. Meteorol.).          !
+   !                                                                                       !
+   ! GAMM        -- gamma coefficient for momentum, unstable case (dimensionless)          !
+   !                Ignored when ISTAR = 1                                                 !
+   ! GAMH        -- gamma coefficient for heat, unstable case (dimensionless)              !
+   !                Ignored when ISTAR = 1                                                 !
+   ! TPRANDTL    -- Turbulent Prandtl number                                               !
+   !                Ignored when ISTAR = 1                                                 !
+   ! RIBMAX      -- maximum bulk Richardson number.                                        !
+   ! LEAF_MAXWHC -- Maximum water that can be intercepted by leaves, in kg/m2leaf.         !
+   !---------------------------------------------------------------------------------------!
+   if (ubmin       == undef_real) ubmin       = 0.65
+   if (ugbmin      == undef_real) ugbmin      = 0.25
+   if (ustmin      == undef_real) ustmin      = 0.10
+   if (gamm        == undef_real) gamm        = 13.0
+   if (gamh        == undef_real) gamh        = 13.0
+   if (tprandtl    == undef_real) tprandtl    = 1.00
+   if (ribmax      == undef_real) ribmax      = 0.50
+   if (leaf_maxwhc == undef_real) leaf_maxwhc = 0.11
    !---------------------------------------------------------------------------------------!
 
 
@@ -7178,12 +6536,7 @@ subroutine init_can_air_params()
 
 
    !----- Set the double precision variables. ---------------------------------------------!
-   veg_height_min8       = dble(veg_height_min      )
-   minimum_canopy_depth8 = dble(minimum_canopy_depth)
    exar8                 = dble(exar                )
-   ubmin8                = dble(ubmin               )
-   ugbmin8               = dble(ugbmin              )
-   ustmin8               = dble(ustmin              )
    ez8                   = dble(ez                  )
    vh2vr8                = dble(vh2vr               )
    vh2dh8                = dble(vh2dh               )
@@ -7192,10 +6545,6 @@ subroutine init_can_air_params()
    csh8                  = dble(csh                 )
    dl798                 = dble(dl79                )
    beta_s8               = dble(beta_s              )
-   gamm8                 = dble(gamm                )
-   gamh8                 = dble(gamh                )
-   ribmax8               = dble(ribmax              )
-   tprandtl8             = dble(tprandtl            )
    abh918                = dble(abh91               )
    bbh918                = dble(bbh91               )
    cbh918                = dble(cbh91               )
@@ -7257,16 +6606,6 @@ subroutine init_can_air_params()
    zetac_uhi138          = dble(zetac_uhi13         )
    !---------------------------------------------------------------------------------------!
 
-   !---------------------------------------------------------------------------------------!
-   !     Initialise these values with dummies, it will be updated after we define the      !
-   ! functions.                                                                            !
-   !---------------------------------------------------------------------------------------!
-   psimc_um8  = psim8(zetac_um8,.false.)
-   psimc_um   = sngloff(psimc_um8,tiny_offset)
-   psihc_uh8  = psih8(zetac_uh8,.false.)
-   psihc_uh   = sngloff(psihc_uh8,tiny_offset)
-   !---------------------------------------------------------------------------------------!
-
    return
 end subroutine init_can_air_params
 !==========================================================================================!
@@ -7283,15 +6622,7 @@ end subroutine init_can_air_params
 !------------------------------------------------------------------------------------------!
 subroutine init_can_rad_params()
 
-   use canopy_radiation_coms , only : ltrans_vis                  & ! intent(in)
-                                    , ltrans_nir                  & ! intent(in)
-                                    , lreflect_vis                & ! intent(in)
-                                    , lreflect_nir                & ! intent(in)
-                                    , orient_tree                 & ! intent(in)
-                                    , orient_grass                & ! intent(in)
-                                    , clump_tree                  & ! intent(in)
-                                    , clump_grass                 & ! intent(in)
-                                    , leaf_reflect_nir            & ! intent(out)
+   use canopy_radiation_coms , only : leaf_reflect_nir            & ! intent(out)
                                     , leaf_trans_nir              & ! intent(out)
                                     , leaf_reflect_vis            & ! intent(out)
                                     , leaf_trans_vis              & ! intent(out)
@@ -7347,9 +6678,9 @@ subroutine init_can_rad_params()
          clumping_factor(ipft) = 7.350d-1
          !---------------------------------------------------------------------------------!
       elseif (is_tropical(ipft) .and. is_grass(ipft)) then ! Tropical grasses. 
-         clumping_factor(ipft) = dble(clump_grass)
+         clumping_factor(ipft) = 8.0d-1
       elseif (is_tropical(ipft)) then ! Lianas and tropical trees. 
-         clumping_factor(ipft) = dble(clump_tree)
+         clumping_factor(ipft) = 8.0d-1
       else ! Temperate broadleaf (trees pr grasses). 
          clumping_factor(ipft) = 8.400d-1
       end if
@@ -7371,9 +6702,9 @@ subroutine init_can_rad_params()
       elseif (is_conifer(ipft)) then ! Araucaria, (CLM value for evergreen needleleaf).
          orient_factor(ipft) = 1.0d-2
       elseif (is_grass(ipft)) then ! Tropical grasses. 
-         orient_factor(ipft) = dble(orient_grass)
+         orient_factor(ipft) = -3.0d-1
       else ! Lianas and tropical broadleaf trees. 
-         orient_factor(ipft) = dble(orient_tree)
+         orient_factor(ipft) = 1.0d-1
       end if
    end do
    !---------------------------------------------------------------------------------------!
@@ -7407,10 +6738,10 @@ subroutine init_can_rad_params()
    ! - Roberts, D. A., B. W. Nelson, J. B. Adams, F. Palmer, 1998: Spectral changes with   !
    !      leaf aging in Amazon caatinga. Trees, 12, 315-325.                               !
    !---------------------------------------------------------------------------------------!
-   leaf_reflect_vis(:) = merge( merge(9.00d-2,dble(lreflect_vis),is_conifer(:))            &
+   leaf_reflect_vis(:) = merge( merge(9.00d-2,1.00d-1,is_conifer(:))                       &
                               , 1.10d-1                                                    &
                               , is_tropical(:) )
-   leaf_reflect_nir(:) = merge( dble(lreflect_nir)                                         &
+   leaf_reflect_nir(:) = merge( 4.00d-1                                                    &
                               , 5.77d-1                                                    &
                               , is_tropical(:) .and. (.not. is_conifer(:)) )
    !---------------------------------------------------------------------------------------!
@@ -7446,10 +6777,10 @@ subroutine init_can_rad_params()
    ! - Roberts, D. A., B. W. Nelson, J. B. Adams, F. Palmer, 1998: Spectral changes with   !
    !      leaf aging in Amazon caatinga. Trees, 12, 315-325.                               !
    !---------------------------------------------------------------------------------------!
-   leaf_trans_vis(:) = merge( merge(5.00d-2,dble(ltrans_vis),is_conifer(:))                &
+   leaf_trans_vis(:) = merge( merge(5.00d-2,5.00d-2,is_conifer(:))                         &
                             , 1.60d-1                                                      &
                             , is_tropical(:) )
-   leaf_trans_nir(:) = merge( dble(ltrans_nir)                                             &
+   leaf_trans_nir(:) = merge( 2.00d-1                                                      &
                             , 2.48d-1                                                      &
                             , is_tropical(:) .and. (.not. is_conifer(:)) )
    !---------------------------------------------------------------------------------------!
@@ -7611,8 +6942,6 @@ subroutine init_dt_thermo_params()
    use soil_coms      , only : water_stab_thresh      & ! intent(in)
                              , snowmin                & ! intent(in)
                              , tiny_sfcwater_mass     ! ! intent(in)
-   use canopy_air_coms, only : leaf_drywhc            & ! intent(in)
-                             , leaf_maxwhc            ! ! intent(in)
    use ed_misc_coms   , only : dtlsm                  & ! intent(in)
                              , ffilout                & ! intent(in)
                              , nsub_euler             & ! intent(in)
@@ -7640,8 +6969,6 @@ subroutine init_dt_thermo_params()
                              , rk4water_stab_thresh   & ! intent(out)
                              , rk4tiny_sfcw_mass      & ! intent(out)
                              , rk4tiny_sfcw_depth     & ! intent(out)
-                             , rk4leaf_drywhc         & ! intent(out)
-                             , rk4leaf_maxwhc         & ! intent(out)
                              , rk4snowmin             & ! intent(out)
                              , rk4min_can_temp        & ! intent(out)
                              , rk4max_can_temp        & ! intent(out)
@@ -7654,7 +6981,6 @@ subroutine init_dt_thermo_params()
                              , rk4max_soil_temp       & ! intent(out)
                              , rk4min_veg_temp        & ! intent(out)
                              , rk4max_veg_temp        & ! intent(out)
-                             , rk4min_veg_lwater      & ! intent(out)
                              , rk4min_sfcw_temp       & ! intent(out)
                              , rk4max_sfcw_temp       & ! intent(out)
                              , rk4min_sfcw_moist      & ! intent(out)
@@ -7689,8 +7015,6 @@ subroutine init_dt_thermo_params()
    !---------------------------------------------------------------------------------------!
    rk4water_stab_thresh  = dble(water_stab_thresh )
    rk4tiny_sfcw_mass     = dble(tiny_sfcwater_mass)
-   rk4leaf_drywhc        = dble(leaf_drywhc       )
-   rk4leaf_maxwhc        = dble(leaf_maxwhc       )
    rk4snowmin            = dble(snowmin           )
    rk4tiny_sfcw_depth    = rk4tiny_sfcw_mass  * wdnsi8
    !---------------------------------------------------------------------------------------!
@@ -7803,14 +7127,6 @@ subroutine init_dt_thermo_params()
    ! (**) Please, don't be too strict here.  The model currently doesn't have radiation    !
    !      fog, so supersaturation may happen.  This is a problem we may want to address in !
    !      the future, though...                                                            !
-   !---------------------------------------------------------------------------------------!
-
-
-   !---------------------------------------------------------------------------------------!
-   !     Minimum water mass at the leaf surface.  This is given in kg/m2leaf rather than   !
-   ! kg/m2ground, so we scale it with LAI.                                                 !
-   !---------------------------------------------------------------------------------------!
-   rk4min_veg_lwater = -rk4leaf_drywhc            ! Minimum leaf water mass     [kg/m2leaf]
    !---------------------------------------------------------------------------------------!
 
 
@@ -8153,10 +7469,6 @@ subroutine init_derived_params_after_xml()
                                    , mort3                     & ! intent(in)
                                    , seedling_mortality        & ! intent(in)
                                    , treefall_s_ltht           & ! intent(in)
-                                   , felling_s_gtharv          & ! intent(in)
-                                   , felling_s_ltharv          & ! intent(in)
-                                   , skid_s_gtharv             & ! intent(in)
-                                   , skid_s_ltharv             & ! intent(in)
                                    , fire_s_min                & ! intent(in)
                                    , fire_s_max                & ! intent(in)
                                    , fire_s_inter              & ! intent(in)
@@ -8233,6 +7545,7 @@ subroutine init_derived_params_after_xml()
                                    , srf_hor                   & ! intent(inout)
                                    , srf_q10                   & ! intent(inout) 
                                    , bleaf_crit                & ! intent(inout)
+                                   , ddh_allom                 & ! intent(out)
                                    , d1DBH_small               & ! intent(out)
                                    , d2DBH_small               & ! intent(out)
                                    , d1DBH_large               & ! intent(out)
@@ -8309,10 +7622,7 @@ subroutine init_derived_params_after_xml()
                                    , k_rh_active               & ! intent(out)
                                    , rh08                      & ! intent(out)
                                    , rh_q108                   ! ! intent(out)
-   use phenology_coms       , only : iphen_scheme              & ! intent(in)
-                                   , repro_scheme              & ! intent(in)
-                                   , radint                    & ! intent(in)
-                                   , radslp                    & ! intent(in)
+   use phenology_coms       , only : repro_scheme              & ! intent(in)
                                    , radavg_window             & ! intent(in)
                                    , turnamp_window            & ! intent(in)
                                    , turnamp_min               & ! intent(in)
@@ -8320,6 +7630,8 @@ subroutine init_derived_params_after_xml()
                                    , llspan_window             & ! intent(in)
                                    , vm0_window                & ! intent(in)
                                    , sla_window                & ! intent(in)
+                                   , radint                    & ! intent(out)
+                                   , radslp                    & ! intent(out)
                                    , radavg_wgt                & ! intent(out)
                                    , turnamp_wgt               & ! intent(out)
                                    , llspan_wgt                & ! intent(out)
@@ -8331,6 +7643,38 @@ subroutine init_derived_params_after_xml()
                                    , collatz                   ! ! function
    use plant_hydro          , only : psi2rwc                   & ! function
                                    , rwc2psi                   ! ! function
+   use canopy_air_coms      , only : psim8                     & ! function
+                                   , psih8                     & ! function
+                                   , ustmin                    & ! intent(in)
+                                   , ugbmin                    & ! intent(in)
+                                   , ubmin                     & ! intent(in)
+                                   , gamm                      & ! intent(in)
+                                   , gamh                      & ! intent(in)
+                                   , ribmax                    & ! intent(in)
+                                   , tprandtl                  & ! intent(in)
+                                   , leaf_maxwhc               & ! intent(in)
+                                   , leaf_drywhc               & ! intent(in)
+                                   , veg_height_min            & ! intent(in)
+                                   , minimum_canopy_depth      & ! intent(in)
+                                   , zetac_um8                 & ! intent(in)
+                                   , zetac_uh8                 & ! intent(in)
+                                   , ustmin8                   & ! intent(out)
+                                   , ugbmin8                   & ! intent(out)
+                                   , ubmin8                    & ! intent(out)
+                                   , gamm8                     & ! intent(out)
+                                   , gamh8                     & ! intent(out)
+                                   , ribmax8                   & ! intent(out)
+                                   , tprandtl8                 & ! intent(out)
+                                   , veg_height_min8           & ! intent(out)
+                                   , minimum_canopy_depth8     & ! intent(out)
+                                   , psimc_um                  & ! intent(out)
+                                   , psihc_uh                  & ! intent(out)
+                                   , psimc_um8                 & ! intent(out)
+                                   , psihc_uh8                 ! ! intent(out)
+   use rk4_coms             , only : tiny_offset               & ! intent(in)
+                                   , rk4leaf_drywhc            & ! intent(out)
+                                   , rk4leaf_maxwhc            & ! intent(out)
+                                   , rk4min_veg_lwater         ! ! intent(out)
    implicit none
    !----- Local variables. ----------------------------------------------------------------!
    character(len=2)                  :: char_pathway
@@ -8424,7 +7768,7 @@ subroutine init_derived_params_after_xml()
    !------ Make sure the soil carbon fractions add up to one. -----------------------------!
    if (f0_msc < 0. .or. f0_psc < 0.0 .or. (f0_msc + f0_psc) > 1.0) then
       write (unit=*,fmt='(a)')          '-------------------------------------------------'
-      write (unit=*,fmt='(a)')          ' F0_MSC and F0_SSC must be fractions (0-1)'
+      write (unit=*,fmt='(a)')          ' F0_MSC and F0_PSC must be fractions (0-1)'
       write (unit=*,fmt='(a)')          '    and their sum cannot exceed 1.0'
       write (unit=*,fmt='(a)')          ''
       write (unit=*,fmt='(a)')          ' Current values: '
@@ -8480,40 +7824,49 @@ subroutine init_derived_params_after_xml()
 
    !---------------------------------------------------------------------------------------!
    !      Minimum and maximum radiation should be defined according to the                 !
-   ! economics_scheme, as the model formulation is different.  But set dummy values for    !
-   ! both in case this simulation is not using light-controlled phenology.                 !
+   ! economics_scheme, as the model formulation is different.                              !
    !---------------------------------------------------------------------------------------!
-   select case (iphen_scheme)
-   case (3)
+   select case (economics_scheme)
+   case (1)
       !------------------------------------------------------------------------------------!
-      !    Light phenology is enabled.                                                     !
+      !    Log-linear model.                                                               !
+      !                                                                                    !
+      ! RADINT -- Multiplier.                                                              !
+      ! RADSLP -- Exponent.                                                                !
+      ! TurnoverAmplitude = RADINT * rshort ** RADSLP                                      !
       !------------------------------------------------------------------------------------!
-      select case (economics_scheme)
-      case (1)
-         !---------------------------------------------------------------------------------!
-         !      Turnover amplitude is a log-linear function of radiation, based on litter  !
-         ! fall data directly related to radiation.                                        !
-         !---------------------------------------------------------------------------------!
-         radto_min = (turnamp_min / radint) ** (1./radslp)
-         radto_max = (turnamp_max / radint) ** (1./radslp)
-         !---------------------------------------------------------------------------------!
-      case default
-         !---------------------------------------------------------------------------------!
-         !      Turnover amplitude is a linear function of radiation, like the original    !
-         ! approach.                                                                       !
-         !---------------------------------------------------------------------------------!
-         radto_min       = (turnamp_min - radint) / radslp
-         radto_max       = (turnamp_max - radint) / radslp
-         !---------------------------------------------------------------------------------!
-      end select
+      radint = 2.6292e-4
+      radslp = 1.553
+      !------------------------------------------------------------------------------------!
+
+
+      !------------------------------------------------------------------------------------!
+      !      Turnover amplitude is a log-linear function of radiation, based on litter     !
+      ! fall data directly related to radiation.                                           !
+      !------------------------------------------------------------------------------------!
+      radto_min = (turnamp_min / radint) ** (1./radslp)
+      radto_max = (turnamp_max / radint) ** (1./radslp)
       !------------------------------------------------------------------------------------!
    case default
       !------------------------------------------------------------------------------------!
-      !    Light phenology is disabled.  Set dummy values for minimum and maximum          !
-      ! radiation so the turnover amplitude is never calculated.                           !
+      !    Linear model.                                                                   !
+      !                                                                                    !
+      ! RADINT -- Intercept                                                                !
+      ! RADSLP -- Slope.                                                                   !
+      ! TurnoverAmplitude = RADINT + RADSLP * rshort                                       !
       !------------------------------------------------------------------------------------!
-      radto_min = solar
-      radto_max = solar
+      radint = 2.6292e-4
+      radslp = 1.553
+      !------------------------------------------------------------------------------------!
+
+
+
+      !------------------------------------------------------------------------------------!
+      !      Turnover amplitude is a linear function of radiation, like the original       !
+      ! approach.                                                                          !
+      !------------------------------------------------------------------------------------!
+      radto_min       = (turnamp_min - radint) / radslp
+      radto_max       = (turnamp_max - radint) / radslp
       !------------------------------------------------------------------------------------!
    end select
    !---------------------------------------------------------------------------------------!
@@ -8561,7 +7914,7 @@ subroutine init_derived_params_after_xml()
 
    !---------------------------------------------------------------------------------------!
    !      Hgt_max of temperate trees cannot exceed b1Ht, and cannot exceed hgt_ref for     !
-   ! tropical trees (IALLOM=2 or IALLOM=3).                                                !
+   ! tropical trees (IALLOM = 2).                                                          !
    !---------------------------------------------------------------------------------------!
    select case (iallom)
    case (2)
@@ -8655,6 +8008,14 @@ subroutine init_derived_params_after_xml()
       !------------------------------------------------------------------------------------!
 
 
+      !----- Set allometric formula. ------------------------------------------------------!
+      select case (iallom)
+      case (3,4,5)
+         ddh_allom(ipft) = is_tropical(ipft) .and. (.not. is_liana(ipft))
+      case default
+         ddh_allom(ipft) = .false.
+      end select
+      !------------------------------------------------------------------------------------!
 
 
       !------------------------------------------------------------------------------------!
@@ -8662,8 +8023,7 @@ subroutine init_derived_params_after_xml()
       ! the size2bd and size2bl functions, and to be consistent, they cannot be            !
       ! initialised through XML.                                                           !
       !------------------------------------------------------------------------------------!
-      if ((iallom == 3 .or. iallom == 4)                             &
-          .and. is_tropical(ipft) .and. (.not. is_liana(ipft)) ) then
+      if (ddh_allom(ipft)) then
          !---------------------------------------------------------------------------------!
          !    Incorporate both heartwood and height allometric equations to derive DBH.    !
          !---------------------------------------------------------------------------------!
@@ -8680,7 +8040,7 @@ subroutine init_derived_params_after_xml()
 
          !------ Inverse of the leaf biomass function. ------------------------------------!
          l2DBH(ipft) = 1.  / ( ( 2. + b2Ht(ipft) ) * b2Bl(ipft) )
-         l1DBH(ipft) = ( C2B / (b1Bl(ipft) * exp(b1Ht(ipft) * b2Bl(ipft)) ) ) ** l2DBH(ipft)
+         l1DBH(ipft) = ( 1. / (b1Bl(ipft) * exp(b1Ht(ipft) * b2Bl(ipft)) ) ) ** l2DBH(ipft)
          !---------------------------------------------------------------------------------!
       else
          !---------------------------------------------------------------------------------!
@@ -8769,7 +8129,7 @@ subroutine init_derived_params_after_xml()
       ! allometry sets define the minimum sizes as before, for back-compability.           !
       !------------------------------------------------------------------------------------!
       select case (iallom)
-      case (3,4)
+      case (3,4,5)
          !---------------------------------------------------------------------------------!
          !     New method, each PFT has a minimum resolvable density. The fraction ensures !
          ! that plants start as resolvable.                                                !
@@ -9665,41 +9025,43 @@ subroutine init_derived_params_after_xml()
    !----- Print allometric coefficients. --------------------------------------------------!
    if (print_zero_table) then
       open (unit=18,file=trim(allom_file),status='replace',action='write')
-      write(unit=18,fmt='(54(1x,a))') '          PFT','     TROPICAL','        GRASS'      &
+      write(unit=18,fmt='(55(1x,a))') '          PFT','     TROPICAL','        GRASS'      &
                                      ,'      CONIFER','     SAVANNAH','        LIANA'      &
-                                     ,'          RHO','         B1HT','         B2HT'      &
-                                     ,'      HGT_REF','         B1BL','         B2BL'      &
-                                     ,'   B1BS_SMALL','   B2BS_SMALL','   B1BS_LARGE'      &
-                                     ,'   B2BS_LARGE','  D1DBH_SMALL','  D2DBH_SMALL'      &
-                                     ,'  D1DBH_LARGE','  D2DBH_LARGE','        L1DBH'      &
-                                     ,'        L2DBH','         B1CA','         B2CA'      &
-                                     ,'        B1WAI','        B2WAI','         B1SA'      &
-                                     ,'         B2SA','         B1RD','         B2RD'      &
-                                     ,'         B1XS','         B1XB','      HGT_MIN'      &
-                                     ,'      HGT_MAX','      MIN_DBH','     DBH_CRIT'      &
-                                     ,'  DBH_BIGLEAF','   BDEAD_CRIT','   BLEAF_CRIT'      &
-                                     ,'  BALIVE_CRIT','  BEVERY_CRIT','    INIT_DENS'      &
-                                     ,'          SLA',' F_BSTOR_INIT','            Q'      &
-                                     ,'          QSW','        QBARK','        QRHOB'      &
-                                     ,'     d18O_REF','      B1_D18O','      B2_D18O'      &
-                                     ,'      B1_EFRD','      B2_EFRD','  INIT_LAIMAX'
-                                     
+                                     ,'    DDH_ALLOM','          RHO','         B1HT'      &
+                                     ,'         B2HT','      HGT_REF','         B1BL'      &
+                                     ,'         B2BL','   B1BS_SMALL','   B2BS_SMALL'      &
+                                     ,'   B1BS_LARGE','   B2BS_LARGE','  D1DBH_SMALL'      &
+                                     ,'  D2DBH_SMALL','  D1DBH_LARGE','  D2DBH_LARGE'      &
+                                     ,'        L1DBH','        L2DBH','         B1CA'      &
+                                     ,'         B2CA','        B1WAI','        B2WAI'      &
+                                     ,'         B1SA','         B2SA','         B1RD'      &
+                                     ,'         B2RD','         B1XS','         B1XB'      &
+                                     ,'      HGT_MIN','      HGT_MAX','      MIN_DBH'      &
+                                     ,'     DBH_CRIT','  DBH_BIGLEAF','   BDEAD_CRIT'      &
+                                     ,'   BLEAF_CRIT','  BALIVE_CRIT','  BEVERY_CRIT'      &
+                                     ,'    INIT_DENS','          SLA',' F_BSTOR_INIT'      &
+                                     ,'            Q','          QSW','        QBARK'      &
+                                     ,'        QRHOB','     d18O_REF','      B1_D18O'      &
+                                     ,'      B2_D18O','      B1_EFRD','      B2_EFRD'      &
+                                     ,'  INIT_LAIMAX'
+
 
       do ipft=1,n_pft
-         write (unit=18,fmt='(9x,i5,5(13x,l1),47(1x,f13.6),1(1x,es13.6))')                 &
+         write (unit=18,fmt='(9x,i5,6(13x,l1),47(1x,f13.6),1(1x,es13.6))')                 &
                         ipft,is_tropical(ipft),is_grass(ipft),is_conifer(ipft)             &
-                       ,is_savannah(ipft),is_liana(ipft),rho(ipft),b1Ht(ipft),b2Ht(ipft)   &
-                       ,hgt_ref(ipft),b1Bl(ipft),b2Bl(ipft),b1Bs_small(ipft)               &
-                       ,b2Bs_small(ipft),b1Bs_large(ipft),b2Bs_large(ipft)                 &
-                       ,d1DBH_small(ipft),d2DBH_small(ipft),d1DBH_large(ipft)              &
-                       ,d2DBH_large(ipft),l1DBH(ipft),l2DBH(ipft),b1Ca(ipft),b2Ca(ipft)    &
-                       ,b1WAI(ipft),b2WAI(ipft),b1SA(ipft),b2SA(ipft),b1Rd(ipft)           &
-                       ,b2Rd(ipft),b1Xs(ipft),b1Xb(ipft),hgt_min(ipft),hgt_max(ipft)       &
-                       ,min_dbh(ipft),dbh_crit(ipft),dbh_bigleaf(ipft),bdead_crit(ipft)    &
-                       ,bleaf_crit(ipft),balive_crit(ipft),bevery_crit(ipft)               &
-                       ,init_density(ipft),sla(ipft),f_bstorage_init(ipft),q(ipft)         &
-                       ,qsw(ipft),qbark(ipft),qrhob(ipft),d18O_ref(ipft),b1d18O(ipft)      &
-                       ,b2d18O(ipft),b1Efrd(ipft),b2Efrd(ipft),init_laimax(ipft)
+                       ,is_savannah(ipft),is_liana(ipft),ddh_allom(ipft),rho(ipft)         &
+                       ,b1Ht(ipft),b2Ht(ipft),hgt_ref(ipft),b1Bl(ipft),b2Bl(ipft)          &
+                       ,b1Bs_small(ipft),b2Bs_small(ipft),b1Bs_large(ipft)                 &
+                       ,b2Bs_large(ipft),d1DBH_small(ipft),d2DBH_small(ipft)               &
+                       ,d1DBH_large(ipft),d2DBH_large(ipft),l1DBH(ipft),l2DBH(ipft)        &
+                       ,b1Ca(ipft),b2Ca(ipft),b1WAI(ipft),b2WAI(ipft),b1SA(ipft)           &
+                       ,b2SA(ipft),b1Rd(ipft),b2Rd(ipft),b1Xs(ipft),b1Xb(ipft)             &
+                       ,hgt_min(ipft),hgt_max(ipft),min_dbh(ipft),dbh_crit(ipft)           &
+                       ,dbh_bigleaf(ipft),bdead_crit(ipft),bleaf_crit(ipft)                &
+                       ,balive_crit(ipft),bevery_crit(ipft),init_density(ipft),sla(ipft)   &
+                       ,f_bstorage_init(ipft),q(ipft),qsw(ipft),qbark(ipft),qrhob(ipft)    &
+                       ,d18O_ref(ipft),b1d18O(ipft),b2d18O(ipft),b1Efrd(ipft),b2Efrd(ipft) &
+                       ,init_laimax(ipft)
       end do
       close(unit=18,status='keep')
    end if
@@ -9708,7 +9070,7 @@ subroutine init_derived_params_after_xml()
    !----- Print trait coefficients. -------------------------------------------------------!
    if (print_zero_table) then
       open (unit=19,file=trim(strat_file),status='replace',action='write')
-      write(unit=19,fmt='(102(1x,a))') '          PFT','     TROPICAL','        GRASS'      &
+      write(unit=19,fmt='( 98(1x,a))') '          PFT','     TROPICAL','        GRASS'     &
                                       ,'      CONIFER','     SAVANNAH','        LIANA'     &
                                       ,'       R_BANG','          RHO','          SLA'     &
                                       ,'          SRA','    ROOT_BETA','          VM0'     &
@@ -9716,8 +9078,7 @@ subroutine init_derived_params_after_xml()
                                       ,'     ROOT_TOR','     BARK_TOR','  STORAGE_TOR'     &
                                       ,' FLABILE_LEAF',' FLABILE_STEM','        MORT0'     &
                                       ,'        MORT1','        MORT2','        MORT3'     &
-                                      ,'    SEED_MORT',' TFALL_S_GTHT','  FELL_S_GTHV'     &
-                                      ,'  FELL_S_LTHV','  SKID_S_GTHV','  SKID_S_LTHV'     &
+                                      ,'    SEED_MORT',' TFALL_S_GTHT'                     &
                                       ,'   FIRE_S_MIN','   FIRE_S_MAX',' FIRE_S_INTER'     &
                                       ,' FIRE_S_SLOPE','     ST_FRACT','      R_FRACT'     &
                                       ,'       R_CV50','  NONLOC_DISP','    SEED_RAIN'     &
@@ -9744,7 +9105,7 @@ subroutine init_derived_params_after_xml()
                                       ,'  STOMA_PSI_C',' HIGH_PSI_THR','  LOW_PSI_THR'
 
       do ipft=1,n_pft
-         write (unit=19,fmt='(9x,i5,6(13x,l1),93(1x,f13.6),2(1x,i13))')                    &
+         write (unit=19,fmt='(9x,i5,6(13x,l1),89(1x,f13.6),2(1x,i13))')                    &
                         ipft,is_tropical(ipft),is_grass(ipft),is_conifer(ipft)             &
                        ,is_savannah(ipft),is_liana(ipft),r_bang(ipft),rho(ipft),SLA(ipft)  &
                        ,SRA(ipft),root_beta(ipft),Vm0(ipft),dark_respiration_factor(ipft)  &
@@ -9753,8 +9114,7 @@ subroutine init_derived_params_after_xml()
                        ,storage_turnover_rate(ipft),f_labile_leaf(ipft)                    &
                        ,f_labile_stem(ipft),mort0(ipft),mort1(ipft),mort2(ipft)            &
                        ,mort3(ipft),seedling_mortality(ipft),treefall_s_ltht(ipft)         &
-                       ,felling_s_gtharv(ipft),felling_s_ltharv(ipft),skid_s_gtharv(ipft)  &
-                       ,skid_s_ltharv(ipft),fire_s_min(ipft),fire_s_max(ipft)              &
+                       ,fire_s_min(ipft),fire_s_max(ipft)                                  &
                        ,fire_s_inter(ipft),fire_s_slope(ipft),st_fract(ipft),r_fract(ipft) &
                        ,r_cv50(ipft),nonlocal_dispersal(ipft),seed_rain(ipft)              &
                        ,effarea_heat,effarea_evap,effarea_transp(ipft)                     &
@@ -9783,7 +9143,39 @@ subroutine init_derived_params_after_xml()
       close(unit=19,status='keep')
    end if
 
+   !---------------------------------------------------------------------------------------!
+   !     Non-PFT parameters that need to be converted to double precision.                 !
+   !---------------------------------------------------------------------------------------!
+   ubmin8                = dble(ubmin               )
+   ugbmin8               = dble(ugbmin              )
+   ustmin8               = dble(ustmin              )
+   gamm8                 = dble(gamm                )
+   gamh8                 = dble(gamh                )
+   ribmax8               = dble(ribmax              )
+   tprandtl8             = dble(tprandtl            )
+   veg_height_min8       = dble(veg_height_min      )
+   minimum_canopy_depth8 = dble(minimum_canopy_depth)
+   rk4leaf_drywhc        = dble(leaf_drywhc         )
+   rk4leaf_maxwhc        = dble(leaf_maxwhc         )
+   !---------------------------------------------------------------------------------------!
+   !     Minimum water mass at the leaf surface.  This is given in kg/m2leaf rather than   !
+   ! kg/m2ground, so we scale it with LAI.                                                 !
+   !---------------------------------------------------------------------------------------!
+   rk4min_veg_lwater     = -rk4leaf_drywhc ! Minimum leaf water mass            [kg/m2leaf]
+   !---------------------------------------------------------------------------------------!
 
+
+
+   !---------------------------------------------------------------------------------------!
+   !     Initialise these function-dependent parameters only after the single- and double- !
+   ! precision parameters that may be read from either the atmospheric model namelist or   !
+   ! XML are already defined.                                                              !
+   !---------------------------------------------------------------------------------------!
+   psimc_um8  = psim8(zetac_um8,.false.)
+   psimc_um   = sngloff(psimc_um8,tiny_offset)
+   psihc_uh8  = psih8(zetac_uh8,.false.)
+   psihc_uh   = sngloff(psihc_uh8,tiny_offset)
+   !---------------------------------------------------------------------------------------!
 
    return
 end subroutine init_derived_params_after_xml
