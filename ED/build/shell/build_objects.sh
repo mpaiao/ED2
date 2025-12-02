@@ -22,7 +22,7 @@ for src in ${SOURCES}; do
   # Update MODS_USED to include only modules that has a corresponding
   # source file with the pattern ED/src/*/$mod.[Ff]90
   MODS_USED=$(for mod in ${MODS_USED}; do
-    if [[ -f ../../../ED/src/*/${mod}.F90 -o -f ../../../ED/src/*/${mod}.f90 ]]
+    if [[ -f ../../../ED/src/*/${mod}.F90 ]] || [[ -f ../../../ED/src/*/${mod}.f90 ]]
     then
       echo ${mod}
     fi
