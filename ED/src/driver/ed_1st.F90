@@ -26,10 +26,6 @@ subroutine ed_1st_master (ipara, nnodestotal,nslaves, headnode_num, max_threads,
    use mpi
 #endif
 
-   !----- Pre-compiled variables from MPI. ------------------------------------------------!
-#if defined(RAMS_MPI)
-  use mpi
-#endif
    implicit none
 
    !----- Arguments. ----------------------------------------------------------------------!

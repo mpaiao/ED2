@@ -29,9 +29,7 @@ subroutine ed_masterput_processid(nproc,headnode_num,masterworks,par_run)
                           , master_num  & ! intent(out)
                           , machs       ! ! intent(out)
 #endif
-#if defined(RAMS_MPI)
-   use mpi
-#endif
+
    implicit none
    !----- Arguments. ----------------------------------------------------------------------!
    integer, intent(in) :: headnode_num
@@ -327,9 +325,6 @@ subroutine ed_masterput_nl(par_run)
                                    , idetailed                 & ! intent(in)
                                    , patch_keep                ! ! intent(in)
    use fusion_fission_coms  , only : ifusion                   ! ! intent(in)
-#endif
-#if defined(RAMS_MPI)
-      use mpi
 #endif
    implicit none
 
@@ -663,9 +658,6 @@ subroutine ed_masterput_met_header(par_run)
                              , metvars_len       ! ! intent(in)
 #endif
 
-#if defined(RAMS_MPI)
-     use mpi
-#endif
    implicit none
    !------ Arguments. ---------------------------------------------------------------------!
    integer                      , intent(in)   :: par_run
@@ -752,10 +744,6 @@ subroutine ed_masterput_poly_dims(par_run,masterworks)
                             , npolys_run   ! ! intent(in)
    use mem_polygons  , only : n_ed_region  & ! intent(in)
                             , n_poi        ! ! intent(in)
-   
-#if defined(RAMS_MPI)
-     use mpi
-#endif
    implicit none
    !----- Local constants. ----------------------------------------------------------------!
    integer                     , parameter   :: nmethods = 3
@@ -1065,9 +1053,6 @@ subroutine ed_masterput_worklist_info(par_run)
                            , py_off                ! ! intent(in)
    use mem_polygons , only : maxsite               ! ! intent(in)
    use ed_mem_alloc , only : ed_memory_allocation  ! ! subroutine
-#if defined(RAMS_MPI)
-     use mpi
-#endif
    implicit none
    !------ Arguments. ---------------------------------------------------------------------!
    integer                      , intent(in)   :: par_run
@@ -1254,11 +1239,7 @@ subroutine ed_nodeget_processid(init)
                           , sendnum    & ! intent(out)
                           , recvnum    ! ! intent(out)
    use ed_para_coms, only : nthreads   ! ! intent(out)
-#else
 #endif
-#if defined(RAMS_MPI)
-      use mpi
-#endif   
    implicit none
    !----- Arguments. ----------------------------------------------------------------------!
    integer, intent(in) :: init
@@ -1520,7 +1501,6 @@ subroutine ed_nodeget_nl
                                    , time2canopy               & ! intent(out)
                                    , min_patch_area            ! ! intent(out)
    use canopy_layer_coms    , only : crown_mod                 ! ! intent(out)
-   
    use canopy_radiation_coms, only : icanrad                   & ! intent(out)
                                    , ihrzrad                   ! ! intent(out)
    use rk4_coms             , only : rk4_tolerance             & ! intent(out)
@@ -1535,10 +1515,7 @@ subroutine ed_nodeget_nl
    use fusion_fission_coms  , only : ifusion                   ! ! intent(out)
 #endif
 
-#if defined(RAMS_MPI)
-  use mpi
-#endif
-implicit none
+   implicit none
 #if defined(RAMS_MPI)
    !----- Local variables. ----------------------------------------------------------------!
    integer :: n

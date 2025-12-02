@@ -193,6 +193,8 @@ autom4te.cache
 /missing
 /stamp-h1
 /Makefile
+ED/build/shell/sources.mk
+ED/build/shell/dependency.mk
 #Include.mk ignores (and exceptions)
 ED/build/make/include.mk.*
 !ED/build/make/include.mk.docker.gnu
